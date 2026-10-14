@@ -10,33 +10,73 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ContainersRouteImport } from './routes/containers'
+import { Route as HostsRouteImport } from './routes/hosts'
+import { Route as ImagesRouteImport } from './routes/images'
+import { Route as RepositoriesRouteImport } from './routes/repositories'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ContainersRoute = ContainersRouteImport.update({
+  id: '/containers',
+  path: '/containers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HostsRoute = HostsRouteImport.update({
+  id: '/hosts',
+  path: '/hosts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ImagesRoute = ImagesRouteImport.update({
+  id: '/images',
+  path: '/images',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RepositoriesRoute = RepositoriesRouteImport.update({
+  id: '/repositories',
+  path: '/repositories',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/containers': typeof ContainersRoute
+  '/hosts': typeof HostsRoute
+  '/images': typeof ImagesRoute
+  '/repositories': typeof RepositoriesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/containers': typeof ContainersRoute
+  '/hosts': typeof HostsRoute
+  '/images': typeof ImagesRoute
+  '/repositories': typeof RepositoriesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/containers': typeof ContainersRoute
+  '/hosts': typeof HostsRoute
+  '/images': typeof ImagesRoute
+  '/repositories': typeof RepositoriesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/containers' | '/hosts' | '/images' | '/repositories'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/containers' | '/hosts' | '/images' | '/repositories'
+  id: '__root__' | '/' | '/containers' | '/hosts' | '/images' | '/repositories'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ContainersRoute: typeof ContainersRoute
+  HostsRoute: typeof HostsRoute
+  ImagesRoute: typeof ImagesRoute
+  RepositoriesRoute: typeof RepositoriesRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +88,43 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/containers': {
+      id: '/containers'
+      path: '/containers'
+      fullPath: '/containers'
+      preLoaderRoute: typeof ContainersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/hosts': {
+      id: '/hosts'
+      path: '/hosts'
+      fullPath: '/hosts'
+      preLoaderRoute: typeof HostsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/images': {
+      id: '/images'
+      path: '/images'
+      fullPath: '/images'
+      preLoaderRoute: typeof ImagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/repositories': {
+      id: '/repositories'
+      path: '/repositories'
+      fullPath: '/repositories'
+      preLoaderRoute: typeof RepositoriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ContainersRoute: ContainersRoute,
+  HostsRoute: HostsRoute,
+  ImagesRoute: ImagesRoute,
+  RepositoriesRoute: RepositoriesRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
