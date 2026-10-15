@@ -45,10 +45,10 @@ export function parseEnv(text: string): Env[] {
     if (!line || line.startsWith("#")) continue;
     const m = line.replace(/^export\s+/, "").match(/^([A-Za-z_][A-Za-z0-9_.]*)\s*=\s*(.*)$/);
     if (!m) continue;
-    let v = m[2];
+    let v = m[2] ?? "";
     if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
     else v = v.replace(/\s+#.*$/, "");
-    const key = m[1];
+    const key = m[1] ?? "";
     out.push({ key, value: v, secret: /SECRET|PASS|TOKEN|KEY|URL/i.test(key) });
   }
   return out;
@@ -101,7 +101,7 @@ function EnvEditor({ env, onChange }: { env: Env[]; onChange: (e: Env[]) => void
   );
 }
 
-const empty = { name: "", repo: "", branch: "main", path: "docker-compose.yml", host: hosts[0].name, env: [] as Env[], autoUpdate: true };
+const empty = { name: "", repo: "", branch: "main", path: "docker-compose.yml", host: hosts[0]?.name ?? "", env: [] as Env[], autoUpdate: true };
 
 function StacksPage() {
   const [items, setItems] = useState(initial);
@@ -114,7 +114,7 @@ function StacksPage() {
   const setStatus = (id: string, status: Status) => setItems((s) => s.map((x) => (x.id === id ? { ...x, status } : x)));
 
   const submit = () => {
-    if (!form.name || !form.repo || !form.branch) return toast.error("Preencha nome, repositório e branch");
+    if (!form.name || !form.repo || !form.branch) { toast.error("Preencha nome, repositório e branch"); return; }
     const env = form.env.filter((e) => e.key);
     const id = editing ?? `s${Date.now()}`;
     const stack: Stack = { id, name: form.name, repo: form.repo, branch: form.branch, path: form.path, host: form.host, env, status: "updating", services: editing ? items.find((i) => i.id === id)!.services : 2, updated: "agora" };
