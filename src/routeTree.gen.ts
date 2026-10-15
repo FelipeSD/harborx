@@ -13,7 +13,10 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ContainersRouteImport } from './routes/containers'
 import { Route as HostsRouteImport } from './routes/hosts'
 import { Route as ImagesRouteImport } from './routes/images'
+import { Route as NetworksRouteImport } from './routes/networks'
 import { Route as RepositoriesRouteImport } from './routes/repositories'
+import { Route as VolumesRouteImport } from './routes/volumes'
+import { Route as WebhooksRouteImport } from './routes/webhooks'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -35,9 +38,24 @@ const ImagesRoute = ImagesRouteImport.update({
   path: '/images',
   getParentRoute: () => rootRouteImport,
 } as any)
+const NetworksRoute = NetworksRouteImport.update({
+  id: '/networks',
+  path: '/networks',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RepositoriesRoute = RepositoriesRouteImport.update({
   id: '/repositories',
   path: '/repositories',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VolumesRoute = VolumesRouteImport.update({
+  id: '/volumes',
+  path: '/volumes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WebhooksRoute = WebhooksRouteImport.update({
+  id: '/webhooks',
+  path: '/webhooks',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -46,14 +64,20 @@ export interface FileRoutesByFullPath {
   '/containers': typeof ContainersRoute
   '/hosts': typeof HostsRoute
   '/images': typeof ImagesRoute
+  '/networks': typeof NetworksRoute
   '/repositories': typeof RepositoriesRoute
+  '/volumes': typeof VolumesRoute
+  '/webhooks': typeof WebhooksRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/containers': typeof ContainersRoute
   '/hosts': typeof HostsRoute
   '/images': typeof ImagesRoute
+  '/networks': typeof NetworksRoute
   '/repositories': typeof RepositoriesRoute
+  '/volumes': typeof VolumesRoute
+  '/webhooks': typeof WebhooksRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -61,14 +85,42 @@ export interface FileRoutesById {
   '/containers': typeof ContainersRoute
   '/hosts': typeof HostsRoute
   '/images': typeof ImagesRoute
+  '/networks': typeof NetworksRoute
   '/repositories': typeof RepositoriesRoute
+  '/volumes': typeof VolumesRoute
+  '/webhooks': typeof WebhooksRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/containers' | '/hosts' | '/images' | '/repositories'
+  fullPaths:
+    | '/'
+    | '/containers'
+    | '/hosts'
+    | '/images'
+    | '/networks'
+    | '/repositories'
+    | '/volumes'
+    | '/webhooks'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/containers' | '/hosts' | '/images' | '/repositories'
-  id: '__root__' | '/' | '/containers' | '/hosts' | '/images' | '/repositories'
+  to:
+    | '/'
+    | '/containers'
+    | '/hosts'
+    | '/images'
+    | '/networks'
+    | '/repositories'
+    | '/volumes'
+    | '/webhooks'
+  id:
+    | '__root__'
+    | '/'
+    | '/containers'
+    | '/hosts'
+    | '/images'
+    | '/networks'
+    | '/repositories'
+    | '/volumes'
+    | '/webhooks'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -76,7 +128,10 @@ export interface RootRouteChildren {
   ContainersRoute: typeof ContainersRoute
   HostsRoute: typeof HostsRoute
   ImagesRoute: typeof ImagesRoute
+  NetworksRoute: typeof NetworksRoute
   RepositoriesRoute: typeof RepositoriesRoute
+  VolumesRoute: typeof VolumesRoute
+  WebhooksRoute: typeof WebhooksRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -109,11 +164,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ImagesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/networks': {
+      id: '/networks'
+      path: '/networks'
+      fullPath: '/networks'
+      preLoaderRoute: typeof NetworksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/repositories': {
       id: '/repositories'
       path: '/repositories'
       fullPath: '/repositories'
       preLoaderRoute: typeof RepositoriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/volumes': {
+      id: '/volumes'
+      path: '/volumes'
+      fullPath: '/volumes'
+      preLoaderRoute: typeof VolumesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/webhooks': {
+      id: '/webhooks'
+      path: '/webhooks'
+      fullPath: '/webhooks'
+      preLoaderRoute: typeof WebhooksRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -124,7 +200,10 @@ const rootRouteChildren: RootRouteChildren = {
   ContainersRoute: ContainersRoute,
   HostsRoute: HostsRoute,
   ImagesRoute: ImagesRoute,
+  NetworksRoute: NetworksRoute,
   RepositoriesRoute: RepositoriesRoute,
+  VolumesRoute: VolumesRoute,
+  WebhooksRoute: WebhooksRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
