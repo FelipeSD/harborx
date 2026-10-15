@@ -1,12 +1,15 @@
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { Boxes, LayoutDashboard, Layers, Github, Server, Search, Anchor, Bell } from "lucide-react";
+import { Boxes, LayoutDashboard, Layers, Github, Server, Search, Anchor, Bell, Network, HardDrive, Webhook } from "lucide-react";
 
 const nav = [
   { to: "/", label: "Visão geral", icon: LayoutDashboard },
   { to: "/containers", label: "Containers", icon: Boxes },
   { to: "/images", label: "Imagens", icon: Layers },
+  { to: "/networks", label: "Redes", icon: Network },
+  { to: "/volumes", label: "Volumes", icon: HardDrive },
   { to: "/repositories", label: "Repositórios", icon: Github },
+  { to: "/webhooks", label: "Webhooks", icon: Webhook },
   { to: "/hosts", label: "Máquinas virtuais", icon: Server },
 ] as const;
 

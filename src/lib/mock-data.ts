@@ -62,3 +62,33 @@ export const activity = [
 export const cpuSeries = Array.from({ length: 24 }, (_, i) => ({
   h: `${i}h`, cpu: Math.round(30 + 25 * Math.sin(i / 3) + (i % 5) * 3), mem: Math.round(50 + 12 * Math.cos(i / 4) + (i % 3) * 2),
 }));
+
+export interface Network { id: string; name: string; driver: "bridge" | "overlay" | "host" | "macvlan"; subnet: string; gateway: string; host: string; containers: number; internal: boolean; }
+export const networks: Network[] = [
+  { id: "n1a2", name: "bridge", driver: "bridge", subnet: "172.17.0.0/16", gateway: "172.17.0.1", host: "vm-prod-01", containers: 3, internal: false },
+  { id: "n3b4", name: "acme_backend", driver: "bridge", subnet: "172.20.0.0/24", gateway: "172.20.0.1", host: "vm-prod-01", containers: 4, internal: true },
+  { id: "n5c6", name: "acme_public", driver: "overlay", subnet: "10.10.0.0/24", gateway: "10.10.0.1", host: "vm-prod-02", containers: 2, internal: false },
+  { id: "n7d8", name: "monitoring", driver: "bridge", subnet: "172.22.0.0/24", gateway: "172.22.0.1", host: "vm-staging", containers: 3, internal: false },
+  { id: "n9e0", name: "host", driver: "host", subnet: "—", gateway: "—", host: "vm-edge-sp", containers: 1, internal: false },
+];
+
+export interface Volume { id: string; name: string; driver: string; size: string; host: string; mount: string; usedBy: string[]; }
+export const volumes: Volume[] = [
+  { id: "v1", name: "pg_data", driver: "local", size: "8.4 GB", host: "vm-prod-01", mount: "/var/lib/docker/volumes/pg_data/_data", usedBy: ["postgres"] },
+  { id: "v2", name: "redis_data", driver: "local", size: "312 MB", host: "vm-prod-02", mount: "/var/lib/docker/volumes/redis_data/_data", usedBy: ["redis"] },
+  { id: "v3", name: "grafana_storage", driver: "local", size: "96 MB", host: "vm-staging", mount: "/var/lib/docker/volumes/grafana_storage/_data", usedBy: ["grafana"] },
+  { id: "v4", name: "nginx_certs", driver: "local", size: "2 MB", host: "vm-staging", mount: "/var/lib/docker/volumes/nginx_certs/_data", usedBy: ["nginx-proxy"] },
+  { id: "v5", name: "old_uploads", driver: "local", size: "1.9 GB", host: "vm-prod-01", mount: "/var/lib/docker/volumes/old_uploads/_data", usedBy: [] },
+];
+
+export interface Webhook { id: string; repo: string; workflow: string; branch: string; targets: string[]; enabled: boolean; lastRun: string; lastStatus: "success" | "failed" | "never"; token: string; }
+export const webhooks: Webhook[] = [
+  { id: "wh_8f2a", repo: "acme/web", workflow: "build-and-push.yml", branch: "main", targets: ["web-frontend"], enabled: true, lastRun: "há 2 min", lastStatus: "success", token: "whk_3f9a…c21" },
+  { id: "wh_1c7d", repo: "acme/gateway", workflow: "release.yml", branch: "main", targets: ["api-gateway"], enabled: true, lastRun: "há 12 dias", lastStatus: "success", token: "whk_77be…0a4" },
+  { id: "wh_4e90", repo: "acme/worker", workflow: "docker.yml", branch: "release", targets: ["worker-queue"], enabled: false, lastRun: "há 3 dias", lastStatus: "failed", token: "whk_a01c…9d2" },
+];
+export const webhookEvents = [
+  { t: "10:02:14", repo: "acme/web", run: "#482", result: "Redeploy de web-frontend concluído", ok: true },
+  { t: "09:58:40", repo: "acme/web", run: "#482", result: "workflow_run completed · success → pull iniciado", ok: true },
+  { t: "ontem", repo: "acme/worker", run: "#131", result: "Assinatura inválida — ignorado", ok: false },
+];
