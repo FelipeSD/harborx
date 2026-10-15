@@ -14,6 +14,7 @@ import { authRoutes } from "./auth/routes";
 import { containerRoutes } from "./routes/containers";
 import { dockerRoutes } from "./routes/docker";
 import { logsWsRoute } from "./ws/logs";
+import { execWsRoute } from "./ws/exec";
 
 export async function buildApp(opts?: { logger?: boolean }) {
   fs.mkdirSync(config.dataDir, { recursive: true });
@@ -62,6 +63,7 @@ export async function buildApp(opts?: { logger?: boolean }) {
 
   // WebSocket routes
   await app.register(logsWsRoute);
+  await app.register(execWsRoute);
 
   const shellPath = path.join(config.staticDir, "_shell.html");
   const hasFrontend = fs.existsSync(shellPath);

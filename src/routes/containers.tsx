@@ -49,6 +49,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { CreateContainerDialog } from "@/components/containers/CreateContainerDialog";
 import { LogViewer } from "@/components/containers/LogViewer";
+import { TerminalViewer } from "@/components/containers/TerminalViewer";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/containers")({
@@ -790,14 +791,11 @@ function ContainersPage() {
 
                 {/* Aba 4: Console */}
                 <TabsContent value="console" className="space-y-4 pt-4">
-                  <Alert className="border-primary/40 bg-primary/5">
-                    <Terminal className="size-4 text-primary" />
-                    <AlertTitle>Terminal Interativo (Console exec)</AlertTitle>
-                    <AlertDescription className="text-xs">
-                      O terminal xterm.js bidirecional com suporte a shell interativo dentro do
-                      container será ativado na <strong>Fase 4</strong>.
-                    </AlertDescription>
-                  </Alert>
+                  <TerminalViewer
+                    containerId={selectedContainer.id}
+                    containerName={selectedContainer.name}
+                    containerState={selectedContainer.state}
+                  />
                 </TabsContent>
 
                 {/* Aba 5: Métricas */}
