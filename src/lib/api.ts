@@ -311,9 +311,64 @@ export const api = {
     list: () => fetchApi<WebhookItem[]>("/api/webhooks"),
   },
 
+  users: {
+    list: () => fetchApi<User[]>("/api/users"),
+    create: (data: { username: string; password: string; role: "admin" | "operator" | "viewer" }) =>
+      fetchApi<User>("/api/users", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    update: (
+      id: string,
+      data: { role?: "admin" | "operator" | "viewer"; disabled?: boolean; password?: string },
+    ) =>
+      fetchApi<User>(`/api/users/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    remove: (id: string) =>
+      fetchApi<{ success: true }>(`/api/users/${id}`, {
+        method: "DELETE",
+      }),
+  },
+
+  auditLogs: {
+    list: (params?: { limit?: number; offset?: number }) => {
+      const q = new URLSearchParams();
+      if (params?.limit) q.set("limit", String(params.limit));
+      if (params?.offset) q.set("offset", String(params.offset));
+      const qs = q.toString() ? `?${q.toString()}` : "";
+      return fetchApi<{
+        items: Array<{
+          id: string;
+          ts: string;
+          userId: string | null;
+          username?: string | null;
+          action: string;
+          target: string | null;
+          details: unknown;
+          ip: string | null;
+        }>;
+        total: number;
+      }>(`/api/audit-logs${qs}`);
+    },
+  },
+
   system: {
     info: () => fetchApi<SystemInfo>("/api/system/info"),
     df: () => fetchApi<SystemDfResponse>("/api/system/df"),
+    backupUrl: () => "/api/system/backup",
+    prune: () =>
+      fetchApi<{
+        success: true;
+        containersDeleted: number;
+        imagesDeleted: number;
+        networksDeleted: number;
+        volumesDeleted: number;
+        spaceReclaimed: number;
+      }>("/api/system/prune", {
+        method: "POST",
+      }),
     hostMetrics: (hours?: number) => {
       const qs = hours ? `?hours=${hours}` : "";
       return fetchApi<{ points: HostMetricPoint[] }>(`/api/system/host-metrics${qs}`);

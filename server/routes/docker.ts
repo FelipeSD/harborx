@@ -1,4 +1,6 @@
+import fs from "node:fs";
 import os from "node:os";
+import path from "node:path";
 import type { FastifyPluginAsync } from "fastify";
 import type {
   ImageSummary,
@@ -6,7 +8,11 @@ import type {
   SystemInfo,
   VolumeSummary,
 } from "../../shared/types.js";
+import { requireRole } from "../auth/middleware.js";
+import { config } from "../config.js";
+import { db } from "../db/index.js";
 import { docker } from "../docker.js";
+import { logAudit, queryAuditLogs } from "../services/audit.js";
 import { getHostMetricsHistory } from "../services/metrics.js";
 
 export const dockerRoutes: FastifyPluginAsync = async (fastify) => {
@@ -81,5 +87,77 @@ export const dockerRoutes: FastifyPluginAsync = async (fastify) => {
       freeMem,
       usedMem: totalMem - freeMem,
     };
+  });
+  // GET /api/audit-logs (Audit log viewer)
+  fastify.get<{ Querystring: { limit?: string; offset?: string } }>(
+    "/audit-logs",
+    { preHandler: [requireRole("operator")] },
+    async (request) => {
+      const limit = parseInt(request.query.limit || "50", 10) || 50;
+      const offset = parseInt(request.query.offset || "0", 10) || 0;
+      return queryAuditLogs(limit, offset);
+    },
+  );
+
+  // GET /api/system/backup (Download database backup snapshot)
+  fastify.get("/system/backup", { preHandler: [requireRole("admin")] }, async (request, reply) => {
+    const backupDir = path.join(config.dataDir, "backups");
+    fs.mkdirSync(backupDir, { recursive: true });
+
+    const dateStr = new Date().toISOString().replace(/[:.]/g, "-");
+    const filename = `harborx-backup-${dateStr}.db`;
+    const backupPath = path.join(backupDir, filename);
+
+    try {
+      await db.backup(backupPath);
+
+      logAudit({
+        userId: request.user?.id,
+        action: "system.backup",
+        target: filename,
+        ip: request.ip,
+      });
+
+      reply.header("Content-Disposition", `attachment; filename="${filename}"`);
+      reply.type("application/octet-stream");
+      return reply.send(fs.createReadStream(backupPath));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return reply.status(500).send({ error: `Falha ao gerar backup: ${msg}` });
+    }
+  });
+
+  // POST /api/system/prune (Unified Docker prune)
+  fastify.post("/system/prune", { preHandler: [requireRole("admin")] }, async (request, reply) => {
+    try {
+      const [containersRes, imagesRes, networksRes, volumesRes] = await Promise.all([
+        docker.pruneContainers().catch(() => ({ ContainersDeleted: [] })),
+        docker.pruneImages().catch(() => ({ ImagesDeleted: [], SpaceReclaimed: 0 })),
+        docker.pruneNetworks().catch(() => ({ NetworksDeleted: [] })),
+        docker.pruneVolumes().catch(() => ({ VolumesDeleted: [], SpaceReclaimed: 0 })),
+      ]);
+
+      const totalReclaimed = (imagesRes.SpaceReclaimed || 0) + (volumesRes.SpaceReclaimed || 0);
+
+      logAudit({
+        userId: request.user?.id,
+        action: "system.prune",
+        target: "docker",
+        details: { totalReclaimed },
+        ip: request.ip,
+      });
+
+      return {
+        success: true,
+        containersDeleted: containersRes.ContainersDeleted?.length || 0,
+        imagesDeleted: imagesRes.ImagesDeleted?.length || 0,
+        networksDeleted: networksRes.NetworksDeleted?.length || 0,
+        volumesDeleted: volumesRes.VolumesDeleted?.length || 0,
+        spaceReclaimed: totalReclaimed,
+      };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return reply.status(502).send({ error: `Falha ao limpar sistema: ${msg}` });
+    }
   });
 };

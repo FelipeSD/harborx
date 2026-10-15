@@ -158,3 +158,57 @@ export function deleteSession(rawToken: string): void {
   const tokenHash = hashToken(rawToken);
   db.prepare("DELETE FROM sessions WHERE token_hash = ?").run(tokenHash);
 }
+
+export function listUsers(): User[] {
+  const rows = db
+    .prepare("SELECT id, username, role, created_at, disabled FROM users ORDER BY created_at ASC")
+    .all() as Array<{
+    id: string;
+    username: string;
+    role: UserRole;
+    created_at: string;
+    disabled: number;
+  }>;
+
+  return rows.map((r) => ({
+    id: r.id,
+    username: r.username,
+    role: r.role,
+    createdAt: r.created_at,
+    disabled: r.disabled === 1,
+  }));
+}
+
+export function updateUser(
+  id: string,
+  data: { role?: UserRole; disabled?: boolean; passwordHash?: string },
+): User | null {
+  const user = getUserById(id);
+  if (!user) return null;
+
+  if (data.role) {
+    db.prepare("UPDATE users SET role = ? WHERE id = ?").run(data.role, id);
+    user.role = data.role;
+  }
+  if (data.disabled !== undefined) {
+    db.prepare("UPDATE users SET disabled = ? WHERE id = ?").run(data.disabled ? 1 : 0, id);
+    user.disabled = data.disabled;
+    if (data.disabled) {
+      // Invalidate all active sessions for this user
+      db.prepare("DELETE FROM sessions WHERE user_id = ?").run(id);
+    }
+  }
+  if (data.passwordHash) {
+    db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(data.passwordHash, id);
+    // Invalidate active sessions
+    db.prepare("DELETE FROM sessions WHERE user_id = ?").run(id);
+  }
+
+  return user;
+}
+
+export function deleteUser(id: string): boolean {
+  // Cascades to sessions via foreign key
+  const info = db.prepare("DELETE FROM users WHERE id = ?").run(id);
+  return info.changes > 0;
+}

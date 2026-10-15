@@ -34,9 +34,9 @@ const nav = [
   { to: "/images", label: "Imagens", icon: Layers },
   { to: "/networks", label: "Redes", icon: Network },
   { to: "/volumes", label: "Volumes", icon: HardDrive },
-  { to: "/repositories", label: "Repositórios", icon: Github },
+  { to: "/repositories", label: "Registros de imagens", icon: Github },
   { to: "/webhooks", label: "Webhooks", icon: Webhook },
-  { to: "/hosts", label: "Máquinas virtuais", icon: Server },
+  { to: "/hosts", label: "Host & Sistema", icon: Server },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {

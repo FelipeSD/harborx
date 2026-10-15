@@ -17,6 +17,7 @@ import { imageRoutes } from "./routes/images";
 import { networkRoutes } from "./routes/networks";
 import { registryRoutes } from "./routes/registries";
 import { stackRoutes } from "./routes/stacks";
+import { userRoutes } from "./routes/users";
 import { volumeRoutes } from "./routes/volumes";
 import { webhookRoutes } from "./routes/webhooks";
 import { logsWsRoute } from "./ws/logs";
@@ -74,6 +75,7 @@ export async function buildApp(opts?: { logger?: boolean }) {
   await app.register(registryRoutes, { prefix: "/api" });
   await app.register(stackRoutes, { prefix: "/api" });
   await app.register(webhookRoutes, { prefix: "/api" });
+  await app.register(userRoutes, { prefix: "/api" });
   await app.register(dockerRoutes, { prefix: "/api" });
 
   // WebSocket routes
