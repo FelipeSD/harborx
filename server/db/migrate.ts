@@ -79,6 +79,40 @@ const migrations: Migration[] = [
       `);
     },
   },
+  {
+    name: "004_stacks_and_webhooks",
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS stacks (
+          id TEXT PRIMARY KEY,
+          name TEXT UNIQUE NOT NULL,
+          type TEXT NOT NULL CHECK (type IN ('compose', 'git')),
+          status TEXT NOT NULL CHECK (status IN ('deployed', 'stopped', 'failed', 'deploying')),
+          compose_yaml TEXT NOT NULL,
+          env_json TEXT,
+          git_repo TEXT,
+          git_branch TEXT,
+          git_path TEXT,
+          webhook_token TEXT UNIQUE,
+          auto_deploy INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_stacks_name ON stacks(name);
+        CREATE INDEX IF NOT EXISTS idx_stacks_webhook_token ON stacks(webhook_token);
+
+        CREATE TABLE IF NOT EXISTS stack_deployments (
+          id TEXT PRIMARY KEY,
+          stack_id TEXT NOT NULL REFERENCES stacks(id) ON DELETE CASCADE,
+          triggered_by TEXT NOT NULL,
+          status TEXT NOT NULL,
+          output_log TEXT,
+          created_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_stack_deployments_stack_id ON stack_deployments(stack_id);
+      `);
+    },
+  },
 ];
 
 export function runMigrations(db: Database.Database): void {

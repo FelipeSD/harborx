@@ -44,4 +44,3 @@ export function decryptCredential(encryptedPayload: string): string {
 
   return decrypted;
 }
-

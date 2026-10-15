@@ -21,7 +21,7 @@ const PUBLIC_API_ROUTES = new Set([
 function isPublicRoute(urlPath: string): boolean {
   const cleanPath = urlPath.split("?")[0] || urlPath;
   if (PUBLIC_API_ROUTES.has(cleanPath)) return true;
-  if (cleanPath.startsWith("/api/hooks/")) return true;
+  if (cleanPath.startsWith("/api/hooks/") || cleanPath.startsWith("/api/public/")) return true;
   if (!cleanPath.startsWith("/api") && !cleanPath.startsWith("/ws")) return true;
   return false;
 }

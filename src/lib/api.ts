@@ -7,6 +7,7 @@ import type {
   CreateContainerRequest,
   CreateNetworkRequest,
   CreateRegistryRequest,
+  CreateStackRequest,
   CreateVolumeRequest,
   HostMetricPoint,
   ImagePullProgress,
@@ -16,10 +17,13 @@ import type {
   RegistrySummary,
   RenameContainerRequest,
   SetupStatusResponse,
+  StackSummary,
   SystemDfResponse,
   SystemInfo,
+  UpdateStackRequest,
   User,
   VolumeSummary,
+  WebhookItem,
 } from "../../shared/types";
 
 export class ApiError extends Error {
@@ -268,6 +272,43 @@ export const api = {
       fetchApi<{ success: true }>(`/api/registries/${id}`, {
         method: "DELETE",
       }),
+  },
+
+  stacks: {
+    list: () => fetchApi<StackSummary[]>("/api/stacks"),
+    get: (id: string) => fetchApi<StackSummary>(`/api/stacks/${id}`),
+    create: (data: CreateStackRequest) =>
+      fetchApi<StackSummary>("/api/stacks", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    update: (id: string, data: UpdateStackRequest) =>
+      fetchApi<StackSummary>(`/api/stacks/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(data),
+      }),
+    deploy: (id: string) =>
+      fetchApi<{ success: true; output: string }>(`/api/stacks/${id}/deploy`, {
+        method: "POST",
+      }),
+    stop: (id: string) =>
+      fetchApi<{ success: true }>(`/api/stacks/${id}/stop`, {
+        method: "POST",
+      }),
+    start: (id: string) =>
+      fetchApi<{ success: true }>(`/api/stacks/${id}/start`, {
+        method: "POST",
+      }),
+    remove: (id: string, removeVolumes = false) => {
+      const qs = removeVolumes ? "?volumes=true" : "";
+      return fetchApi<{ success: true }>(`/api/stacks/${id}${qs}`, {
+        method: "DELETE",
+      });
+    },
+  },
+
+  webhooks: {
+    list: () => fetchApi<WebhookItem[]>("/api/webhooks"),
   },
 
   system: {

@@ -1,181 +1,290 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Copy, Plus, Zap, CheckCircle2, XCircle } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  Copy,
+  Zap,
+  CheckCircle2,
+  XCircle,
+  RefreshCw,
+  AlertCircle,
+  FileStack,
+  Terminal,
+  ExternalLink,
+  Play,
+  Loader2,
+} from "lucide-react";
 import { toast } from "sonner";
-import { webhooks as initial, webhookEvents } from "@/lib/mock-data";
+import { api } from "@/lib/api";
 import { PageHeader, Panel } from "@/components/app/ui-bits";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
+import type { WebhookItem } from "../../shared/types";
 
 export const Route = createFileRoute("/webhooks")({
   head: () => ({
     meta: [
-      { title: "Webhooks GitHub Actions — HarborX" },
+      { title: "Webhooks GitOps — HarborX" },
       {
         name: "description",
-        content: "Redeploy automático de imagens quando um workflow do GitHub Actions termina.",
+        content:
+          "Redeploy automático de stacks quando um workflow do GitHub Actions ou CI/CD termina.",
       },
-      { property: "og:title", content: "Webhooks GitHub Actions — HarborX" },
-      {
-        property: "og:description",
-        content: "Redeploy automático de imagens quando um workflow do GitHub Actions termina.",
-      },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
+      { property: "og:title", content: "Webhooks GitOps — HarborX" },
     ],
   }),
   component: WebhooksPage,
 });
 
-const yaml = (id: string) => `# .github/workflows/build-and-push.yml (passo final)
-- name: Redeploy no HarborX
-  if: success()
-  run: |
-    curl -fsS -X POST https://harborx.seudominio.com/api/public/hooks/${id} \\
-      -H "X-HarborX-Token: \${{ secrets.HARBORX_TOKEN }}" \\
-      -d '{"image":"ghcr.io/\${{ github.repository }}:\${{ github.sha }}"}'`;
-
 function WebhooksPage() {
-  const [items, setItems] = useState(initial);
-  const [sel, setSel] = useState(initial[0]?.id ?? "");
-  const copy = (t: string) => {
-    navigator.clipboard?.writeText(t);
-    toast.success("Copiado");
+  const [selectedId, setSelectedId] = useState<string>("");
+  const [isTesting, setIsTesting] = useState(false);
+
+  const {
+    data: webhooks = [],
+    isLoading,
+    isError,
+    error,
+    refetch,
+    isFetching,
+  } = useQuery({
+    queryKey: ["webhooks"],
+    queryFn: api.webhooks.list,
+  });
+
+  const activeWebhook = webhooks.find((w) => w.id === selectedId) || webhooks[0];
+
+  const copy = (text: string) => {
+    void navigator.clipboard.writeText(text);
+    toast.success("Copiado para a área de transferência");
   };
+
+  const testWebhook = async (url: string) => {
+    setIsTesting(true);
+    try {
+      const res = await fetch(url, { method: "POST" });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      toast.success("Webhook disparado com sucesso! O deploy foi iniciado.");
+      void refetch();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error(`Falha ao disparar webhook: ${msg}`);
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  const githubSnippet = activeWebhook
+    ? `# .github/workflows/deploy.yml (passo final)
+name: Deploy to HarborX VM
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger HarborX Redeploy
+        run: |
+          curl -fsS -X POST "${activeWebhook.webhookUrl}"`
+    : "";
 
   return (
     <>
       <PageHeader
-        title="Webhooks"
-        subtitle="Redeploy automático quando o GitHub Actions termina o build"
+        title="Webhooks GitOps"
+        subtitle="Redeploy automático das stacks quando o GitHub Actions ou CI/CD finaliza o build"
         actions={
-          <Button onClick={() => toast("Novo webhook (simulação)")}>
-            <Plus /> Novo webhook
+          <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={isFetching}>
+            <RefreshCw className={cn("size-4", isFetching && "animate-spin")} />
+            Atualizar
           </Button>
         }
       />
-      <div className="grid gap-6 xl:grid-cols-[1fr_420px]">
-        <div className="space-y-4">
-          {items.map((w) => (
-            <Panel
-              key={w.id}
-              className={cn(
-                "cursor-pointer p-5 transition-colors",
-                sel === w.id && "border-primary/60",
-              )}
-            >
-              <div
-                onClick={() => setSel(w.id)}
-                className="flex flex-wrap items-start justify-between gap-4"
-              >
-                <div>
-                  <p className="font-medium">{w.repo}</p>
-                  <p className="mt-1 font-mono text-xs text-muted-foreground">
-                    workflow_run · {w.workflow} · {w.branch}
-                  </p>
-                  <p className="mt-2 text-xs">
-                    Redeploy de:{" "}
-                    <span className="font-mono text-primary">{w.targets.join(", ")}</span>
-                  </p>
-                </div>
-                <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
-                  <span
-                    className={cn(
-                      "flex items-center gap-1 text-xs",
-                      w.lastStatus === "success" ? "text-success" : "text-destructive",
-                    )}
+
+      {isError && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="size-4" />
+          <AlertTitle>Erro ao carregar webhooks</AlertTitle>
+          <AlertDescription>
+            {error instanceof Error ? error.message : "Falha ao obter lista de webhooks."}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {isLoading ? (
+        <div className="grid gap-6 xl:grid-cols-[1fr_420px]">
+          <div className="space-y-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Panel key={i} className="p-5">
+                <Skeleton className="h-5 w-40 mb-2" />
+                <Skeleton className="h-4 w-60" />
+              </Panel>
+            ))}
+          </div>
+          <Panel className="p-5">
+            <Skeleton className="h-6 w-32 mb-4" />
+            <Skeleton className="h-40 w-full" />
+          </Panel>
+        </div>
+      ) : webhooks.length === 0 ? (
+        <Panel className="p-12 text-center text-muted-foreground">
+          <Zap className="mx-auto size-10 mb-3 opacity-40" />
+          <p className="text-base font-medium">Nenhum webhook disponível</p>
+          <p className="text-sm mt-1 max-w-md mx-auto">
+            Cada stack criada no HarborX gera automaticamente uma URL de webhook GitOps única para
+            redeploy contínuo. Crie sua primeira stack na aba Stacks.
+          </p>
+        </Panel>
+      ) : (
+        <div className="grid gap-6 xl:grid-cols-[1fr_440px]">
+          <div className="space-y-4">
+            {webhooks.map((w) => {
+              const isSelected = activeWebhook?.id === w.id;
+              const isSuccess = w.recentDeployment?.status === "success";
+
+              return (
+                <Panel
+                  key={w.id}
+                  className={cn(
+                    "p-5 cursor-pointer transition-all",
+                    isSelected
+                      ? "border-primary ring-1 ring-primary/30"
+                      : "hover:border-foreground/20",
+                  )}
+                  onClick={() => setSelectedId(w.id)}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="grid size-9 place-items-center rounded-lg bg-secondary text-secondary-foreground">
+                        <FileStack className="size-4" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-sm text-foreground">{w.stackName}</p>
+                          <Badge variant="outline" className="font-mono text-[10px] py-0 uppercase">
+                            {w.stackType}
+                          </Badge>
+                        </div>
+                        <p className="font-mono text-xs text-muted-foreground mt-0.5 truncate max-w-sm">
+                          {w.webhookUrl}
+                        </p>
+                      </div>
+                    </div>
+
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-[10px] font-mono",
+                        w.status === "deployed"
+                          ? "border-emerald-500/30 text-emerald-500 bg-emerald-500/5"
+                          : "border-muted-foreground/30 text-muted-foreground",
+                      )}
+                    >
+                      {w.status}
+                    </Badge>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1.5 font-mono">
+                      {w.recentDeployment ? (
+                        <>
+                          {isSuccess ? (
+                            <CheckCircle2 className="size-3.5 text-emerald-500" />
+                          ) : (
+                            <XCircle className="size-3.5 text-rose-500" />
+                          )}
+                          <span>
+                            Último deploy: {w.recentDeployment.triggeredBy} (
+                            {w.recentDeployment.status})
+                          </span>
+                        </>
+                      ) : (
+                        <span>Nenhum deploy registrado</span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          copy(w.webhookUrl);
+                        }}
+                      >
+                        <Copy className="size-3" /> Copiar URL
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="default"
+                        className="h-7 text-xs"
+                        disabled={isTesting}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void testWebhook(w.webhookUrl);
+                        }}
+                      >
+                        {isTesting ? (
+                          <Loader2 className="size-3 animate-spin" />
+                        ) : (
+                          <Play className="size-3" />
+                        )}
+                        Disparar
+                      </Button>
+                    </div>
+                  </div>
+                </Panel>
+              );
+            })}
+          </div>
+
+          {activeWebhook && (
+            <Panel className="p-5 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-sm flex items-center gap-2 text-foreground">
+                    <Zap className="size-4 text-primary" />
+                    Integração GitHub Actions
+                  </h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => copy(githubSnippet)}
                   >
-                    {w.lastStatus === "success" ? (
-                      <CheckCircle2 className="size-3.5" />
-                    ) : (
-                      <XCircle className="size-3.5" />
-                    )}
-                    {w.lastRun}
-                  </span>
-                  <Switch
-                    checked={w.enabled}
-                    onCheckedChange={(v) => {
-                      setItems((s) => s.map((x) => (x.id === w.id ? { ...x, enabled: v } : x)));
-                      toast(v ? "Webhook ativado" : "Webhook pausado");
-                    }}
-                  />
+                    <Copy className="size-3" /> Copiar YAML
+                  </Button>
                 </div>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Adicione este step ao final do seu pipeline no GitHub para fazer deploy automático
+                  no HarborX sempre que uma nova tag ou commit for enviado:
+                </p>
+                <pre className="rounded-lg border bg-surface p-3 font-mono text-[11px] leading-relaxed overflow-x-auto text-foreground whitespace-pre">
+                  {githubSnippet}
+                </pre>
               </div>
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                <code className="flex-1 truncate rounded border bg-surface px-2 py-1.5 font-mono text-xs">
-                  https://harborx.seudominio.com/api/public/hooks/{w.id}
-                </code>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  aria-label="Copiar URL"
-                  onClick={() => copy(`https://harborx.seudominio.com/api/public/hooks/${w.id}`)}
-                >
-                  <Copy />
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() =>
-                    toast.success(`Teste enviado → redeploy de ${w.targets.join(", ")}`)
-                  }
-                >
-                  <Zap /> Testar
-                </Button>
+
+              <div className="mt-4 rounded-md border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
+                <p className="font-semibold text-foreground mb-1">Como funciona:</p>
+                <p>
+                  O HarborX valida o token criptografado da URL, executa um <code>git pull</code> no
+                  repositório associado e orquestra <code>docker compose up -d</code> sem
+                  interrupção de serviço.
+                </p>
               </div>
             </Panel>
-          ))}
+          )}
         </div>
-        <div className="space-y-6">
-          <Panel className="p-5">
-            <p className="mb-2 text-sm font-medium">Como conectar ao GitHub Actions</p>
-            <ol className="mb-3 list-decimal space-y-1 pl-4 text-xs text-muted-foreground">
-              <li>
-                Salve o token como secret <span className="font-mono">HARBORX_TOKEN</span> no
-                repositório.
-              </li>
-              <li>Adicione o passo abaixo ao final do workflow que publica a imagem.</li>
-              <li>
-                Ou cadastre a URL como webhook do evento{" "}
-                <span className="font-mono">workflow_run</span>.
-              </li>
-            </ol>
-            <pre className="overflow-x-auto rounded-lg border bg-background p-3 font-mono text-[11px] leading-relaxed">
-              {yaml(sel)}
-            </pre>
-            <Button
-              size="sm"
-              variant="outline"
-              className="mt-3 w-full"
-              onClick={() => copy(yaml(sel))}
-            >
-              <Copy /> Copiar trecho
-            </Button>
-          </Panel>
-          <Panel className="p-5">
-            <p className="mb-3 text-sm font-medium">Entregas recentes</p>
-            <ul className="space-y-3">
-              {webhookEvents.map((e, i) => (
-                <li key={i} className="flex gap-3 text-xs">
-                  <span
-                    className={cn(
-                      "mt-1 size-1.5 shrink-0 rounded-full",
-                      e.ok ? "bg-success" : "bg-destructive",
-                    )}
-                  />
-                  <div>
-                    <p>{e.result}</p>
-                    <p className="font-mono text-muted-foreground">
-                      {e.t} · {e.repo} {e.run}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </Panel>
-        </div>
-      </div>
+      )}
     </>
   );
 }

@@ -267,3 +267,77 @@ export interface DockerEventItem {
   time: number;
   attributes: Record<string, string>;
 }
+
+export interface StackEnvVar {
+  key: string;
+  value: string;
+  secret: boolean;
+}
+
+export interface StackSummary {
+  id: string;
+  name: string;
+  type: "compose" | "git";
+  status: "deployed" | "stopped" | "failed" | "deploying";
+  composeYaml: string;
+  env: StackEnvVar[];
+  gitRepo?: string;
+  gitBranch?: string;
+  gitPath?: string;
+  webhookToken: string;
+  autoDeploy: boolean;
+  createdAt: string;
+  updatedAt: string;
+  containersCount: number;
+  runningContainersCount: number;
+  containers: Array<{
+    id: string;
+    name: string;
+    state: string;
+    status: string;
+    image: string;
+    ports: Array<{ hostPort?: number; containerPort: number; protocol: string }>;
+  }>;
+  recentDeployment?: {
+    id: string;
+    triggeredBy: string;
+    status: string;
+    outputLog: string;
+    createdAt: string;
+  };
+}
+
+export interface CreateStackRequest {
+  name: string;
+  type?: "compose" | "git";
+  composeYaml?: string;
+  env?: StackEnvVar[];
+  gitRepo?: string;
+  gitBranch?: string;
+  gitPath?: string;
+  autoDeploy?: boolean;
+  deployNow?: boolean;
+}
+
+export interface UpdateStackRequest {
+  composeYaml: string;
+  env?: StackEnvVar[];
+  redeploy?: boolean;
+}
+
+export interface WebhookItem {
+  id: string;
+  stackName: string;
+  stackType: "compose" | "git";
+  status: string;
+  autoDeploy: boolean;
+  webhookToken: string;
+  webhookUrl: string;
+  recentDeployment?: {
+    id: string;
+    triggeredBy: string;
+    status: string;
+    outputLog: string;
+    createdAt: string;
+  };
+}
