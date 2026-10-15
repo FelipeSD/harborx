@@ -34,18 +34,18 @@ export function Logo({
 
   return (
     <div className={`flex items-center gap-3 ${className}`}>
-      {/* Stylized Glowing Anchor Badge */}
+      {/* All Yellow Anchor Badge matching original HarborX theme */}
       <div
-        className={`relative flex items-center justify-center bg-gradient-to-br from-primary to-blue-700 text-primary-foreground shadow-lg shadow-primary/25 border border-primary/40 ${iconSizes[size]}`}
+        className={`relative flex items-center justify-center bg-primary text-primary-foreground glow-primary font-bold transition-transform hover:scale-105 ${iconSizes[size]}`}
       >
-        <Anchor className={`${anchorSizes[size]} drop-shadow`} />
-        <span className="absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-white/20" />
+        <Anchor className={`${anchorSizes[size]} stroke-[2.5]`} />
+        <span className="absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-black/10" />
       </div>
 
       {!iconOnly && (
         <div className="flex flex-col">
           <span className={`font-bold tracking-tight text-foreground ${textSizes[size]}`}>
-            Harbor<span className="text-primary drop-shadow-[0_0_12px_rgba(56,189,248,0.4)]">X</span>
+            Harbor<span className="text-primary">X</span>
           </span>
           {subtitle && (
             <span className="text-xs text-muted-foreground font-medium tracking-wide">

@@ -5,8 +5,10 @@ services:
     # build: .
     container_name: harborx
     restart: unless-stopped
-    ports:
-      - "8080:8080"
+    
+    security_opt:
+      - no-new-privileges:true
+
     environment:
       # Generate with: openssl rand -hex 32  (put it in a .env file next to this compose)
       HARBORX_SECRET: ${HARBORX_SECRET:?set HARBORX_SECRET in .env}
@@ -17,3 +19,10 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /opt/harborx/data:/opt/harborx/data
+
+volumes:
+  harborx-data:
+  
+networks:
+  proxy:
+    external: true

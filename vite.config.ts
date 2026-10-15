@@ -18,11 +18,15 @@ export default defineConfig({
     server: {
       proxy: {
         "/api": {
-          target: process.env.SERVER_PORT ? `http://127.0.0.1:${process.env.SERVER_PORT}` : "http://127.0.0.1:3001",
+          target: process.env["SERVER_PORT"]
+            ? `http://127.0.0.1:${process.env["SERVER_PORT"]}`
+            : "http://127.0.0.1:3001",
           changeOrigin: true,
         },
         "/ws": {
-          target: process.env.SERVER_PORT ? `ws://127.0.0.1:${process.env.SERVER_PORT}` : "ws://127.0.0.1:3001",
+          target: process.env["SERVER_PORT"]
+            ? `ws://127.0.0.1:${process.env["SERVER_PORT"]}`
+            : "ws://127.0.0.1:3001",
           ws: true,
         },
       },

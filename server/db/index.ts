@@ -6,7 +6,10 @@ import { runMigrations } from "./migrate.js";
 
 fs.mkdirSync(config.dataDir, { recursive: true });
 
-const dbPath = path.join(config.dataDir, "harborx.db");
+const isTest = process.env.NODE_ENV === "test";
+const dbPath = isTest
+  ? path.join(config.dataDir, "harborx.test.db")
+  : path.join(config.dataDir, "harborx.db");
 export const db: Database.Database = new Database(dbPath);
 
 db.pragma("journal_mode = WAL");

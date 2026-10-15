@@ -1,0 +1,21 @@
+services:
+  harborx:
+    image: ${DOCKERHUB_USERNAME:-felipesd}/harborx:latest
+    # Or build locally:
+    # build: .
+    container_name: harborx
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "8080:8080"
+    environment:
+      # Generate with: openssl rand -hex 32  (put it in a .env file next to this compose)
+      HARBORX_SECRET: ${HARBORX_SECRET:?set HARBORX_SECRET in .env}
+      # Must be the SAME path inside and outside the container (relative bind mounts of stacks depend on it).
+      HARBORX_DATA_DIR: /opt/harborx/data
+      # Set to "true" when serving through HTTPS.
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /opt/harborx/data:/opt/harborx/data
