@@ -15,6 +15,7 @@ import { Route as HostsRouteImport } from './routes/hosts'
 import { Route as ImagesRouteImport } from './routes/images'
 import { Route as NetworksRouteImport } from './routes/networks'
 import { Route as RepositoriesRouteImport } from './routes/repositories'
+import { Route as StacksRouteImport } from './routes/stacks'
 import { Route as VolumesRouteImport } from './routes/volumes'
 import { Route as WebhooksRouteImport } from './routes/webhooks'
 
@@ -48,6 +49,11 @@ const RepositoriesRoute = RepositoriesRouteImport.update({
   path: '/repositories',
   getParentRoute: () => rootRouteImport,
 } as any)
+const StacksRoute = StacksRouteImport.update({
+  id: '/stacks',
+  path: '/stacks',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VolumesRoute = VolumesRouteImport.update({
   id: '/volumes',
   path: '/volumes',
@@ -66,6 +72,7 @@ export interface FileRoutesByFullPath {
   '/images': typeof ImagesRoute
   '/networks': typeof NetworksRoute
   '/repositories': typeof RepositoriesRoute
+  '/stacks': typeof StacksRoute
   '/volumes': typeof VolumesRoute
   '/webhooks': typeof WebhooksRoute
 }
@@ -76,6 +83,7 @@ export interface FileRoutesByTo {
   '/images': typeof ImagesRoute
   '/networks': typeof NetworksRoute
   '/repositories': typeof RepositoriesRoute
+  '/stacks': typeof StacksRoute
   '/volumes': typeof VolumesRoute
   '/webhooks': typeof WebhooksRoute
 }
@@ -87,6 +95,7 @@ export interface FileRoutesById {
   '/images': typeof ImagesRoute
   '/networks': typeof NetworksRoute
   '/repositories': typeof RepositoriesRoute
+  '/stacks': typeof StacksRoute
   '/volumes': typeof VolumesRoute
   '/webhooks': typeof WebhooksRoute
 }
@@ -99,6 +108,7 @@ export interface FileRouteTypes {
     | '/images'
     | '/networks'
     | '/repositories'
+    | '/stacks'
     | '/volumes'
     | '/webhooks'
   fileRoutesByTo: FileRoutesByTo
@@ -109,6 +119,7 @@ export interface FileRouteTypes {
     | '/images'
     | '/networks'
     | '/repositories'
+    | '/stacks'
     | '/volumes'
     | '/webhooks'
   id:
@@ -119,6 +130,7 @@ export interface FileRouteTypes {
     | '/images'
     | '/networks'
     | '/repositories'
+    | '/stacks'
     | '/volumes'
     | '/webhooks'
   fileRoutesById: FileRoutesById
@@ -130,6 +142,7 @@ export interface RootRouteChildren {
   ImagesRoute: typeof ImagesRoute
   NetworksRoute: typeof NetworksRoute
   RepositoriesRoute: typeof RepositoriesRoute
+  StacksRoute: typeof StacksRoute
   VolumesRoute: typeof VolumesRoute
   WebhooksRoute: typeof WebhooksRoute
 }
@@ -178,6 +191,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RepositoriesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/stacks': {
+      id: '/stacks'
+      path: '/stacks'
+      fullPath: '/stacks'
+      preLoaderRoute: typeof StacksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/volumes': {
       id: '/volumes'
       path: '/volumes'
@@ -202,6 +222,7 @@ const rootRouteChildren: RootRouteChildren = {
   ImagesRoute: ImagesRoute,
   NetworksRoute: NetworksRoute,
   RepositoriesRoute: RepositoriesRoute,
+  StacksRoute: StacksRoute,
   VolumesRoute: VolumesRoute,
   WebhooksRoute: WebhooksRoute,
 }
