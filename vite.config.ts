@@ -28,7 +28,13 @@ export default defineConfig({
       },
     },
     optimizeDeps: {
-      include: ["recharts", "sonner", "lucide-react", "@radix-ui/react-dialog", "@radix-ui/react-switch"],
+      include: [
+        "recharts",
+        "sonner",
+        "lucide-react",
+        "@radix-ui/react-dialog",
+        "@radix-ui/react-switch",
+      ],
     },
   },
 });

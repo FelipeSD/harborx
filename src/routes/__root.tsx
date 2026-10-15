@@ -4,6 +4,8 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useLocation,
+  useNavigate,
   HeadContent,
   Scripts,
   type ErrorComponentProps,
@@ -12,6 +14,7 @@ import { useEffect, type ReactNode } from "react";
 
 import { AppShell } from "@/components/app/AppShell";
 import { Toaster } from "@/components/ui/sonner";
+import { AuthProvider, useAuth } from "@/lib/auth-context";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
@@ -81,9 +84,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "HarborX — Docker para VMs" },
-      { name: "description", content: "Gerencie containers Docker nas suas VMs com GitHub e Docker Hub." },
+      {
+        name: "description",
+        content: "Gerencie containers Docker nas suas VMs com GitHub e Docker Hub.",
+      },
       { name: "author", content: "Lovable" },
-      
+
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Lovable" },
@@ -94,7 +100,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: appCss,
       },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600&display=swap" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600&display=swap",
+      },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
     ],
   }),
@@ -118,13 +127,61 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+function AuthGate() {
+  const { user, isLoading, needsSetup } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const isPublicPage = location.pathname === "/login" || location.pathname === "/setup";
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    if (needsSetup && location.pathname !== "/setup") {
+      void navigate({ to: "/setup" });
+      return;
+    }
+
+    if (needsSetup === false && !user && !isPublicPage) {
+      void navigate({ to: "/login" });
+      return;
+    }
+  }, [user, isLoading, needsSetup, location.pathname, isPublicPage, navigate]);
+
+  if (isPublicPage) {
+    return <Outlet />;
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
+        <div className="flex flex-col items-center gap-2">
+          <div className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <span className="text-sm">Carregando HarborX…</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
+
+  return (
+    <AppShell>
+      <Outlet />
+    </AppShell>
+  );
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <AppShell><Outlet /></AppShell>
+      <AuthProvider>
+        <AuthGate />
+      </AuthProvider>
       <Toaster theme="dark" />
     </QueryClientProvider>
   );

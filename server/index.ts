@@ -8,6 +8,10 @@ import websocket from "@fastify/websocket";
 import fastifyStatic from "@fastify/static";
 import { config } from "./config";
 import { isDockerReachable } from "./docker";
+import { db } from "./db/index";
+import { registerAuthHooks } from "./auth/middleware";
+import { authRoutes } from "./auth/routes";
+import { dockerRoutes } from "./routes/docker";
 
 async function main() {
   fs.mkdirSync(config.dataDir, { recursive: true });
@@ -28,10 +32,20 @@ async function main() {
   await app.register(rateLimit, { max: 600, timeWindow: "1 minute" });
   await app.register(websocket);
 
+  // Authentication & RBAC hooks
+  registerAuthHooks(app);
+
+  // Health endpoint
   app.get("/api/health", async () => ({
     status: "ok",
     docker: await isDockerReachable(),
   }));
+
+  // Auth routes
+  await app.register(authRoutes, { prefix: "/api/auth" });
+
+  // Docker read-only routes
+  await app.register(dockerRoutes, { prefix: "/api" });
 
   const shellPath = path.join(config.staticDir, "_shell.html");
   const hasFrontend = fs.existsSync(shellPath);
@@ -59,6 +73,7 @@ async function main() {
   const shutdown = async (signal: string) => {
     app.log.info(`Received ${signal}, shutting down...`);
     try {
+      db.close();
       await app.close();
       process.exit(0);
     } catch (err) {
@@ -80,4 +95,3 @@ main().catch((err) => {
   console.error(err);
   process.exit(1);
 });
-

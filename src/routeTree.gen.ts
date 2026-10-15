@@ -13,8 +13,10 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ContainersRouteImport } from './routes/containers'
 import { Route as HostsRouteImport } from './routes/hosts'
 import { Route as ImagesRouteImport } from './routes/images'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as NetworksRouteImport } from './routes/networks'
 import { Route as RepositoriesRouteImport } from './routes/repositories'
+import { Route as SetupRouteImport } from './routes/setup'
 import { Route as StacksRouteImport } from './routes/stacks'
 import { Route as VolumesRouteImport } from './routes/volumes'
 import { Route as WebhooksRouteImport } from './routes/webhooks'
@@ -39,6 +41,11 @@ const ImagesRoute = ImagesRouteImport.update({
   path: '/images',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const NetworksRoute = NetworksRouteImport.update({
   id: '/networks',
   path: '/networks',
@@ -47,6 +54,11 @@ const NetworksRoute = NetworksRouteImport.update({
 const RepositoriesRoute = RepositoriesRouteImport.update({
   id: '/repositories',
   path: '/repositories',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SetupRoute = SetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StacksRoute = StacksRouteImport.update({
@@ -70,8 +82,10 @@ export interface FileRoutesByFullPath {
   '/containers': typeof ContainersRoute
   '/hosts': typeof HostsRoute
   '/images': typeof ImagesRoute
+  '/login': typeof LoginRoute
   '/networks': typeof NetworksRoute
   '/repositories': typeof RepositoriesRoute
+  '/setup': typeof SetupRoute
   '/stacks': typeof StacksRoute
   '/volumes': typeof VolumesRoute
   '/webhooks': typeof WebhooksRoute
@@ -81,8 +95,10 @@ export interface FileRoutesByTo {
   '/containers': typeof ContainersRoute
   '/hosts': typeof HostsRoute
   '/images': typeof ImagesRoute
+  '/login': typeof LoginRoute
   '/networks': typeof NetworksRoute
   '/repositories': typeof RepositoriesRoute
+  '/setup': typeof SetupRoute
   '/stacks': typeof StacksRoute
   '/volumes': typeof VolumesRoute
   '/webhooks': typeof WebhooksRoute
@@ -93,8 +109,10 @@ export interface FileRoutesById {
   '/containers': typeof ContainersRoute
   '/hosts': typeof HostsRoute
   '/images': typeof ImagesRoute
+  '/login': typeof LoginRoute
   '/networks': typeof NetworksRoute
   '/repositories': typeof RepositoriesRoute
+  '/setup': typeof SetupRoute
   '/stacks': typeof StacksRoute
   '/volumes': typeof VolumesRoute
   '/webhooks': typeof WebhooksRoute
@@ -106,8 +124,10 @@ export interface FileRouteTypes {
     | '/containers'
     | '/hosts'
     | '/images'
+    | '/login'
     | '/networks'
     | '/repositories'
+    | '/setup'
     | '/stacks'
     | '/volumes'
     | '/webhooks'
@@ -117,8 +137,10 @@ export interface FileRouteTypes {
     | '/containers'
     | '/hosts'
     | '/images'
+    | '/login'
     | '/networks'
     | '/repositories'
+    | '/setup'
     | '/stacks'
     | '/volumes'
     | '/webhooks'
@@ -128,8 +150,10 @@ export interface FileRouteTypes {
     | '/containers'
     | '/hosts'
     | '/images'
+    | '/login'
     | '/networks'
     | '/repositories'
+    | '/setup'
     | '/stacks'
     | '/volumes'
     | '/webhooks'
@@ -140,8 +164,10 @@ export interface RootRouteChildren {
   ContainersRoute: typeof ContainersRoute
   HostsRoute: typeof HostsRoute
   ImagesRoute: typeof ImagesRoute
+  LoginRoute: typeof LoginRoute
   NetworksRoute: typeof NetworksRoute
   RepositoriesRoute: typeof RepositoriesRoute
+  SetupRoute: typeof SetupRoute
   StacksRoute: typeof StacksRoute
   VolumesRoute: typeof VolumesRoute
   WebhooksRoute: typeof WebhooksRoute
@@ -177,6 +203,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ImagesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/networks': {
       id: '/networks'
       path: '/networks'
@@ -189,6 +222,13 @@ declare module '@tanstack/react-router' {
       path: '/repositories'
       fullPath: '/repositories'
       preLoaderRoute: typeof RepositoriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/setup': {
+      id: '/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof SetupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/stacks': {
@@ -220,8 +260,10 @@ const rootRouteChildren: RootRouteChildren = {
   ContainersRoute: ContainersRoute,
   HostsRoute: HostsRoute,
   ImagesRoute: ImagesRoute,
+  LoginRoute: LoginRoute,
   NetworksRoute: NetworksRoute,
   RepositoriesRoute: RepositoriesRoute,
+  SetupRoute: SetupRoute,
   StacksRoute: StacksRoute,
   VolumesRoute: VolumesRoute,
   WebhooksRoute: WebhooksRoute,

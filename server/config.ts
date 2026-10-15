@@ -5,9 +5,7 @@ import { z } from "zod";
 const isProd = process.env["NODE_ENV"] === "production";
 const isWindows = process.platform === "win32";
 
-const bool = z
-  .enum(["true", "false", "1", "0"])
-  .transform((v) => v === "true" || v === "1");
+const bool = z.enum(["true", "false", "1", "0"]).transform((v) => v === "true" || v === "1");
 
 const schema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(8080),
@@ -41,15 +39,15 @@ if (isProd && (!env.HARBORX_SECRET || env.HARBORX_SECRET.length < 32)) {
 }
 
 export type DockerConnection =
-  | { socketPath: string }
-  | { host: string; port: number; protocol: "http" | "https" };
+  { socketPath: string } | { host: string; port: number; protocol: "http" | "https" };
 
 function resolveDockerConnection(): DockerConnection {
   const raw = env.DOCKER_HOST;
   if (!raw) return { socketPath: env.DOCKER_SOCKET };
 
   if (raw.startsWith("unix://")) return { socketPath: raw.slice("unix://".length) };
-  if (raw.startsWith("npipe://")) return { socketPath: raw.slice("npipe://".length).replace(/^\/\//, "//") };
+  if (raw.startsWith("npipe://"))
+    return { socketPath: raw.slice("npipe://".length).replace(/^\/\//, "//") };
 
   if (raw.startsWith("tcp://") || raw.startsWith("http://") || raw.startsWith("https://")) {
     const url = new URL(raw.replace(/^tcp:/, "http:"));
@@ -86,4 +84,3 @@ export const config = {
   staticDir: resolveStaticDir(env.STATIC_DIR),
   docker: resolveDockerConnection(),
 } as const;
-

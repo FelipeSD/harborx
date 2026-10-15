@@ -12,4 +12,3 @@ export async function isDockerReachable(): Promise<boolean> {
     return false;
   }
 }
-
