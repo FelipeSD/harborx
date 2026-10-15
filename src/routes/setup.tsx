@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { Anchor, Lock, User, Loader2, AlertCircle, ShieldCheck } from "lucide-react";
+import { Lock, User, Loader2, AlertCircle, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { Logo } from "@/components/app/Logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -74,13 +75,8 @@ function SetupPage() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
       <div className="w-full max-w-md space-y-6">
         <div className="flex flex-col items-center text-center">
-          <div className="flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/25">
-            <Anchor className="size-6" />
-          </div>
-          <h1 className="mt-4 text-2xl font-bold tracking-tight">
-            Harbor<span className="text-primary">X</span>
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">Instalação e configuração inicial</p>
+          <Logo size="lg" className="justify-center" />
+          <p className="mt-2 text-sm text-muted-foreground">Instalação e configuração inicial</p>
         </div>
 
         <Card className="border-border/60 bg-surface/50 backdrop-blur">

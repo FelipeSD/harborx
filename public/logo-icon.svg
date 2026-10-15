@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60" fill="none">
+  <defs>
+    <linearGradient id="iconBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#021d3a" />
+    </linearGradient>
+    <linearGradient id="iconCyan" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+    <filter id="iconGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <rect x="5" y="5" width="50" height="50" rx="14" fill="url(#iconBg)" stroke="#38bdf8" stroke-width="1.5" stroke-opacity="0.4" />
+
+  <g filter="url(#iconGlow)">
+    <circle cx="30" cy="18" r="4.5" stroke="url(#iconCyan)" stroke-width="3" fill="none" />
+    <circle cx="30" cy="18" r="1.5" fill="#38bdf8" />
+    <line x1="20" y1="26" x2="40" y2="26" stroke="url(#iconCyan)" stroke-width="3" stroke-linecap="round" />
+    <line x1="30" y1="22" x2="30" y2="44" stroke="url(#iconCyan)" stroke-width="3" stroke-linecap="round" />
+    <path d="M 18 34 C 18 43 23 47 30 47 C 37 47 42 43 42 34" stroke="url(#iconCyan)" stroke-width="3" stroke-linecap="round" fill="none" />
+    <path d="M 15 35 L 21 35 L 18 31 Z" fill="#38bdf8" />
+    <path d="M 39 35 L 45 35 L 42 31 Z" fill="#38bdf8" />
+  </g>
+</svg>
+

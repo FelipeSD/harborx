@@ -17,6 +17,7 @@ import {
   Shield,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { Logo } from "@/components/app/Logo";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -60,14 +61,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen">
       <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r bg-surface p-4 md:flex">
-        <div className="mb-8 flex items-center gap-2 px-2">
-          <div className="grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground glow-primary">
-            <Anchor className="size-4" />
-          </div>
-          <span className="text-lg font-semibold tracking-tight">
-            Harbor<span className="text-primary">X</span>
-          </span>
-        </div>
+        <Logo size="sm" className="mb-8 px-2" />
         <nav className="flex flex-col gap-1">
           {nav.map((n) => (
             <Link
