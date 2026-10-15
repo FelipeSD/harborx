@@ -1,6 +1,6 @@
 services:
   harborx:
-    image: ghcr.io/OWNER/harborx:latest
+    image: ${DOCKERHUB_USERNAME:-felipesd}/harborx:latest
     # Or build locally:
     # build: .
     container_name: harborx

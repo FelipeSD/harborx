@@ -57,7 +57,7 @@ docker run -d \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v harborx-data:/data \
   -e HARBORX_SECRET="$(openssl rand -hex 32)" \
-  felip/harborx:latest
+  felipesd/harborx:latest
 ```
 
 Acesse: `http://<ip-da-vm>:3000` e configure a conta de administrador inicial.
@@ -71,7 +71,7 @@ Crie um arquivo `docker-compose.yml`:
 ```yaml
 services:
   harborx:
-    image: felip/harborx:latest
+    image: felipesd/harborx:latest
     container_name: harborx
     restart: unless-stopped
     ports:
@@ -93,6 +93,28 @@ Execute:
 ```bash
 docker compose up -d
 ```
+
+---
+
+## 🚢 CI/CD: Publicação Automática no Docker Hub
+
+O repositório possui uma pipeline automatizada via GitHub Actions em [`.github/workflows/docker-publish.yml`](.github/workflows/docker-publish.yml).
+
+### Como funciona:
+- **Push na branch `main`**: Compila a imagem multi-arquitetura (`linux/amd64` e `linux/arm64`) e publica no Docker Hub com as tags `latest` e `sha-<commit>`.
+- **Criação de tags de versão (ex: `git tag v1.0.0 && git push origin v1.0.0`)**: Publica automaticamente com versionamento semântico: `1.0.0`, `1.0`, `1` e `latest`.
+- **Push em branches de versão (ex: `v1.x`, `release/*`)**: Gera builds identificados com o nome da branch correspondente.
+
+### 🔑 Configuração dos Segredos no GitHub:
+Acesse o seu repositório no GitHub: **Settings** ➔ **Secrets and variables** ➔ **Actions** ➔ **New repository secret**:
+
+| Nome do Segredo | Descrição | Exemplo |
+|---|---|---|
+| `DOCKERHUB_USERNAME` | Seu nome de usuário ou organização no Docker Hub | `felipesd` |
+| `DOCKERHUB_PASSWORD` | Seu **Personal Access Token** gerado no Docker Hub (ou senha) | `dckr_pat_xxx...` |
+
+> [!TIP]
+> **Como gerar o token no Docker Hub:** Acesse [hub.docker.com](https://hub.docker.com) ➔ Clique no seu avatar (canto superior direito) ➔ **Account Settings** ➔ **Security** ➔ **New Access Token** ➔ Selecione permissões **Read & Write** ➔ Copie o token gerado.
 
 ---
 
