@@ -7,8 +7,16 @@ const isWindows = process.platform === "win32";
 
 const bool = z.enum(["true", "false", "1", "0"]).transform((v) => v === "true" || v === "1");
 
+// In production, Fastify serves both the frontend SPA and API on PORT (default 8080).
+// In development, Vite dev server occupies port 8080, so Fastify listens on SERVER_PORT (default 3001).
+const serverPort = process.env["SERVER_PORT"]
+  ? Number(process.env["SERVER_PORT"])
+  : isProd
+    ? Number(process.env["PORT"] || 8080)
+    : 3001;
+
 const schema = z.object({
-  PORT: z.coerce.number().int().min(1).max(65535).default(8080),
+  PORT: z.coerce.number().int().min(1).max(65535).default(serverPort),
   HOST: z.string().default("0.0.0.0"),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
   /** Directory where SQLite and stacks live. Must be the SAME path inside and outside the container (see README). */
@@ -75,7 +83,7 @@ function resolveStaticDir(configured?: string): string {
 
 export const config = {
   isProd,
-  port: env.PORT,
+  port: serverPort,
   host: env.HOST,
   logLevel: env.LOG_LEVEL,
   dataDir: path.resolve(env.HARBORX_DATA_DIR),

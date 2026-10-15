@@ -4,9 +4,10 @@
   "sideEffects": false,
   "type": "module",
   "scripts": {
-    "dev": "vite dev",
+    "dev": "concurrently -k -n \"web,srv\" -c \"cyan,magenta\" \"vite dev\" \"tsx watch server/index.ts\"",
+    "dev:web": "vite dev",
     "dev:server": "tsx watch server/index.ts",
-    "dev:all": "concurrently -n \"web,srv\" -c \"cyan,magenta\" \"vite dev\" \"tsx watch server/index.ts\"",
+    "dev:all": "concurrently -k -n \"web,srv\" -c \"cyan,magenta\" \"vite dev\" \"tsx watch server/index.ts\"",
     "build": "vite build",
     "build:server": "tsup",
     "build:dev": "vite build --mode development",
