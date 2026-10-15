@@ -48,6 +48,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CreateContainerDialog } from "@/components/containers/CreateContainerDialog";
+import { LogViewer } from "@/components/containers/LogViewer";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/containers")({
@@ -631,7 +632,7 @@ function ContainersPage() {
 
       {/* Drawer de Detalhes com Abas */}
       <Sheet open={!!selectedContainer} onOpenChange={(o) => !o && setSelectedContainer(null)}>
-        <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
+        <SheetContent className="w-full sm:max-w-4xl lg:max-w-5xl overflow-y-auto">
           {selectedContainer && (
             <>
               <SheetHeader>
@@ -780,14 +781,11 @@ function ContainersPage() {
 
                 {/* Aba 3: Logs */}
                 <TabsContent value="logs" className="space-y-4 pt-4">
-                  <Alert className="border-primary/40 bg-primary/5">
-                    <FileText className="size-4 text-primary" />
-                    <AlertTitle>Streaming de Logs em Tempo Real</AlertTitle>
-                    <AlertDescription className="text-xs">
-                      O visualizador completo com virtualização, busca, pause/resume, download e
-                      WebSocket será ativado na <strong>Fase 3</strong>.
-                    </AlertDescription>
-                  </Alert>
+                  <LogViewer
+                    containerId={selectedContainer.id}
+                    containerName={selectedContainer.name}
+                    className="h-[620px]"
+                  />
                 </TabsContent>
 
                 {/* Aba 4: Console */}

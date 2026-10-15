@@ -169,3 +169,15 @@ export interface BatchActionResult {
 export interface RenameContainerRequest {
   name: string;
 }
+
+export interface LogLine {
+  s: "out" | "err";
+  ts: string;
+  m: string;
+}
+
+export type LogWsMessage =
+  | { t: "batch"; lines: LogLine[] }
+  | { t: "dropped"; n: number }
+  | { t: "end" }
+  | { t: "error"; m: string };

@@ -13,6 +13,7 @@ import { registerAuthHooks } from "./auth/middleware";
 import { authRoutes } from "./auth/routes";
 import { containerRoutes } from "./routes/containers";
 import { dockerRoutes } from "./routes/docker";
+import { logsWsRoute } from "./ws/logs";
 
 export async function buildApp(opts?: { logger?: boolean }) {
   fs.mkdirSync(config.dataDir, { recursive: true });
@@ -58,6 +59,9 @@ export async function buildApp(opts?: { logger?: boolean }) {
 
   // Other Docker routes (images, networks, volumes, system)
   await app.register(dockerRoutes, { prefix: "/api" });
+
+  // WebSocket routes
+  await app.register(logsWsRoute);
 
   const shellPath = path.join(config.staticDir, "_shell.html");
   const hasFrontend = fs.existsSync(shellPath);

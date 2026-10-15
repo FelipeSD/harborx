@@ -5,6 +5,7 @@ import type {
   ContainerSummary,
   CreateContainerRequest,
   ImageSummary,
+  LogLine,
   NetworkSummary,
   RenameContainerRequest,
   SetupStatusResponse,
@@ -79,6 +80,18 @@ export const api = {
     list: () => fetchApi<ContainerSummary[]>("/api/containers"),
     get: (id: string) => fetchApi<Record<string, unknown>>(`/api/containers/${id}`),
     inspect: (id: string) => fetchApi<Record<string, unknown>>(`/api/containers/${id}/inspect`),
+    logs: (id: string, params?: { tail?: number; since?: number; until?: number }) => {
+      const q = new URLSearchParams();
+      if (params?.tail) q.set("tail", String(params.tail));
+      if (params?.since) q.set("since", String(params.since));
+      if (params?.until) q.set("until", String(params.until));
+      const qs = q.toString() ? `?${q.toString()}` : "";
+      return fetchApi<{ lines: LogLine[] }>(`/api/containers/${id}/logs${qs}`);
+    },
+    downloadLogsUrl: (id: string, params?: { tail?: number }) => {
+      const qs = params?.tail ? `?tail=${params.tail}` : "";
+      return `/api/containers/${id}/logs/download${qs}`;
+    },
     create: (data: CreateContainerRequest) =>
       fetchApi<{ success: true; id: string; name: string }>("/api/containers", {
         method: "POST",

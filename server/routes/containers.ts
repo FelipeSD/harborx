@@ -562,4 +562,122 @@ export const containerRoutes: FastifyPluginAsync = async (fastify) => {
       }
     },
   );
+
+  // Helper function to demux Docker logs buffer
+  function demuxLogBuffer(
+    buffer: Buffer,
+    isTty: boolean,
+  ): Array<{ s: "out" | "err"; ts: string; m: string }> {
+    const lines: Array<{ s: "out" | "err"; ts: string; m: string }> = [];
+    const tsRegex = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)\s(.*)$/;
+
+    const addLine = (raw: string, s: "out" | "err") => {
+      const match = tsRegex.exec(raw);
+      if (match && match[1] && match[2] !== undefined) {
+        lines.push({ s, ts: match[1], m: match[2] });
+      } else {
+        lines.push({ s, ts: new Date().toISOString(), m: raw });
+      }
+    };
+
+    if (isTty) {
+      const rawText = buffer.toString("utf8");
+      for (const line of rawText.split("\n")) {
+        const clean = line.replace(/\r$/, "");
+        if (clean) addLine(clean, "out");
+      }
+      return lines;
+    }
+
+    let offset = 0;
+    while (offset < buffer.length) {
+      if (offset + 8 > buffer.length) break;
+      const streamType = buffer.readUInt8(offset);
+      const size = buffer.readUInt32BE(offset + 4);
+      offset += 8;
+      const chunk = buffer.subarray(offset, offset + size).toString("utf8");
+      offset += size;
+
+      const s: "out" | "err" = streamType === 2 ? "err" : "out";
+      for (const line of chunk.split("\n")) {
+        const clean = line.replace(/\r$/, "");
+        if (clean) addLine(clean, s);
+      }
+    }
+
+    return lines;
+  }
+
+  // GET /api/containers/:id/logs (HTTP non-follow snapshot)
+  fastify.get<{
+    Params: { id: string };
+    Querystring: { tail?: string; since?: string; until?: string; timestamps?: string };
+  }>("/:id/logs", async (request, reply) => {
+    const { id } = request.params;
+    const tail = Math.min(Math.max(parseInt(request.query.tail || "200", 10) || 200, 1), 5000);
+    const since = request.query.since ? parseInt(request.query.since, 10) || 0 : undefined;
+    const until = request.query.until ? parseInt(request.query.until, 10) || 0 : undefined;
+
+    const container = docker.getContainer(id);
+    try {
+      const inspect = await container.inspect();
+      const isTty = !!inspect.Config?.Tty;
+
+      const logBuffer = (await container.logs({
+        follow: false,
+        stdout: true,
+        stderr: true,
+        tail,
+        timestamps: true,
+        since,
+        until,
+      })) as unknown as Buffer;
+
+      const lines = demuxLogBuffer(logBuffer, isTty);
+      return { lines };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("404") || msg.toLowerCase().includes("no such container")) {
+        return reply.status(404).send({ error: "Container não encontrado" });
+      }
+      return reply.status(502).send({ error: `Falha ao obter logs: ${msg}` });
+    }
+  });
+
+  // GET /api/containers/:id/logs/download (Download plain text log file)
+  fastify.get<{
+    Params: { id: string };
+    Querystring: { tail?: string; since?: string };
+  }>("/:id/logs/download", async (request, reply) => {
+    const { id } = request.params;
+    const tail = request.query.tail ? parseInt(request.query.tail, 10) || 5000 : 5000;
+    const since = request.query.since ? parseInt(request.query.since, 10) || 0 : undefined;
+
+    const container = docker.getContainer(id);
+    try {
+      const inspect = await container.inspect();
+      const isTty = !!inspect.Config?.Tty;
+      const rawName = (inspect.Name || id).replace(/^\//, "");
+
+      const logBuffer = (await container.logs({
+        follow: false,
+        stdout: true,
+        stderr: true,
+        tail,
+        timestamps: true,
+        since,
+      })) as unknown as Buffer;
+
+      const lines = demuxLogBuffer(logBuffer, isTty);
+      const textContent = lines.map((l) => `[${l.ts}] [${l.s.toUpperCase()}] ${l.m}`).join("\n");
+
+      return reply
+        .header("Content-Disposition", `attachment; filename="${rawName}-logs.log"`)
+        .type("text/plain; charset=utf-8")
+        .send(textContent);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return reply.status(502).send({ error: `Falha ao baixar logs: ${msg}` });
+    }
+  });
 };
