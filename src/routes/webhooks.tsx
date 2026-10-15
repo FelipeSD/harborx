@@ -32,7 +32,7 @@ const yaml = (id: string) => `# .github/workflows/build-and-push.yml (passo fina
 
 function WebhooksPage() {
   const [items, setItems] = useState(initial);
-  const [sel, setSel] = useState(initial[0].id);
+  const [sel, setSel] = useState(initial[0]?.id ?? "");
   const copy = (t: string) => { navigator.clipboard?.writeText(t); toast.success("Copiado"); };
 
   return (
