@@ -2,13 +2,16 @@ import type {
   BatchActionResult,
   BatchContainerActionRequest,
   ContainerAction,
+  ContainerStatsSummary,
   ContainerSummary,
   CreateContainerRequest,
+  HostMetricPoint,
   ImageSummary,
   LogLine,
   NetworkSummary,
   RenameContainerRequest,
   SetupStatusResponse,
+  SystemDfResponse,
   SystemInfo,
   User,
   VolumeSummary,
@@ -92,6 +95,7 @@ export const api = {
       const qs = params?.tail ? `?tail=${params.tail}` : "";
       return `/api/containers/${id}/logs/download${qs}`;
     },
+    stats: (id: string) => fetchApi<ContainerStatsSummary>(`/api/containers/${id}/stats`),
     create: (data: CreateContainerRequest) =>
       fetchApi<{ success: true; id: string; name: string }>("/api/containers", {
         method: "POST",
@@ -148,5 +152,23 @@ export const api = {
 
   system: {
     info: () => fetchApi<SystemInfo>("/api/system/info"),
+    df: () => fetchApi<SystemDfResponse>("/api/system/df"),
+    hostMetrics: (hours?: number) => {
+      const qs = hours ? `?hours=${hours}` : "";
+      return fetchApi<{ points: HostMetricPoint[] }>(`/api/system/host-metrics${qs}`);
+    },
+    host: () =>
+      fetchApi<{
+        hostname: string;
+        platform: string;
+        release: string;
+        arch: string;
+        uptime: number;
+        cpusCount: number;
+        cpuModel: string;
+        totalMem: number;
+        freeMem: number;
+        usedMem: number;
+      }>("/api/system/host"),
   },
 };

@@ -46,6 +46,22 @@ const migrations: Migration[] = [
       `);
     },
   },
+  {
+    name: "002_host_metrics",
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS host_metrics (
+          ts TEXT PRIMARY KEY,
+          cpu_percent REAL NOT NULL,
+          mem_used_bytes REAL NOT NULL,
+          mem_total_bytes REAL NOT NULL,
+          disk_used_bytes REAL NOT NULL,
+          disk_total_bytes REAL NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_host_metrics_ts ON host_metrics(ts);
+      `);
+    },
+  },
 ];
 
 export function runMigrations(db: Database.Database): void {

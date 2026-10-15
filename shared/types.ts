@@ -181,3 +181,43 @@ export type LogWsMessage =
   | { t: "dropped"; n: number }
   | { t: "end" }
   | { t: "error"; m: string };
+
+export interface HostMetricPoint {
+  ts: string;
+  cpuPercent: number;
+  memUsedMb: number;
+  memTotalMb: number;
+  diskUsedGb: number;
+  diskTotalGb: number;
+}
+
+export interface SystemDfResponse {
+  layersSize: number;
+  images: number;
+  containers: number;
+  volumes: number;
+  buildCache: number;
+}
+
+export interface ContainerStatsSummary {
+  id: string;
+  cpuPercent: number;
+  memUsedBytes: number;
+  memLimitBytes: number;
+  memPercent: number;
+  rxBytes: number;
+  txBytes: number;
+  ioReadBytes: number;
+  ioWriteBytes: number;
+  pids: number;
+  readAt: string;
+}
+
+export interface DockerEventItem {
+  type: string;
+  action: string;
+  id: string;
+  name: string;
+  time: number;
+  attributes: Record<string, string>;
+}

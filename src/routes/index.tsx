@@ -1,10 +1,21 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
-import { Boxes, Layers, Cpu, HardDrive, RefreshCw, AlertCircle } from "lucide-react";
+import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  Boxes,
+  Layers,
+  Cpu,
+  HardDrive,
+  RefreshCw,
+  AlertCircle,
+  Activity as ActivityIcon,
+  Radio,
+  Clock,
+  Server,
+} from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
-import { activity, cpuSeries, hosts } from "@/lib/mock-data";
+import { useDockerEvents } from "@/hooks/use-docker-events";
 import { Meter, PageHeader, Panel } from "@/components/app/ui-bits";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -32,6 +43,7 @@ function formatBytes(bytes: number): string {
 
 function Overview() {
   const { user } = useAuth();
+  const { events: liveEvents, isConnected: isEventsConnected } = useDockerEvents();
 
   const {
     data: system,
@@ -50,6 +62,18 @@ function Overview() {
     queryKey: ["containers"],
     queryFn: api.containers.list,
     refetchInterval: 10000,
+  });
+
+  const { data: hostMetricsData } = useQuery({
+    queryKey: ["host-metrics"],
+    queryFn: () => api.system.hostMetrics(24),
+    refetchInterval: 30000,
+  });
+
+  const { data: dfData } = useQuery({
+    queryKey: ["system-df"],
+    queryFn: api.system.df,
+    refetchInterval: 60000,
   });
 
   const runningCount =
@@ -71,7 +95,7 @@ function Overview() {
       label: "Imagens Docker",
       value: `${totalImages}`,
       icon: Layers,
-      sub: "Armazenadas localmente",
+      sub: dfData ? `Uso total: ${formatBytes(dfData.layersSize)}` : "Armazenadas localmente",
     },
     {
       label: "Núcleos de CPU",
@@ -87,6 +111,21 @@ function Overview() {
     },
   ];
 
+  // Map host metrics history for chart
+  const chartPoints = (hostMetricsData?.points || []).map((pt) => {
+    const timeStr = new Date(pt.ts).toLocaleTimeString("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const memPercent = pt.memTotalMb > 0 ? Math.round((pt.memUsedMb / pt.memTotalMb) * 100) : 0;
+    return {
+      h: timeStr,
+      cpu: pt.cpuPercent,
+      mem: memPercent,
+      memUsedMb: pt.memUsedMb,
+    };
+  });
+
   return (
     <>
       <PageHeader
@@ -99,7 +138,7 @@ function Overview() {
             onClick={() => void refetchSystem()}
             disabled={isFetching}
           >
-            <RefreshCw className={cn("size-4", isFetching && "animate-spin")} />
+            <RefreshCw className={cn("size-4 mr-1.5", isFetching && "animate-spin")} />
             Atualizar dados
           </Button>
         }
@@ -117,6 +156,7 @@ function Overview() {
         </Alert>
       )}
 
+      {/* Top 4 Stats Panels */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((s) => (
           <Panel key={s.label} className={cn("p-5", s.hl && "border-primary/40 glow-primary")}>
@@ -134,81 +174,161 @@ function Overview() {
         ))}
       </div>
 
+      {/* Charts & Live Events */}
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
+        {/* Real Historical Chart */}
         <Panel className="p-5 lg:col-span-2">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-medium">Histórico de utilização (amostra)</h2>
+            <div>
+              <h2 className="font-medium">Utilização do Host (Últimas 24h)</h2>
+              <p className="text-xs text-muted-foreground">
+                Consumo real de CPU e memória RAM amostrados a cada minuto
+              </p>
+            </div>
             <div className="flex gap-4 text-xs text-muted-foreground">
               <span className="flex items-center gap-1.5">
-                <span className="size-2 rounded-full bg-chart-1" />
-                CPU
+                <span className="size-2 rounded-full bg-cyan-500" />
+                CPU (%)
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="size-2 rounded-full bg-chart-2" />
-                Memória
+                <span className="size-2 rounded-full bg-purple-500" />
+                Memória (%)
               </span>
             </div>
           </div>
           <div className="h-56">
-            <ResponsiveContainer>
-              <AreaChart data={cpuSeries}>
-                <defs>
-                  <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0" stopColor="var(--chart-1)" stopOpacity={0.35} />
-                    <stop offset="1" stopColor="var(--chart-1)" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0" stopColor="var(--chart-2)" stopOpacity={0.25} />
-                    <stop offset="1" stopColor="var(--chart-2)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis
-                  dataKey="h"
-                  stroke="var(--muted-foreground)"
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={false}
-                  interval={3}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: "var(--popover)",
-                    border: "1px solid var(--border)",
-                    borderRadius: 8,
-                  }}
-                />
-                <Area dataKey="mem" stroke="var(--chart-2)" fill="url(#g2)" strokeWidth={2} />
-                <Area dataKey="cpu" stroke="var(--chart-1)" fill="url(#g1)" strokeWidth={2} />
-              </AreaChart>
-            </ResponsiveContainer>
+            {chartPoints.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-zinc-500 text-xs space-y-1">
+                <ActivityIcon className="size-5 text-zinc-600 animate-pulse" />
+                <span>Coletando métricas do host... aguarde o primeiro ciclo.</span>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartPoints}>
+                  <defs>
+                    <linearGradient id="cpuGradientHost" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0" stopColor="#06b6d4" stopOpacity={0.35} />
+                      <stop offset="1" stopColor="#06b6d4" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="memGradientHost" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0" stopColor="#a855f7" stopOpacity={0.25} />
+                      <stop offset="1" stopColor="#a855f7" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis
+                    dataKey="h"
+                    stroke="#71717a"
+                    fontSize={10}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    stroke="#71717a"
+                    fontSize={10}
+                    tickLine={false}
+                    axisLine={false}
+                    domain={[0, 100]}
+                    unit="%"
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      background: "#18181b",
+                      border: "1px solid #27272a",
+                      borderRadius: 8,
+                      fontSize: 11,
+                    }}
+                    formatter={(val: unknown, name: unknown) => [
+                      `${String(val)}%`,
+                      String(name) === "cpu" ? "CPU" : "Memória",
+                    ]}
+                  />
+                  <Area
+                    dataKey="mem"
+                    stroke="#a855f7"
+                    fill="url(#memGradientHost)"
+                    strokeWidth={2}
+                    isAnimationActive={false}
+                  />
+                  <Area
+                    dataKey="cpu"
+                    stroke="#06b6d4"
+                    fill="url(#cpuGradientHost)"
+                    strokeWidth={2}
+                    isAnimationActive={false}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </Panel>
 
-        <Panel className="p-5">
-          <h2 className="mb-4 font-medium">Atividade recente</h2>
-          <ul className="space-y-3">
-            {activity.map((a, i) => (
-              <li key={i} className="flex gap-3 text-sm">
-                <span className="font-mono text-xs text-muted-foreground">{a.t}</span>
-                <span
-                  className={cn(
-                    "mt-1.5 size-1.5 shrink-0 rounded-full",
-                    a.kind === "error"
-                      ? "bg-destructive"
-                      : a.kind === "warn"
-                        ? "bg-primary"
-                        : a.kind === "ok"
-                          ? "bg-success"
-                          : "bg-info",
-                  )}
-                />
-                <span className="text-foreground/90">{a.msg}</span>
-              </li>
-            ))}
-          </ul>
+        {/* Live Docker Events Feed */}
+        <Panel className="p-5 flex flex-col">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="font-medium flex items-center gap-2">
+              <Radio
+                className={cn(
+                  "size-3.5",
+                  isEventsConnected ? "text-emerald-400 animate-pulse" : "text-zinc-600",
+                )}
+              />
+              Atividade em Tempo Real
+            </h2>
+            <span className="text-[10px] text-muted-foreground font-mono">
+              {isEventsConnected ? "Ao vivo (WebSocket)" : "Conectando..."}
+            </span>
+          </div>
+          <div className="flex-1 overflow-y-auto max-h-[220px] space-y-2.5 pr-1">
+            {liveEvents.length > 0 ? (
+              liveEvents.slice(0, 10).map((evt, idx) => {
+                const timeStr = new Date(evt.time * 1000).toLocaleTimeString("pt-BR", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                });
+                const isDieOrKill =
+                  evt.action === "die" || evt.action === "kill" || evt.action === "destroy";
+                const isStart = evt.action === "start" || evt.action === "restart";
+
+                return (
+                  <div
+                    key={`${evt.id}-${evt.time}-${idx}`}
+                    className="flex items-start gap-2.5 text-xs"
+                  >
+                    <span className="font-mono text-[10px] text-muted-foreground shrink-0 mt-0.5">
+                      {timeStr}
+                    </span>
+                    <span
+                      className={cn(
+                        "size-1.5 shrink-0 rounded-full mt-1.5",
+                        isDieOrKill ? "bg-red-500" : isStart ? "bg-emerald-500" : "bg-cyan-500",
+                      )}
+                    />
+                    <div className="flex-1 truncate">
+                      <span className="font-semibold text-foreground uppercase text-[10px] mr-1">
+                        [{evt.type}]
+                      </span>
+                      <span className="font-medium capitalize text-cyan-400 mr-1.5">
+                        {evt.action}
+                      </span>
+                      <span className="text-muted-foreground truncate" title={evt.name || evt.id}>
+                        {evt.name || evt.id.slice(0, 12)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-zinc-500 text-xs py-8 space-y-2">
+                <Clock className="size-5 text-zinc-600" />
+                <p className="text-center">Aguardando eventos do daemon Docker...</p>
+              </div>
+            )}
+          </div>
         </Panel>
       </div>
 
+      {/* Recent Containers & Host Specs */}
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <Panel className="p-5">
           <div className="mb-4 flex items-center justify-between">

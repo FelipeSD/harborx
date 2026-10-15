@@ -50,6 +50,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { CreateContainerDialog } from "@/components/containers/CreateContainerDialog";
 import { LogViewer } from "@/components/containers/LogViewer";
 import { TerminalViewer } from "@/components/containers/TerminalViewer";
+import { ContainerStatsViewer } from "@/components/containers/ContainerStatsViewer";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/containers")({
@@ -800,14 +801,11 @@ function ContainersPage() {
 
                 {/* Aba 5: Métricas */}
                 <TabsContent value="stats" className="space-y-4 pt-4">
-                  <Alert className="border-primary/40 bg-primary/5">
-                    <Activity className="size-4 text-primary" />
-                    <AlertTitle>Estatísticas de Recursos (CPU / Memória / I/O)</AlertTitle>
-                    <AlertDescription className="text-xs">
-                      Gráficos de consumo em tempo real do container serão ativados na{" "}
-                      <strong>Fase 5</strong>.
-                    </AlertDescription>
-                  </Alert>
+                  <ContainerStatsViewer
+                    containerId={selectedContainer.id}
+                    containerName={selectedContainer.name}
+                    containerState={selectedContainer.state}
+                  />
                 </TabsContent>
               </Tabs>
             </>

@@ -15,6 +15,9 @@ import { containerRoutes } from "./routes/containers";
 import { dockerRoutes } from "./routes/docker";
 import { logsWsRoute } from "./ws/logs";
 import { execWsRoute } from "./ws/exec";
+import { eventsWsRoute } from "./ws/events";
+import { statsWsRoute } from "./ws/stats";
+import { startMetricsCollector, stopMetricsCollector } from "./services/metrics";
 
 export async function buildApp(opts?: { logger?: boolean }) {
   fs.mkdirSync(config.dataDir, { recursive: true });
@@ -64,6 +67,8 @@ export async function buildApp(opts?: { logger?: boolean }) {
   // WebSocket routes
   await app.register(logsWsRoute);
   await app.register(execWsRoute);
+  await app.register(eventsWsRoute);
+  await app.register(statsWsRoute);
 
   const shellPath = path.join(config.staticDir, "_shell.html");
   const hasFrontend = fs.existsSync(shellPath);
@@ -94,9 +99,13 @@ export async function buildApp(opts?: { logger?: boolean }) {
 async function main() {
   const app = await buildApp();
 
+  // Start background host metrics collector (every 60s)
+  startMetricsCollector(60000);
+
   const shutdown = async (signal: string) => {
     app.log.info(`Received ${signal}, shutting down...`);
     try {
+      stopMetricsCollector();
       db.close();
       await app.close();
       process.exit(0);
