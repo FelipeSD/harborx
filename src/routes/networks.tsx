@@ -1,29 +1,94 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { Plus, RefreshCw, Lock, Network as NetworkIcon, AlertCircle } from "lucide-react";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  Plus,
+  RefreshCw,
+  Lock,
+  Network as NetworkIcon,
+  AlertCircle,
+  Trash2,
+  Eye,
+  Link as LinkIcon,
+  Unlink,
+  Loader2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 import { PageHeader, Panel } from "@/components/app/ui-bits";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import type { CreateNetworkRequest, NetworkSummary } from "../../shared/types";
 
 export const Route = createFileRoute("/networks")({
   head: () => ({
     meta: [
       { title: "Redes Docker — HarborX" },
-      { name: "description", content: "Veja e gerencie redes Docker na sua infraestrutura." },
+      {
+        name: "description",
+        content: "Crie, gerencie e conecte containers a redes Docker bridge, macvlan e overlay.",
+      },
       { property: "og:title", content: "Redes Docker — HarborX" },
     ],
   }),
   component: NetworksPage,
 });
 
-const builtin = ["bridge", "host", "none"];
+const BUILTIN_NETWORKS = ["bridge", "host", "none"];
 
 function NetworksPage() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const isOperator = user?.role === "admin" || user?.role === "operator";
+
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newDriver, setNewDriver] = useState<"bridge" | "overlay" | "macvlan" | "ipvlan">("bridge");
+  const [newSubnet, setNewSubnet] = useState("");
+  const [newGateway, setNewGateway] = useState("");
+  const [newInternal, setNewInternal] = useState(false);
+
+  const [inspectNetwork, setInspectNetwork] = useState<NetworkSummary | null>(null);
+  const [inspectData, setInspectData] = useState<Record<string, unknown> | null>(null);
+  const [isLoadingInspect, setIsLoadingInspect] = useState(false);
+
+  const [connectNetwork, setConnectNetwork] = useState<NetworkSummary | null>(null);
+  const [selectedContainerId, setSelectedContainerId] = useState("");
+  const [customIp, setCustomIp] = useState("");
+
+  const [deleteTarget, setDeleteTarget] = useState<NetworkSummary | null>(null);
+
   const {
     data: networks = [],
     isLoading,
@@ -36,11 +101,101 @@ function NetworksPage() {
     queryFn: api.networks.list,
   });
 
+  const { data: containers = [] } = useQuery({
+    queryKey: ["containers"],
+    queryFn: api.containers.list,
+    enabled: Boolean(connectNetwork),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (data: CreateNetworkRequest) => api.networks.create(data),
+    onSuccess: (res) => {
+      toast.success(`Rede '${res.name}' criada com sucesso!`);
+      setIsCreateOpen(false);
+      setNewName("");
+      setNewSubnet("");
+      setNewGateway("");
+      setNewInternal(false);
+      void queryClient.invalidateQueries({ queryKey: ["networks"] });
+    },
+    onError: (err: Error) => {
+      toast.error(`Falha ao criar rede: ${err.message}`);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.networks.remove(id),
+    onSuccess: (res) => {
+      toast.success(`Rede '${res.name}' removida.`);
+      setDeleteTarget(null);
+      void queryClient.invalidateQueries({ queryKey: ["networks"] });
+    },
+    onError: (err: Error) => {
+      toast.error(`Falha ao remover rede: ${err.message}`);
+    },
+  });
+
+  const connectMutation = useMutation({
+    mutationFn: ({ netId, container, ip }: { netId: string; container: string; ip?: string }) =>
+      api.networks.connect(netId, { container, ipv4Address: ip || undefined }),
+    onSuccess: () => {
+      toast.success("Container conectado à rede com sucesso!");
+      setConnectNetwork(null);
+      setSelectedContainerId("");
+      setCustomIp("");
+      void queryClient.invalidateQueries({ queryKey: ["networks"] });
+    },
+    onError: (err: Error) => {
+      toast.error(`Erro ao conectar container: ${err.message}`);
+    },
+  });
+
+  const disconnectMutation = useMutation({
+    mutationFn: ({ netId, container }: { netId: string; container: string }) =>
+      api.networks.disconnect(netId, { container, force: true }),
+    onSuccess: () => {
+      toast.success("Container desconectado da rede.");
+      void queryClient.invalidateQueries({ queryKey: ["networks"] });
+    },
+    onError: (err: Error) => {
+      toast.error(`Erro ao desconectar: ${err.message}`);
+    },
+  });
+
+  const handleOpenInspect = async (net: NetworkSummary) => {
+    setInspectNetwork(net);
+    setIsLoadingInspect(true);
+    setInspectData(null);
+    try {
+      const data = await api.networks.inspect(net.id);
+      setInspectData(data);
+    } catch {
+      toast.error("Falha ao carregar detalhes da rede");
+    } finally {
+      setIsLoadingInspect(false);
+    }
+  };
+
+  const handleCreateSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newName.trim()) {
+      toast.error("Informe o nome da rede");
+      return;
+    }
+    createMutation.mutate({
+      name: newName.trim(),
+      driver: newDriver,
+      subnet: newSubnet.trim() || undefined,
+      gateway: newGateway.trim() || undefined,
+      internal: newInternal,
+    });
+  };
+
   return (
     <>
       <PageHeader
         title="Redes"
-        subtitle={`${networks.length} redes configuradas no Docker`}
+        subtitle={`${networks.length} redes configuradas no Docker Engine`}
         actions={
           <div className="flex gap-2">
             <Button
@@ -52,12 +207,11 @@ function NetworksPage() {
               <RefreshCw className={cn("size-4", isFetching && "animate-spin")} />
               Atualizar
             </Button>
-            <Button
-              size="sm"
-              onClick={() => toast.info("Criação de redes será disponibilizada na Fase 6.")}
-            >
-              <Plus className="size-4" /> Nova rede
-            </Button>
+            {isOperator && (
+              <Button size="sm" onClick={() => setIsCreateOpen(true)}>
+                <Plus className="size-4" /> Nova rede
+              </Button>
+            )}
           </div>
         }
       />
@@ -78,12 +232,12 @@ function NetworksPage() {
         <table className="w-full text-sm">
           <thead className="border-b text-left text-xs uppercase tracking-wider text-muted-foreground">
             <tr>
-              <th className="px-4 py-3 font-medium">Nome</th>
+              <th className="px-4 py-3 font-medium">Nome / ID</th>
               <th className="px-4 py-3 font-medium">Driver</th>
               <th className="px-4 py-3 font-medium">Escopo</th>
-              <th className="px-4 py-3 font-medium">Subnet</th>
-              <th className="px-4 py-3 font-medium">Gateway</th>
+              <th className="px-4 py-3 font-medium">Subnet / Gateway</th>
               <th className="px-4 py-3 font-medium">Containers Conectados</th>
+              <th className="px-4 py-3 font-medium text-right">Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -120,7 +274,7 @@ function NetworksPage() {
               </tr>
             ) : (
               networks.map((n) => {
-                const isBuiltin = builtin.includes(n.name);
+                const isBuiltin = BUILTIN_NETWORKS.includes(n.name.toLowerCase());
                 const subnets =
                   n.ipam?.config
                     ?.map((c) => c.subnet)
@@ -131,7 +285,7 @@ function NetworksPage() {
                     ?.map((c) => c.gateway)
                     .filter(Boolean)
                     .join(", ") || "—";
-                const containerCount = n.containers ? Object.keys(n.containers).length : 0;
+                const connectedList = n.containers ? Object.entries(n.containers) : [];
 
                 return (
                   <tr
@@ -139,7 +293,8 @@ function NetworksPage() {
                     className="border-b last:border-0 hover:bg-accent/40 transition-colors"
                   >
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2 font-medium">
+                      <div className="flex items-center gap-2 font-medium text-foreground">
+                        <span>{n.name}</span>
                         {n.internal && (
                           <span title="Rede interna isolada">
                             <Lock className="size-3 text-muted-foreground" />
@@ -161,12 +316,86 @@ function NetworksPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{n.scope}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{subnets}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                      {gateways}
+                    <td className="px-4 py-3 font-mono text-xs">
+                      <div>{subnets}</div>
+                      {gateways !== "—" && (
+                        <div className="text-[11px] text-muted-foreground">GW: {gateways}</div>
+                      )}
                     </td>
                     <td className="px-4 py-3 font-mono text-xs">
-                      {containerCount} {containerCount === 1 ? "container" : "containers"}
+                      {connectedList.length === 0 ? (
+                        <span className="text-muted-foreground">0 containers</span>
+                      ) : (
+                        <div className="flex flex-wrap gap-1 max-w-xs">
+                          {connectedList.map(([cid, info]) => (
+                            <span
+                              key={cid}
+                              className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground group"
+                            >
+                              <span>{info.name}</span>
+                              {info.ipv4Address && (
+                                <span className="text-[10px] opacity-70 font-mono">
+                                  ({info.ipv4Address.split("/")[0]})
+                                </span>
+                              )}
+                              {isOperator && !isBuiltin && (
+                                <button
+                                  type="button"
+                                  title="Desconectar da rede"
+                                  className="text-destructive/60 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onClick={() =>
+                                    disconnectMutation.mutate({ netId: n.id, container: cid })
+                                  }
+                                >
+                                  <Unlink className="size-2.5" />
+                                </button>
+                              )}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        {isOperator && !isBuiltin && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-8"
+                            title="Conectar Container"
+                            onClick={() => {
+                              setConnectNetwork(n);
+                              setSelectedContainerId("");
+                              setCustomIp("");
+                            }}
+                          >
+                            <LinkIcon className="size-3.5" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8"
+                          title="Inspecionar"
+                          onClick={() => handleOpenInspect(n)}
+                        >
+                          <Eye className="size-3.5" />
+                        </Button>
+                        {isOperator && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled={isBuiltin}
+                            title={
+                              isBuiltin ? "Redes padrão não podem ser removidas" : "Remover rede"
+                            }
+                            className="size-8 text-destructive hover:bg-destructive/10 hover:text-destructive disabled:opacity-30"
+                            onClick={() => setDeleteTarget(n)}
+                          >
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -175,6 +404,216 @@ function NetworksPage() {
           </tbody>
         </table>
       </Panel>
+
+      {/* Create Network Dialog */}
+      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Criar nova rede Docker</DialogTitle>
+            <DialogDescription>
+              Configure o driver de rede e faixas de IP isoladas para seus containers.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleCreateSubmit} className="space-y-4">
+            <div>
+              <label className="text-xs font-medium">Nome da Rede *</label>
+              <Input
+                placeholder="ex.: app-network"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                className="mt-1 font-mono text-xs"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium">Driver</label>
+                <Select
+                  value={newDriver}
+                  onValueChange={(v) =>
+                    setNewDriver(v as "bridge" | "overlay" | "macvlan" | "ipvlan")
+                  }
+                >
+                  <SelectTrigger className="mt-1 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="bridge">bridge (padrão)</SelectItem>
+                    <SelectItem value="overlay">overlay (swarm)</SelectItem>
+                    <SelectItem value="macvlan">macvlan</SelectItem>
+                    <SelectItem value="ipvlan">ipvlan</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium">Subnet (CIDR)</label>
+                <Input
+                  placeholder="ex.: 172.28.0.0/16"
+                  value={newSubnet}
+                  onChange={(e) => setNewSubnet(e.target.value)}
+                  className="mt-1 font-mono text-xs"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium">Gateway (opcional)</label>
+              <Input
+                placeholder="ex.: 172.28.0.1"
+                value={newGateway}
+                onChange={(e) => setNewGateway(e.target.value)}
+                className="mt-1 font-mono text-xs"
+              />
+            </div>
+
+            <div className="flex items-center space-x-2 pt-1">
+              <Checkbox
+                id="internal-net"
+                checked={newInternal}
+                onCheckedChange={(v) => setNewInternal(Boolean(v))}
+              />
+              <label
+                htmlFor="internal-net"
+                className="text-xs font-medium text-muted-foreground cursor-pointer"
+              >
+                Isolar rede interna (bloquear saída para internet)
+              </label>
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={createMutation.isPending || !newName.trim()}>
+                {createMutation.isPending ? "Criando..." : "Criar rede"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Connect Container Dialog */}
+      <Dialog
+        open={Boolean(connectNetwork)}
+        onOpenChange={(open) => !open && setConnectNetwork(null)}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Conectar container à rede</DialogTitle>
+            <DialogDescription>
+              Selecione o container que deseja associar à rede{" "}
+              <strong className="font-mono text-foreground">{connectNetwork?.name}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="text-xs font-medium">Container</label>
+              <Select value={selectedContainerId} onValueChange={setSelectedContainerId}>
+                <SelectTrigger className="mt-1 text-xs">
+                  <SelectValue placeholder="Selecione um container..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {containers.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name} ({c.image})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium">IP Fixo na rede (opcional)</label>
+              <Input
+                placeholder="ex.: 172.28.0.50"
+                value={customIp}
+                onChange={(e) => setCustomIp(e.target.value)}
+                className="mt-1 font-mono text-xs"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConnectNetwork(null)}>
+              Cancelar
+            </Button>
+            <Button
+              disabled={!selectedContainerId || connectMutation.isPending}
+              onClick={() => {
+                if (connectNetwork && selectedContainerId) {
+                  connectMutation.mutate({
+                    netId: connectNetwork.id,
+                    container: selectedContainerId,
+                    ip: customIp.trim() || undefined,
+                  });
+                }
+              }}
+            >
+              {connectMutation.isPending ? "Conectando..." : "Conectar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Inspect Dialog */}
+      <Dialog
+        open={Boolean(inspectNetwork)}
+        onOpenChange={(open) => !open && setInspectNetwork(null)}
+      >
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="font-mono text-base">Rede: {inspectNetwork?.name}</DialogTitle>
+            <DialogDescription>
+              Configurações completas de IPAM e endpoints do Docker
+            </DialogDescription>
+          </DialogHeader>
+
+          {isLoadingInspect ? (
+            <div className="py-12 text-center text-sm text-muted-foreground">
+              <Loader2 className="mx-auto size-6 animate-spin mb-2 text-primary" />
+              Carregando detalhes da rede...
+            </div>
+          ) : (
+            <pre className="max-h-[60vh] overflow-auto rounded-lg border bg-surface p-3 font-mono text-[11px]">
+              {JSON.stringify(inspectData, null, 2)}
+            </pre>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Network Alert */}
+      <AlertDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover rede Docker?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A rede <strong className="font-mono text-foreground">{deleteTarget?.name}</strong>{" "}
+              será excluída. Containers conectados serão desvinculados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMutation.isPending}
+              onClick={() => {
+                if (deleteTarget) {
+                  deleteMutation.mutate(deleteTarget.id);
+                }
+              }}
+            >
+              {deleteMutation.isPending ? "Removendo..." : "Sim, remover"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

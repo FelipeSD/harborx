@@ -62,6 +62,23 @@ const migrations: Migration[] = [
       `);
     },
   },
+  {
+    name: "003_registries",
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS registries (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          url TEXT UNIQUE NOT NULL,
+          username TEXT NOT NULL,
+          encrypted_secret TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_registries_url ON registries(url);
+      `);
+    },
+  },
 ];
 
 export function runMigrations(db: Database.Database): void {

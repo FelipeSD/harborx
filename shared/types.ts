@@ -110,6 +110,52 @@ export interface VolumeSummary {
         refCount: number;
       }
     | undefined;
+  inUseBy?: Array<{ id: string; name: string }>;
+}
+
+export interface RegistrySummary {
+  id: string;
+  name: string;
+  url: string;
+  username: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateRegistryRequest {
+  name: string;
+  url: string;
+  username: string;
+  secret: string;
+}
+
+export interface CreateNetworkRequest {
+  name: string;
+  driver?: "bridge" | "overlay" | "macvlan" | "ipvlan";
+  subnet?: string;
+  gateway?: string;
+  internal?: boolean;
+  attachable?: boolean;
+  labels?: Record<string, string>;
+}
+
+export interface CreateVolumeRequest {
+  name?: string;
+  driver?: string;
+  driverOpts?: Record<string, string>;
+  labels?: Record<string, string>;
+}
+
+export interface ImagePullProgress {
+  status?: string;
+  id?: string;
+  progressDetail?: {
+    current?: number;
+    total?: number;
+  };
+  progress?: string;
+  error?: string;
+  success?: boolean;
 }
 
 export interface SystemInfo {

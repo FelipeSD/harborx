@@ -1,16 +1,49 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Download, RefreshCw, Layers, AlertCircle, HardDrive } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  Download,
+  RefreshCw,
+  Layers,
+  AlertCircle,
+  HardDrive,
+  Trash2,
+  Eye,
+  Scissors,
+  CheckCircle2,
+  Loader2,
+  Copy,
+} from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 import { PageHeader, Panel } from "@/components/app/ui-bits";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import type { ImagePullProgress, ImageSummary } from "../../shared/types";
 
 export const Route = createFileRoute("/images")({
   head: () => ({
@@ -18,7 +51,8 @@ export const Route = createFileRoute("/images")({
       { title: "Imagens — HarborX" },
       {
         name: "description",
-        content: "Gerencie e visualize imagens Docker armazenadas localmente.",
+        content:
+          "Gerencie e visualize imagens Docker armazenadas localmente com download em tempo real.",
       },
       { property: "og:title", content: "Imagens — HarborX" },
     ],
@@ -40,11 +74,31 @@ function formatDate(unixSeconds: number): string {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
 function ImagesPage() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const isOperator = user?.role === "admin" || user?.role === "operator";
+
   const [ref, setRef] = useState("");
+  const [isPulling, setIsPulling] = useState(false);
+  const [pullProgress, setPullProgress] = useState<
+    Record<string, { status: string; current?: number; total?: number }>
+  >({});
+  const [pullStatusText, setPullStatusText] = useState("");
+
+  const [inspectImage, setInspectImage] = useState<ImageSummary | null>(null);
+  const [inspectData, setInspectData] = useState<Record<string, unknown> | null>(null);
+  const [inspectHistory, setInspectHistory] = useState<Array<Record<string, unknown>> | null>(null);
+  const [isLoadingInspect, setIsLoadingInspect] = useState(false);
+
+  const [deleteTarget, setDeleteTarget] = useState<ImageSummary | null>(null);
+  const [forceDelete, setForceDelete] = useState(false);
+  const [isPruneOpen, setIsPruneOpen] = useState(false);
 
   const {
     data: images = [],
@@ -58,43 +112,192 @@ function ImagesPage() {
     queryFn: api.images.list,
   });
 
+  const handlePull = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const targetRef = ref.trim();
+    if (!targetRef) return;
+
+    setIsPulling(true);
+    setPullProgress({});
+    setPullStatusText(`Iniciando download de ${targetRef}...`);
+
+    try {
+      await api.images.pullStream(targetRef, (event: ImagePullProgress) => {
+        if (event.id) {
+          setPullProgress((prev) => ({
+            ...prev,
+            [event.id!]: {
+              status: event.status || "",
+              current: event.progressDetail?.current,
+              total: event.progressDetail?.total,
+            },
+          }));
+        } else if (event.status) {
+          setPullStatusText(event.status);
+        }
+      });
+
+      toast.success(`Imagem ${targetRef} baixada com sucesso!`);
+      setRef("");
+      setPullProgress({});
+      setPullStatusText("");
+      void queryClient.invalidateQueries({ queryKey: ["images"] });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error(`Falha no download: ${msg}`);
+      setPullStatusText(`Erro: ${msg}`);
+    } finally {
+      setIsPulling(false);
+    }
+  };
+
+  const handleOpenInspect = async (img: ImageSummary) => {
+    setInspectImage(img);
+    setIsLoadingInspect(true);
+    setInspectData(null);
+    setInspectHistory(null);
+
+    try {
+      const [inspect, history] = await Promise.all([
+        api.images.inspect(img.id),
+        api.images.history(img.id).catch(() => []),
+      ]);
+      setInspectData(inspect);
+      setInspectHistory(history);
+    } catch (err: unknown) {
+      toast.error("Falha ao carregar detalhes da imagem");
+    } finally {
+      setIsLoadingInspect(false);
+    }
+  };
+
+  const deleteMutation = useMutation({
+    mutationFn: ({ id, force }: { id: string; force: boolean }) => api.images.remove(id, force),
+    onSuccess: () => {
+      toast.success("Imagem removida com sucesso");
+      setDeleteTarget(null);
+      void queryClient.invalidateQueries({ queryKey: ["images"] });
+    },
+    onError: (err: Error) => {
+      toast.error(`Erro ao remover imagem: ${err.message}`);
+    },
+  });
+
+  const pruneMutation = useMutation({
+    mutationFn: () => api.images.prune(false),
+    onSuccess: (data) => {
+      const count = data.imagesDeleted?.length || 0;
+      toast.success(
+        count > 0
+          ? `${count} imagens podadas (${formatBytes(data.spaceReclaimed)} liberados)`
+          : "Nenhuma imagem não utilizada para podar",
+      );
+      setIsPruneOpen(false);
+      void queryClient.invalidateQueries({ queryKey: ["images"] });
+    },
+    onError: (err: Error) => {
+      toast.error(`Erro ao podar imagens: ${err.message}`);
+    },
+  });
+
   return (
     <>
       <PageHeader
         title="Imagens"
         subtitle={`${images.length} imagens no host local`}
         actions={
-          <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={isFetching}>
-            <RefreshCw className={cn("size-4", isFetching && "animate-spin")} />
-            Atualizar
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void refetch()}
+              disabled={isFetching}
+            >
+              <RefreshCw className={cn("size-4", isFetching && "animate-spin")} />
+              Atualizar
+            </Button>
+            {isOperator && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsPruneOpen(true)}
+                disabled={pruneMutation.isPending}
+              >
+                <Scissors className="size-4" />
+                Podar não usadas
+              </Button>
+            )}
+          </div>
         }
       />
 
       <Panel className="mb-6 p-5">
-        <p className="mb-3 text-sm font-medium">Baixar imagem do registro</p>
-        <form
-          className="flex flex-col gap-2 sm:flex-row"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (ref) {
-              toast.info(
-                `Download de ${ref} será implementado na Fase 6 com progresso em tempo real.`,
-              );
-              setRef("");
-            }
-          }}
-        >
+        <p className="mb-3 text-sm font-medium">
+          Baixar imagem de registro (Docker Hub, GHCR, etc.)
+        </p>
+        <form className="flex flex-col gap-2 sm:flex-row" onSubmit={handlePull}>
           <Input
             value={ref}
             onChange={(e) => setRef(e.target.value)}
-            placeholder="ex.: nginx:latest, redis:7 ou ghcr.io/org/app:v1"
+            placeholder="ex.: nginx:alpine, redis:7, ghcr.io/owner/repo:v1"
             className="font-mono text-xs"
+            disabled={isPulling || !isOperator}
           />
-          <Button type="submit">
-            <Download className="size-4" /> Baixar
+          <Button type="submit" disabled={isPulling || !isOperator || !ref.trim()}>
+            {isPulling ? (
+              <>
+                <Loader2 className="size-4 animate-spin" /> Baixando...
+              </>
+            ) : (
+              <>
+                <Download className="size-4" /> Baixar
+              </>
+            )}
           </Button>
         </form>
+
+        {(isPulling || pullStatusText) && (
+          <div className="mt-4 rounded-lg border bg-surface p-4 text-xs font-mono">
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-semibold text-foreground flex items-center gap-2">
+                {isPulling ? (
+                  <Loader2 className="size-3.5 animate-spin text-primary" />
+                ) : (
+                  <CheckCircle2 className="size-3.5 text-emerald-500" />
+                )}
+                {pullStatusText || "Processando camadas..."}
+              </span>
+            </div>
+
+            {Object.keys(pullProgress).length > 0 && (
+              <div className="space-y-2 mt-3 max-h-48 overflow-y-auto pr-1">
+                {Object.entries(pullProgress).map(([layerId, item]) => {
+                  const percent =
+                    item.total && item.current
+                      ? Math.round((item.current / item.total) * 100)
+                      : item.status.includes("Complete")
+                        ? 100
+                        : 0;
+
+                  return (
+                    <div key={layerId} className="space-y-1">
+                      <div className="flex justify-between text-[11px] text-muted-foreground">
+                        <span>{layerId}</span>
+                        <span>
+                          {item.status}{" "}
+                          {item.total
+                            ? `(${formatBytes(item.current || 0)} / ${formatBytes(item.total)})`
+                            : ""}
+                        </span>
+                      </div>
+                      <Progress value={percent} className="h-1.5" />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </Panel>
 
       {isError && (
@@ -138,24 +341,39 @@ function ImagesPage() {
               : [primaryTag, "latest"];
 
             const isGhcr = repo.includes("ghcr.io");
-            const isDockerHub = !isGhcr;
+            const isDockerHub = !isGhcr && !repo.includes(".");
+            const shortId = i.id.replace(/^sha256:/, "").slice(0, 12);
 
             return (
-              <Panel key={i.id} className="p-5 flex flex-col justify-between">
+              <Panel
+                key={i.id}
+                className="p-5 flex flex-col justify-between hover:border-foreground/20 transition-colors"
+              >
                 <div>
                   <div className="flex items-start justify-between gap-2">
                     <Badge variant="outline" className="font-mono text-[10px]">
-                      {isGhcr ? "GHCR" : isDockerHub ? "Docker Hub" : "Registry"}
+                      {isGhcr ? "GHCR" : isDockerHub ? "Docker Hub" : "Registro"}
                     </Badge>
-                    <span className="font-mono text-[11px] text-muted-foreground">
-                      {i.id.slice(7, 19)}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono text-[11px] text-muted-foreground">{shortId}</span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-6 text-muted-foreground"
+                        onClick={() => {
+                          void navigator.clipboard.writeText(i.id);
+                          toast.success("ID copiado");
+                        }}
+                      >
+                        <Copy className="size-3" />
+                      </Button>
+                    </div>
                   </div>
 
                   <p className="mt-3 truncate font-mono text-sm font-semibold" title={repo}>
                     {repo}
                   </p>
-                  <p className="font-mono text-xs text-primary">:{tag}</p>
+                  <p className="font-mono text-xs text-primary font-medium">:{tag}</p>
 
                   {i.repoTags.length > 1 && (
                     <div className="mt-2 flex flex-wrap gap-1">
@@ -171,18 +389,173 @@ function ImagesPage() {
                   )}
                 </div>
 
-                <div className="mt-6 border-t pt-3 flex items-center justify-between text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <HardDrive className="size-3.5" />
-                    {formatBytes(i.size)}
-                  </span>
-                  <span>{formatDate(i.created)}</span>
+                <div className="mt-5 border-t pt-3">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
+                    <span className="flex items-center gap-1">
+                      <HardDrive className="size-3.5" />
+                      {formatBytes(i.size)}
+                    </span>
+                    <span>{formatDate(i.created)}</span>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs"
+                      onClick={() => handleOpenInspect(i)}
+                    >
+                      <Eye className="size-3.5" /> Inspecionar
+                    </Button>
+                    {isOperator && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => {
+                          setDeleteTarget(i);
+                          setForceDelete(false);
+                        }}
+                      >
+                        <Trash2 className="size-3.5" /> Remover
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </Panel>
             );
           })}
         </div>
       )}
+
+      {/* Inspect Modal */}
+      <Dialog open={Boolean(inspectImage)} onOpenChange={(open) => !open && setInspectImage(null)}>
+        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="font-mono text-base truncate">
+              {inspectImage?.repoTags[0] || inspectImage?.id}
+            </DialogTitle>
+            <DialogDescription>
+              Camadas e metadados inspecionados do Docker Engine
+            </DialogDescription>
+          </DialogHeader>
+
+          {isLoadingInspect ? (
+            <div className="py-12 text-center text-sm text-muted-foreground">
+              <Loader2 className="mx-auto size-6 animate-spin mb-2 text-primary" />
+              Carregando metadados da imagem...
+            </div>
+          ) : (
+            <div className="space-y-4 overflow-y-auto pr-1">
+              {inspectHistory && inspectHistory.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">
+                    Histórico de Camadas ({inspectHistory.length})
+                  </h4>
+                  <div className="space-y-1.5 rounded-lg border bg-surface p-3 font-mono text-xs">
+                    {inspectHistory.map((h, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-start justify-between gap-4 border-b pb-1.5 last:border-0 last:pb-0"
+                      >
+                        <div
+                          className="truncate text-muted-foreground"
+                          title={String(h["CreatedBy"] || "")}
+                        >
+                          {String(h["CreatedBy"] || "").replace(/^\/bin\/sh -c #(nop) /, "")}
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <span className="font-medium text-foreground">
+                            {formatBytes(Number(h["Size"] || 0))}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">
+                  JSON de Inspeção
+                </h4>
+                <pre className="max-h-72 overflow-auto rounded-lg border bg-surface p-3 font-mono text-[11px]">
+                  {JSON.stringify(inspectData, null, 2)}
+                </pre>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover imagem Docker?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A imagem{" "}
+              <strong className="font-mono text-foreground">
+                {deleteTarget?.repoTags[0] || deleteTarget?.id}
+              </strong>{" "}
+              será excluída do host.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex items-center space-x-2 py-2">
+            <Checkbox
+              id="force-delete"
+              checked={forceDelete}
+              onCheckedChange={(v) => setForceDelete(Boolean(v))}
+            />
+            <label
+              htmlFor="force-delete"
+              className="text-xs font-medium leading-none text-muted-foreground cursor-pointer"
+            >
+              Forçar remoção (-f / force) mesmo se associada a tags secundárias
+            </label>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMutation.isPending}
+              onClick={() => {
+                if (deleteTarget) {
+                  deleteMutation.mutate({ id: deleteTarget.id, force: forceDelete });
+                }
+              }}
+            >
+              {deleteMutation.isPending ? "Removendo..." : "Sim, remover"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Prune Confirmation */}
+      <AlertDialog open={isPruneOpen} onOpenChange={setIsPruneOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Podar imagens não utilizadas?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Isso removerá todas as imagens não associadas a nenhum container em execução ou
+              parado, liberando espaço em disco. Imagens ativas não serão afetadas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={pruneMutation.isPending}
+              onClick={() => pruneMutation.mutate()}
+            >
+              {pruneMutation.isPending ? "Podando..." : "Confirmar poda"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

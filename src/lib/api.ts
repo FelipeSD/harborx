@@ -5,10 +5,15 @@ import type {
   ContainerStatsSummary,
   ContainerSummary,
   CreateContainerRequest,
+  CreateNetworkRequest,
+  CreateRegistryRequest,
+  CreateVolumeRequest,
   HostMetricPoint,
+  ImagePullProgress,
   ImageSummary,
   LogLine,
   NetworkSummary,
+  RegistrySummary,
   RenameContainerRequest,
   SetupStatusResponse,
   SystemDfResponse,
@@ -140,14 +145,129 @@ export const api = {
 
   images: {
     list: () => fetchApi<ImageSummary[]>("/api/images"),
+    inspect: (id: string) => fetchApi<Record<string, unknown>>(`/api/images/${id}/inspect`),
+    history: (id: string) => fetchApi<Array<Record<string, unknown>>>(`/api/images/${id}/history`),
+    pull: (ref: string) =>
+      fetchApi<{ success: true; ref: string }>("/api/images/pull", {
+        method: "POST",
+        body: JSON.stringify({ ref, stream: false }),
+      }),
+    pullStream: async (ref: string, onEvent: (event: ImagePullProgress) => void): Promise<void> => {
+      const response = await fetch("/api/images/pull", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ ref, stream: true }),
+      });
+      if (!response.ok) {
+        const err = (await response.json().catch(() => ({ error: "Erro ao baixar imagem" }))) as {
+          error?: string;
+        };
+        throw new Error(err.error || `HTTP ${response.status}`);
+      }
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("Stream de resposta não disponível");
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(6)) as ImagePullProgress;
+              if (data.error) throw new Error(data.error);
+              onEvent(data);
+            } catch (e) {
+              if (e instanceof Error && line.includes('"error":')) {
+                throw e;
+              }
+            }
+          }
+        }
+      }
+    },
+    remove: (id: string, force = false) => {
+      const qs = force ? "?force=true" : "";
+      return fetchApi<{ success: true }>(`/api/images/${id}${qs}`, {
+        method: "DELETE",
+      });
+    },
+    prune: (danglingOnly = false) =>
+      fetchApi<{ success: true; imagesDeleted: unknown[]; spaceReclaimed: number }>(
+        "/api/images/prune",
+        {
+          method: "POST",
+          body: JSON.stringify({ danglingOnly }),
+        },
+      ),
   },
 
   networks: {
     list: () => fetchApi<NetworkSummary[]>("/api/networks"),
+    inspect: (id: string) => fetchApi<Record<string, unknown>>(`/api/networks/${id}/inspect`),
+    create: (data: CreateNetworkRequest) =>
+      fetchApi<{ id: string; name: string }>("/api/networks", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    remove: (id: string) =>
+      fetchApi<{ success: true; name: string }>(`/api/networks/${id}`, {
+        method: "DELETE",
+      }),
+    connect: (
+      id: string,
+      data: { container: string; ipv4Address?: string; ipv6Address?: string },
+    ) =>
+      fetchApi<{ success: true }>(`/api/networks/${id}/connect`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    disconnect: (id: string, data: { container: string; force?: boolean }) =>
+      fetchApi<{ success: true }>(`/api/networks/${id}/disconnect`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
   },
 
   volumes: {
     list: () => fetchApi<VolumeSummary[]>("/api/volumes"),
+    inspect: (name: string) => fetchApi<Record<string, unknown>>(`/api/volumes/${name}/inspect`),
+    create: (data: CreateVolumeRequest) =>
+      fetchApi<{ name: string }>("/api/volumes", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    remove: (name: string, force = false) => {
+      const qs = force ? "?force=true" : "";
+      return fetchApi<{ success: true; name: string }>(`/api/volumes/${name}${qs}`, {
+        method: "DELETE",
+      });
+    },
+    prune: () =>
+      fetchApi<{ success: true; volumesDeleted: string[]; spaceReclaimed: number }>(
+        "/api/volumes/prune",
+        {
+          method: "POST",
+        },
+      ),
+  },
+
+  registries: {
+    list: () => fetchApi<RegistrySummary[]>("/api/registries"),
+    create: (data: CreateRegistryRequest) =>
+      fetchApi<RegistrySummary>("/api/registries", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    remove: (id: string) =>
+      fetchApi<{ success: true }>(`/api/registries/${id}`, {
+        method: "DELETE",
+      }),
   },
 
   system: {
