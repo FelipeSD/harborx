@@ -1,7 +1,12 @@
 import type {
+  BatchActionResult,
+  BatchContainerActionRequest,
+  ContainerAction,
   ContainerSummary,
+  CreateContainerRequest,
   ImageSummary,
   NetworkSummary,
+  RenameContainerRequest,
   SetupStatusResponse,
   SystemInfo,
   User,
@@ -72,7 +77,48 @@ export const api = {
 
   containers: {
     list: () => fetchApi<ContainerSummary[]>("/api/containers"),
-    get: (id: string) => fetchApi<unknown>(`/api/containers/${id}`),
+    get: (id: string) => fetchApi<Record<string, unknown>>(`/api/containers/${id}`),
+    inspect: (id: string) => fetchApi<Record<string, unknown>>(`/api/containers/${id}/inspect`),
+    create: (data: CreateContainerRequest) =>
+      fetchApi<{ success: true; id: string; name: string }>("/api/containers", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    action: (id: string, action: ContainerAction, params?: { timeout?: number }) => {
+      const qs = params?.timeout ? `?t=${params.timeout}` : "";
+      return fetchApi<{ success: true; message: string }>(`/api/containers/${id}/${action}${qs}`, {
+        method: "POST",
+      });
+    },
+    rename: (id: string, data: RenameContainerRequest) =>
+      fetchApi<{ success: true; name: string }>(`/api/containers/${id}/rename`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    duplicate: (id: string, name?: string) =>
+      fetchApi<{ success: true; id: string; name: string }>(`/api/containers/${id}/duplicate`, {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      }),
+    recreate: (id: string, options?: { pullLatest?: boolean }) =>
+      fetchApi<{ success: true; id: string; name: string }>(`/api/containers/${id}/recreate`, {
+        method: "POST",
+        body: JSON.stringify(options || {}),
+      }),
+    remove: (id: string, options?: { force?: boolean; volumes?: boolean }) => {
+      const params = new URLSearchParams();
+      if (options?.force) params.set("force", "true");
+      if (options?.volumes) params.set("volumes", "true");
+      const qs = params.toString() ? `?${params.toString()}` : "";
+      return fetchApi<{ success: true; message: string }>(`/api/containers/${id}${qs}`, {
+        method: "DELETE",
+      });
+    },
+    batch: (data: BatchContainerActionRequest) =>
+      fetchApi<BatchActionResult>("/api/containers/batch", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
   },
 
   images: {

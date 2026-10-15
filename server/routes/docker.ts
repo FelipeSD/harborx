@@ -1,6 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
 import type {
-  ContainerSummary,
   ImageSummary,
   NetworkSummary,
   SystemInfo,
@@ -9,60 +8,6 @@ import type {
 import { docker } from "../docker.js";
 
 export const dockerRoutes: FastifyPluginAsync = async (fastify) => {
-  // GET /api/containers
-  fastify.get("/containers", async (_request, reply) => {
-    try {
-      const list = await docker.listContainers({ all: true });
-      const containers: ContainerSummary[] = list.map((c) => {
-        const rawName = c.Names[0] || c.Id.slice(0, 12);
-        const cleanName = rawName.replace(/^\//, "");
-        const labels = c.Labels || {};
-        const stack =
-          labels["com.docker.compose.project"] || labels["io.portainer.stack.name"] || undefined;
-
-        return {
-          id: c.Id,
-          names: c.Names.map((n) => n.replace(/^\//, "")),
-          name: cleanName,
-          image: c.Image,
-          imageId: c.ImageID,
-          command: c.Command,
-          created: c.Created,
-          state: c.State,
-          status: c.Status,
-          ports: (c.Ports || []).map((p) => ({
-            ip: p.IP,
-            privatePort: p.PrivatePort,
-            publicPort: p.PublicPort,
-            type: p.Type,
-          })),
-          labels,
-          stack,
-        };
-      });
-
-      return containers;
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      return reply.status(502).send({ error: `Falha ao listar containers do Docker: ${msg}` });
-    }
-  });
-
-  // GET /api/containers/:id
-  fastify.get<{ Params: { id: string } }>("/containers/:id", async (request, reply) => {
-    try {
-      const container = docker.getContainer(request.params.id);
-      const data = await container.inspect();
-      return data;
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (msg.includes("404") || msg.toLowerCase().includes("no such container")) {
-        return reply.status(404).send({ error: "Container não encontrado" });
-      }
-      return reply.status(502).send({ error: `Falha ao inspecionar container: ${msg}` });
-    }
-  });
-
   // GET /api/images
   fastify.get("/images", async (_request, reply) => {
     try {

@@ -11,16 +11,25 @@ import { isDockerReachable } from "./docker";
 import { db } from "./db/index";
 import { registerAuthHooks } from "./auth/middleware";
 import { authRoutes } from "./auth/routes";
+import { containerRoutes } from "./routes/containers";
 import { dockerRoutes } from "./routes/docker";
 
-async function main() {
+export async function buildApp(opts?: { logger?: boolean }) {
   fs.mkdirSync(config.dataDir, { recursive: true });
 
   const app = Fastify({
-    logger: {
-      level: config.logLevel,
-      redact: ["req.headers.authorization", "req.headers.cookie", "res.headers['set-cookie']"],
-    },
+    logger:
+      opts?.logger ??
+      (config.logLevel !== "silent"
+        ? {
+            level: config.logLevel,
+            redact: [
+              "req.headers.authorization",
+              "req.headers.cookie",
+              "res.headers['set-cookie']",
+            ],
+          }
+        : false),
     trustProxy: true,
     bodyLimit: 2 * 1024 * 1024,
   });
@@ -44,7 +53,10 @@ async function main() {
   // Auth routes
   await app.register(authRoutes, { prefix: "/api/auth" });
 
-  // Docker read-only routes
+  // Container routes
+  await app.register(containerRoutes, { prefix: "/api/containers" });
+
+  // Other Docker routes (images, networks, volumes, system)
   await app.register(dockerRoutes, { prefix: "/api" });
 
   const shellPath = path.join(config.staticDir, "_shell.html");
@@ -70,6 +82,12 @@ async function main() {
     return reply.code(404).send({ error: "Not found" });
   });
 
+  return app;
+}
+
+async function main() {
+  const app = await buildApp();
+
   const shutdown = async (signal: string) => {
     app.log.info(`Received ${signal}, shutting down...`);
     try {
@@ -84,6 +102,9 @@ async function main() {
   process.on("SIGTERM", () => void shutdown("SIGTERM"));
   process.on("SIGINT", () => void shutdown("SIGINT"));
 
+  const shellPath = path.join(config.staticDir, "_shell.html");
+  const hasFrontend = fs.existsSync(shellPath);
+
   console.log(`[HarborX] Booting server on ${config.host}:${config.port}...`);
   console.log(`[HarborX] Static directory: ${config.staticDir} (shell exists: ${hasFrontend})`);
 
@@ -91,7 +112,9 @@ async function main() {
   console.log(`[HarborX] Server listening at ${address}`);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+if (process.env["NODE_ENV"] !== "test") {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

@@ -11,4 +11,3 @@ export default defineConfig({
   },
   external: ["better-sqlite3", "@node-rs/argon2", "dockerode"],
 });
-

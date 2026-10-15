@@ -126,3 +126,46 @@ export interface SystemInfo {
   name: string;
   dockerRootDir: string;
 }
+
+export type ContainerAction =
+  "start" | "stop" | "restart" | "kill" | "pause" | "unpause" | "remove";
+
+export interface CreateContainerRequest {
+  name: string;
+  image: string;
+  env?: Array<{ key: string; value: string }> | undefined;
+  ports?:
+    | Array<{
+        hostPort?: number | undefined;
+        containerPort: number;
+        protocol?: "tcp" | "udp" | undefined;
+      }>
+    | undefined;
+  volumes?: Array<{ source: string; target: string; mode?: "ro" | "rw" | undefined }> | undefined;
+  network?: string | undefined;
+  restartPolicy?: "no" | "always" | "unless-stopped" | "on-failure" | undefined;
+  cpuLimit?: number | undefined;
+  memoryLimitMb?: number | undefined;
+  cmd?: string | string[] | undefined;
+  labels?: Record<string, string> | undefined;
+  start?: boolean | undefined;
+}
+
+export interface BatchContainerActionRequest {
+  ids: string[];
+  action: ContainerAction;
+  force?: boolean | undefined;
+  volumes?: boolean | undefined;
+}
+
+export interface BatchActionResult {
+  results: Array<{
+    id: string;
+    success: boolean;
+    error?: string | undefined;
+  }>;
+}
+
+export interface RenameContainerRequest {
+  name: string;
+}

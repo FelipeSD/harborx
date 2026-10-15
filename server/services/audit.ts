@@ -3,10 +3,10 @@ import { db } from "../db/index.js";
 
 export interface LogAuditOptions {
   action: string;
-  userId?: string | null;
-  target?: string | null;
+  userId?: string | null | undefined;
+  target?: string | null | undefined;
   details?: unknown;
-  ip?: string | null;
+  ip?: string | null | undefined;
 }
 
 export function logAudit({
