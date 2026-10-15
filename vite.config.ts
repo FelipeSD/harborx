@@ -11,8 +11,22 @@ export default defineConfig({
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
     server: { entry: "server" },
+    // SPA mode: build emits dist/client/_shell.html, served statically by server/index.ts (Fastify).
+    spa: { enabled: true },
   },
   vite: {
+    server: {
+      proxy: {
+        "/api": {
+          target: "http://127.0.0.1:8080",
+          changeOrigin: true,
+        },
+        "/ws": {
+          target: "ws://127.0.0.1:8080",
+          ws: true,
+        },
+      },
+    },
     optimizeDeps: {
       include: ["recharts", "sonner", "lucide-react", "@radix-ui/react-dialog", "@radix-ui/react-switch"],
     },
