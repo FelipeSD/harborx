@@ -11,6 +11,7 @@ import {
   startStack,
   stopStack,
   updateStackCompose,
+  updateStackRecord,
 } from "../services/stacks.js";
 
 const createStackSchema = z.object({
@@ -34,7 +35,9 @@ const createStackSchema = z.object({
 });
 
 const updateStackSchema = z.object({
-  composeYaml: z.string().min(1, "Compose YAML obrigatório"),
+  name: z.string().min(2, "Nome da stack deve ter no mínimo 2 caracteres").optional(),
+  type: z.enum(["compose", "git"]).optional(),
+  composeYaml: z.string().optional(),
   env: z
     .array(
       z.object({
@@ -44,6 +47,10 @@ const updateStackSchema = z.object({
       }),
     )
     .optional(),
+  gitRepo: z.string().optional(),
+  gitBranch: z.string().optional(),
+  gitPath: z.string().optional(),
+  autoDeploy: z.boolean().optional(),
   redeploy: z.boolean().default(true),
 });
 
@@ -125,7 +132,7 @@ export const stackRoutes: FastifyPluginAsync = async (fastify) => {
     },
   );
 
-  // PUT /api/stacks/:id - Update compose & redeploy
+  // PUT /api/stacks/:id - Update stack configuration & optional redeploy
   fastify.put<{ Params: { id: string } }>(
     "/stacks/:id",
     { preHandler: [requireRole("operator", "admin")] },
@@ -138,16 +145,26 @@ export const stackRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      const { composeYaml, env, redeploy } = parsed.data;
+      const { name, type, composeYaml, env, gitRepo, gitBranch, gitPath, autoDeploy, redeploy } =
+        parsed.data;
 
       try {
-        await updateStackCompose(request.params.id, composeYaml, env);
+        await updateStackRecord(request.params.id, {
+          name,
+          type,
+          composeYaml,
+          env,
+          gitRepo,
+          gitBranch,
+          gitPath,
+          autoDeploy,
+        });
 
         logAudit({
           userId: request.user?.id,
           action: "stack.update",
           target: request.params.id,
-          details: { redeploy },
+          details: { name, type, redeploy },
           ip: request.ip,
         });
 

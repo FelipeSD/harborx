@@ -20,6 +20,8 @@ import type {
   StackSummary,
   SystemDfResponse,
   SystemInfo,
+  TestRegistryRequest,
+  TestRegistryResponse,
   UpdateStackRequest,
   User,
   VolumeSummary,
@@ -342,6 +344,11 @@ export const api = {
     list: () => fetchApi<RegistrySummary[]>("/api/registries"),
     create: (data: CreateRegistryRequest) =>
       fetchApi<RegistrySummary>("/api/registries", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    test: (data: TestRegistryRequest) =>
+      fetchApi<TestRegistryResponse>("/api/registries/test", {
         method: "POST",
         body: JSON.stringify(data),
       }),

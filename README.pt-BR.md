@@ -107,4 +107,3 @@ Acesse: `http://<ip-da-vm>:8080` e crie a conta de administrador inicial.
 - O socket `/var/run/docker.sock` confere controle do Docker Engine local. Mantenha o servidor protegido.
 - Ao utilizar SSL/TLS através de proxy reverso (Nginx, Traefik, Caddy), configure `COOKIE_SECURE=true` no `.env`.
 - Credenciais de registros privados são criptografadas em repouso no SQLite com cifra AES-256-GCM.
-

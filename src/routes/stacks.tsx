@@ -61,7 +61,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import type { CreateStackRequest, StackEnvVar, StackSummary } from "../../shared/types";
+import type {
+  CreateStackRequest,
+  StackEnvVar,
+  StackSummary,
+  UpdateStackRequest,
+} from "../../shared/types";
 
 export const Route = createFileRoute("/stacks")({
   head: () => ({
@@ -277,8 +282,15 @@ function StacksPage() {
   const [deployNow, setDeployNow] = useState(true);
 
   const [editStack, setEditStack] = useState<StackSummary | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editMode, setEditMode] = useState<"compose" | "git">("compose");
   const [editYaml, setEditYaml] = useState("");
   const [editEnv, setEditEnv] = useState<StackEnvVar[]>([]);
+  const [editGitRepo, setEditGitRepo] = useState("");
+  const [editGitBranch, setEditGitBranch] = useState("main");
+  const [editGitPath, setEditGitPath] = useState("compose.yaml");
+  const [editAutoDeploy, setEditAutoDeploy] = useState(false);
+  const [editRedeploy, setEditRedeploy] = useState(true);
 
   const [logStack, setLogStack] = useState<StackSummary | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<StackSummary | null>(null);
@@ -295,6 +307,19 @@ function StacksPage() {
     queryKey: ["stacks"],
     queryFn: api.stacks.list,
   });
+
+  const handleOpenEdit = (s: StackSummary) => {
+    setEditStack(s);
+    setEditName(s.name);
+    setEditMode(s.type);
+    setEditYaml(s.composeYaml || TEMPLATES["custom"]!.yaml);
+    setEditEnv(s.env || []);
+    setEditGitRepo(s.gitRepo || "");
+    setEditGitBranch(s.gitBranch || "main");
+    setEditGitPath(s.gitPath || "compose.yaml");
+    setEditAutoDeploy(Boolean(s.autoDeploy));
+    setEditRedeploy(true);
+  };
 
   const createMutation = useMutation({
     mutationFn: (data: CreateStackRequest) => api.stacks.create(data),
@@ -313,17 +338,54 @@ function StacksPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, yaml, env }: { id: string; yaml: string; env: StackEnvVar[] }) =>
-      api.stacks.update(id, { composeYaml: yaml, env, redeploy: true }),
+    mutationFn: ({ id, payload }: { id: string; payload: UpdateStackRequest }) =>
+      api.stacks.update(id, payload),
     onSuccess: (res) => {
-      toast.success(`Stack '${res.name}' atualizada e redeploy iniciado!`);
+      toast.success(
+        editRedeploy
+          ? `Stack '${res.name}' atualizada e redeploy iniciado!`
+          : `Stack '${res.name}' atualizada com sucesso!`,
+      );
       setEditStack(null);
       void queryClient.invalidateQueries({ queryKey: ["stacks"] });
+      void queryClient.invalidateQueries({ queryKey: ["containers"] });
     },
     onError: (err: Error) => {
       toast.error(`Falha ao atualizar stack: ${err.message}`);
     },
   });
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editStack) return;
+    if (!editName.trim()) {
+      toast.error("Informe o nome da stack");
+      return;
+    }
+    if (editMode === "compose" && !editYaml.trim()) {
+      toast.error("O arquivo docker-compose.yml é obrigatório");
+      return;
+    }
+    if (editMode === "git" && !editGitRepo.trim()) {
+      toast.error("A URL do repositório Git é obrigatória");
+      return;
+    }
+
+    updateMutation.mutate({
+      id: editStack.id,
+      payload: {
+        name: editName.trim().toLowerCase(),
+        type: editMode,
+        composeYaml: editMode === "compose" ? editYaml : editYaml || undefined,
+        gitRepo: editMode === "git" ? editGitRepo.trim() : undefined,
+        gitBranch: editMode === "git" ? editGitBranch.trim() : undefined,
+        gitPath: editMode === "git" ? editGitPath.trim() : undefined,
+        autoDeploy: editMode === "git" ? editAutoDeploy : false,
+        env: editEnv.filter((v) => v.key.trim().length > 0),
+        redeploy: editRedeploy,
+      },
+    });
+  };
 
   const deployMutation = useMutation({
     mutationFn: (id: string) => api.stacks.deploy(id),
@@ -590,16 +652,8 @@ function StacksPage() {
                       </Button>
                     )}
                     {isOperator && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setEditStack(s);
-                          setEditYaml(s.composeYaml);
-                          setEditEnv(s.env);
-                        }}
-                      >
-                        <Code2 className="size-3.5" /> Editar Compose
+                      <Button size="sm" variant="outline" onClick={() => handleOpenEdit(s)}>
+                        <Code2 className="size-3.5" /> Editar Stack
                       </Button>
                     )}
                     {isOperator && isRunning ? (
@@ -807,49 +861,159 @@ function StacksPage() {
           <DialogHeader>
             <DialogTitle>Editar stack: {editStack?.name}</DialogTitle>
             <DialogDescription>
-              Modifique o docker-compose.yml e as variáveis de ambiente. Ao salvar, a stack será
-              reiniciada com as alterações.
+              Altere qualquer configuração da stack, variáveis de ambiente ou repositório Git.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 overflow-y-auto pr-1">
-            <div>
-              <Label className="text-xs">docker-compose.yml</Label>
-              <Textarea
-                value={editYaml}
-                onChange={(e) => setEditYaml(e.target.value)}
-                rows={12}
-                className="mt-1 font-mono text-xs leading-relaxed"
-              />
+          <form onSubmit={handleEditSubmit} className="space-y-4 overflow-y-auto pr-1">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Nome da Stack *</Label>
+                <Input
+                  placeholder="ex.: web-app"
+                  value={editName}
+                  onChange={(e) =>
+                    setEditName(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ""))
+                  }
+                  className="mt-1 font-mono text-xs"
+                  required
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs">Origem da Stack</Label>
+                <Select value={editMode} onValueChange={(v) => setEditMode(v as "compose" | "git")}>
+                  <SelectTrigger className="mt-1 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="compose">Editor Web (docker-compose.yml)</SelectItem>
+                    <SelectItem value="git">Repositório Git (GitHub, GitLab...)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+
+            {editMode === "compose" ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Modelo Pronto (Opcional)</Label>
+                  <Select
+                    onValueChange={(v) => {
+                      if (TEMPLATES[v]) setEditYaml(TEMPLATES[v]!.yaml);
+                    }}
+                  >
+                    <SelectTrigger className="w-56 h-8 text-xs">
+                      <SelectValue placeholder="Aplicar modelo..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(TEMPLATES).map(([k, t]) => (
+                        <SelectItem key={k} value={k}>
+                          {t.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label className="text-xs">docker-compose.yml *</Label>
+                  <Textarea
+                    value={editYaml}
+                    onChange={(e) => setEditYaml(e.target.value)}
+                    rows={12}
+                    className="mt-1 font-mono text-xs leading-relaxed"
+                    required
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-xs">URL do Repositório Git *</Label>
+                  <Input
+                    placeholder="https://github.com/org/meu-projeto.git"
+                    value={editGitRepo}
+                    onChange={(e) => setEditGitRepo(e.target.value)}
+                    className="mt-1 font-mono text-xs"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Branch</Label>
+                    <Input
+                      placeholder="main"
+                      value={editGitBranch}
+                      onChange={(e) => setEditGitBranch(e.target.value)}
+                      className="mt-1 font-mono text-xs"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Caminho do Compose no Repo</Label>
+                    <Input
+                      placeholder="compose.yaml ou docker-compose.yml"
+                      value={editGitPath}
+                      onChange={(e) => setEditGitPath(e.target.value)}
+                      className="mt-1 font-mono text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2 pt-1">
+                  <Checkbox
+                    id="edit-auto-deploy"
+                    checked={editAutoDeploy}
+                    onCheckedChange={(v) => setEditAutoDeploy(Boolean(v))}
+                  />
+                  <label
+                    htmlFor="edit-auto-deploy"
+                    className="text-xs font-medium text-muted-foreground cursor-pointer"
+                  >
+                    Ativar Webhook para auto-deploy no push do GitHub Actions
+                  </label>
+                </div>
+              </div>
+            )}
 
             <div>
               <Label className="text-xs font-semibold uppercase text-muted-foreground mb-2 block">
-                Variáveis de Ambiente
+                Variáveis de Ambiente (.env)
               </Label>
               <EnvEditor env={editEnv} onChange={setEditEnv} />
             </div>
-          </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditStack(null)}>
-              Cancelar
-            </Button>
-            <Button
-              disabled={updateMutation.isPending}
-              onClick={() => {
-                if (editStack) {
-                  updateMutation.mutate({
-                    id: editStack.id,
-                    yaml: editYaml,
-                    env: editEnv,
-                  });
-                }
-              }}
-            >
-              {updateMutation.isPending ? "Aplicando..." : "Salvar e Redeploy"}
-            </Button>
-          </DialogFooter>
+            <div className="flex items-center space-x-2 pt-2">
+              <Checkbox
+                id="edit-redeploy"
+                checked={editRedeploy}
+                onCheckedChange={(v) => setEditRedeploy(Boolean(v))}
+              />
+              <label
+                htmlFor="edit-redeploy"
+                className="text-xs font-medium text-foreground cursor-pointer"
+              >
+                Executar deploy imediatamente após salvar (Redeploy)
+              </label>
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" onClick={() => setEditStack(null)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={updateMutation.isPending || !editName.trim()}>
+                {updateMutation.isPending ? (
+                  <>
+                    <Loader2 className="size-3.5 animate-spin" />
+                    Salvando alterações...
+                  </>
+                ) : (
+                  "Salvar Alterações"
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 

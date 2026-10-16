@@ -462,23 +462,74 @@ export async function removeStack(stackId: string, removeVolumes = false): Promi
   db.prepare("DELETE FROM stacks WHERE id = ?").run(stack.id);
 }
 
+export async function updateStackRecord(
+  stackId: string,
+  data: {
+    name?: string;
+    type?: "compose" | "git";
+    composeYaml?: string;
+    env?: StackEnvVar[];
+    gitRepo?: string;
+    gitBranch?: string;
+    gitPath?: string;
+    autoDeploy?: boolean;
+  },
+): Promise<void> {
+  const stack = await getStack(stackId);
+  if (!stack) throw new Error("Stack não encontrada");
+
+  const newName = data.name ? data.name.trim().toLowerCase() : stack.name;
+  const newType = data.type ?? stack.type;
+  const newYaml = data.composeYaml !== undefined ? data.composeYaml : stack.composeYaml;
+  const newEnvJson = data.env !== undefined ? JSON.stringify(data.env) : JSON.stringify(stack.env);
+  const newGitRepo = data.gitRepo !== undefined ? data.gitRepo || null : stack.gitRepo || null;
+  const newGitBranch =
+    data.gitBranch !== undefined ? data.gitBranch || "main" : stack.gitBranch || "main";
+  const newGitPath =
+    data.gitPath !== undefined ? data.gitPath || "compose.yaml" : stack.gitPath || "compose.yaml";
+  const newAutoDeploy =
+    data.autoDeploy !== undefined ? (data.autoDeploy ? 1 : 0) : stack.autoDeploy ? 1 : 0;
+  const now = new Date().toISOString();
+
+  // If stack name changed, rename directory if old directory exists
+  if (newName !== stack.name) {
+    const oldDir = path.join(config.dataDir, "stacks", stack.name);
+    const newDir = path.join(config.dataDir, "stacks", newName);
+    if (fs.existsSync(oldDir)) {
+      try {
+        fs.renameSync(oldDir, newDir);
+      } catch {
+        fs.mkdirSync(newDir, { recursive: true });
+      }
+    }
+  }
+
+  db.prepare(
+    `
+    UPDATE stacks
+    SET name = ?, type = ?, compose_yaml = ?, env_json = ?, git_repo = ?, git_branch = ?, git_path = ?, auto_deploy = ?, updated_at = ?
+    WHERE id = ?
+  `,
+  ).run(
+    newName,
+    newType,
+    newYaml,
+    newEnvJson,
+    newGitRepo,
+    newGitBranch,
+    newGitPath,
+    newAutoDeploy,
+    now,
+    stack.id,
+  );
+}
+
 export async function updateStackCompose(
   stackId: string,
   composeYaml: string,
   env?: StackEnvVar[],
 ): Promise<void> {
-  const stack = await getStack(stackId);
-  if (!stack) throw new Error("Stack não encontrada");
-
-  const envJson = env ? JSON.stringify(env) : JSON.stringify(stack.env);
-  const now = new Date().toISOString();
-
-  db.prepare("UPDATE stacks SET compose_yaml = ?, env_json = ?, updated_at = ? WHERE id = ?").run(
-    composeYaml,
-    envJson,
-    now,
-    stack.id,
-  );
+  return updateStackRecord(stackId, { composeYaml, env });
 }
 
 export function getStackByWebhookToken(token: string): StackRecord | null {

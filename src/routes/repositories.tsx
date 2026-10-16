@@ -11,6 +11,8 @@ import {
   Lock,
   AlertCircle,
   ExternalLink,
+  CheckCircle2,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -40,7 +42,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import type { CreateRegistryRequest, RegistrySummary } from "../../shared/types";
+import type {
+  CreateRegistryRequest,
+  RegistrySummary,
+  TestRegistryRequest,
+} from "../../shared/types";
 
 export const Route = createFileRoute("/repositories")({
   head: () => ({
@@ -68,6 +74,33 @@ function formatDate(isoString: string): string {
   }
 }
 
+const REGISTRY_PRESETS = [
+  {
+    id: "dockerhub",
+    label: "Docker Hub",
+    domain: "docker.io",
+    defaultName: "Docker Hub",
+  },
+  {
+    id: "ghcr",
+    label: "GitHub (GHCR)",
+    domain: "ghcr.io",
+    defaultName: "GitHub Packages",
+  },
+  {
+    id: "gitlab",
+    label: "GitLab",
+    domain: "registry.gitlab.com",
+    defaultName: "GitLab Registry",
+  },
+  {
+    id: "custom",
+    label: "Personalizado",
+    domain: "",
+    defaultName: "",
+  },
+] as const;
+
 function RegistriesPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -79,6 +112,10 @@ function RegistriesPage() {
   const [username, setUsername] = useState("");
   const [secret, setSecret] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<RegistrySummary | null>(null);
+  const [testResult, setTestResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
 
   const {
     data: registries = [],
@@ -92,6 +129,32 @@ function RegistriesPage() {
     queryFn: api.registries.list,
   });
 
+  const testMutation = useMutation({
+    mutationFn: (data: TestRegistryRequest) => api.registries.test(data),
+    onSuccess: (res) => {
+      if (res.success) {
+        toast.success(res.status || "Credenciais validadas com sucesso!");
+        setTestResult({
+          success: true,
+          message: res.status || "Autenticação bem-sucedida!",
+        });
+      } else {
+        toast.error(res.error || "Falha na validação das credenciais");
+        setTestResult({
+          success: false,
+          message: res.error || "Falha na validação das credenciais",
+        });
+      }
+    },
+    onError: (err: Error) => {
+      toast.error(`Erro ao testar credenciais: ${err.message}`);
+      setTestResult({
+        success: false,
+        message: err.message,
+      });
+    },
+  });
+
   const createMutation = useMutation({
     mutationFn: (data: CreateRegistryRequest) => api.registries.create(data),
     onSuccess: (item) => {
@@ -101,6 +164,7 @@ function RegistriesPage() {
       setUrl("");
       setUsername("");
       setSecret("");
+      setTestResult(null);
       void queryClient.invalidateQueries({ queryKey: ["registries"] });
     },
     onError: (err: Error) => {
@@ -119,6 +183,20 @@ function RegistriesPage() {
       toast.error(`Falha ao remover registro: ${err.message}`);
     },
   });
+
+  const applyPreset = (preset: (typeof REGISTRY_PRESETS)[number]) => {
+    if (preset.domain) {
+      setUrl(preset.domain);
+      if (!name || REGISTRY_PRESETS.some((p) => p.defaultName === name)) {
+        setName(preset.defaultName);
+      }
+    } else {
+      if (REGISTRY_PRESETS.some((p) => p.domain === url)) {
+        setUrl("");
+      }
+    }
+    setTestResult(null);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -258,7 +336,13 @@ function RegistriesPage() {
       )}
 
       {/* Add Registry Dialog */}
-      <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+      <Dialog
+        open={isAddOpen}
+        onOpenChange={(open) => {
+          setIsAddOpen(open);
+          if (!open) setTestResult(null);
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Conectar registro de containers</DialogTitle>
@@ -268,6 +352,37 @@ function RegistriesPage() {
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-4 py-1">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground block mb-1.5">
+                Predefinições Rápidas
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                {REGISTRY_PRESETS.map((p) => {
+                  const isSelected =
+                    (p.domain && url.toLowerCase() === p.domain.toLowerCase()) ||
+                    (!p.domain &&
+                      url &&
+                      !["docker.io", "ghcr.io", "registry.gitlab.com"].includes(url.toLowerCase()));
+                  return (
+                    <Button
+                      key={p.id}
+                      type="button"
+                      size="sm"
+                      variant={isSelected ? "secondary" : "outline"}
+                      className={cn(
+                        "h-8 text-xs px-2 justify-center",
+                        isSelected &&
+                          "border-primary/50 text-foreground font-semibold bg-primary/10",
+                      )}
+                      onClick={() => applyPreset(p)}
+                    >
+                      {p.label}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+
             <div>
               <label className="text-xs font-medium">Nome Amigável *</label>
               <Input
@@ -284,13 +399,21 @@ function RegistriesPage() {
               <Input
                 placeholder="ex.: docker.io ou ghcr.io ou registry.meudominio.com"
                 value={url}
-                onChange={(e) => setUrl(e.target.value)}
+                onChange={(e) => {
+                  setUrl(e.target.value);
+                  setTestResult(null);
+                }}
                 className="mt-1 font-mono text-xs"
                 required
               />
               <p className="text-[11px] text-muted-foreground mt-1">
-                Para Docker Hub, utilize <code className="text-foreground">docker.io</code>. Para
-                GitHub, utilize <code className="text-foreground">ghcr.io</code>.
+                {url.toLowerCase().includes("ghcr.io")
+                  ? "Para GitHub Container Registry, utilize 'ghcr.io'."
+                  : url.toLowerCase().includes("gitlab")
+                    ? "Para GitLab Container Registry, utilize 'registry.gitlab.com'."
+                    : url.toLowerCase().includes("docker.io")
+                      ? "Para Docker Hub, utilize 'docker.io'."
+                      : "Domínio ou IP do registro privado (ex.: registry.empresa.com ou host:5000)."}
               </p>
             </div>
 
@@ -299,7 +422,10 @@ function RegistriesPage() {
               <Input
                 placeholder="ex.: usuario ou org"
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                onChange={(e) => {
+                  setUsername(e.target.value);
+                  setTestResult(null);
+                }}
                 className="mt-1 font-mono text-xs"
                 required
               />
@@ -311,23 +437,103 @@ function RegistriesPage() {
                 type="password"
                 placeholder="••••••••••••••••"
                 value={secret}
-                onChange={(e) => setSecret(e.target.value)}
+                onChange={(e) => {
+                  setSecret(e.target.value);
+                  setTestResult(null);
+                }}
                 className="mt-1 font-mono text-xs"
                 required
               />
               <p className="text-[11px] text-muted-foreground mt-1">
-                Para GitHub Container Registry, utilize um Personal Access Token com escopo{" "}
-                <code className="text-foreground">read:packages</code>.
+                {url.toLowerCase().includes("ghcr.io")
+                  ? "Para GitHub (GHCR), utilize um Personal Access Token com escopo 'read:packages' (e 'write:packages' para push)."
+                  : url.toLowerCase().includes("gitlab")
+                    ? "Para GitLab, utilize um Deploy Token ou PAT com o escopo 'read_registry'."
+                    : url.toLowerCase().includes("docker.io")
+                      ? "Para Docker Hub, utilize a senha da conta ou um Access Token gerado nas configurações de segurança."
+                      : "Senha da conta do registro ou token de acesso com permissão de pull/push."}
               </p>
             </div>
 
-            <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)}>
-                Cancelar
+            {testResult && (
+              <div
+                className={cn(
+                  "flex items-start gap-2.5 rounded-lg border p-3 text-xs leading-relaxed transition-all",
+                  testResult.success
+                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400 dark:text-emerald-300"
+                    : "border-destructive/30 bg-destructive/10 text-destructive",
+                )}
+              >
+                {testResult.success ? (
+                  <CheckCircle2 className="size-4 shrink-0 text-emerald-500 mt-0.5" />
+                ) : (
+                  <AlertCircle className="size-4 shrink-0 text-destructive mt-0.5" />
+                )}
+                <div className="flex-1">
+                  <p className="font-semibold">
+                    {testResult.success
+                      ? "Conexão e autenticação bem-sucedidas!"
+                      : "Falha na conexão / autenticação"}
+                  </p>
+                  <p className="text-[11px] opacity-90 mt-0.5">{testResult.message}</p>
+                </div>
+              </div>
+            )}
+
+            <DialogFooter className="pt-2 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9 gap-1.5"
+                disabled={
+                  testMutation.isPending || !url.trim() || !username.trim() || !secret.trim()
+                }
+                onClick={() => {
+                  testMutation.mutate({
+                    url: url.trim(),
+                    username: username.trim(),
+                    secret: secret.trim(),
+                  });
+                }}
+              >
+                {testMutation.isPending ? (
+                  <>
+                    <Loader2 className="size-3.5 animate-spin" />
+                    Testando conexão...
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="size-3.5 text-primary" />
+                    Testar Conexão
+                  </>
+                )}
               </Button>
-              <Button type="submit" disabled={createMutation.isPending}>
-                {createMutation.isPending ? "Salvando..." : "Salvar Registro"}
-              </Button>
+
+              <div className="flex gap-2 justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9"
+                  onClick={() => {
+                    setIsAddOpen(false);
+                    setTestResult(null);
+                  }}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" size="sm" className="h-9" disabled={createMutation.isPending}>
+                  {createMutation.isPending ? (
+                    <>
+                      <Loader2 className="size-3.5 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : (
+                    "Salvar Registro"
+                  )}
+                </Button>
+              </div>
             </DialogFooter>
           </form>
         </DialogContent>

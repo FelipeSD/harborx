@@ -137,6 +137,18 @@ export interface CreateRegistryRequest {
   secret: string;
 }
 
+export interface TestRegistryRequest {
+  url: string;
+  username: string;
+  secret: string;
+}
+
+export interface TestRegistryResponse {
+  success: boolean;
+  status?: string;
+  error?: string;
+}
+
 export interface CreateNetworkRequest {
   name: string;
   driver?: "bridge" | "overlay" | "macvlan" | "ipvlan";
@@ -328,8 +340,14 @@ export interface CreateStackRequest {
 }
 
 export interface UpdateStackRequest {
-  composeYaml: string;
+  name?: string;
+  type?: "compose" | "git";
+  composeYaml?: string;
   env?: StackEnvVar[];
+  gitRepo?: string;
+  gitBranch?: string;
+  gitPath?: string;
+  autoDeploy?: boolean;
   redeploy?: boolean;
 }
 
