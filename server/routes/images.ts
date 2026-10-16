@@ -19,16 +19,47 @@ export const imageRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /api/images - List images
   fastify.get("/images", async (_request, reply) => {
     try {
-      const list = await docker.listImages({ all: false });
-      const images: ImageSummary[] = list.map((img) => ({
-        id: img.Id,
-        repoTags: (img.RepoTags || []).filter((t) => t !== "<none>:<none>"),
-        repoDigests: img.RepoDigests || [],
-        created: img.Created,
-        size: img.Size,
-        containers: img.Containers,
-        labels: img.Labels || {},
-      }));
+      const [list, containerList] = await Promise.all([
+        docker.listImages({ all: false }),
+        docker.listContainers({ all: true }).catch(() => []),
+      ]);
+
+      // Map image ID or repoTag -> containers
+      const imageContainers = new Map<string, Array<{ id: string; name: string; state?: string }>>();
+      for (const c of containerList) {
+        const cleanName = (c.Names?.[0] || c.Id.slice(0, 12)).replace(/^\//, "");
+        const entry = { id: c.Id, name: cleanName, state: c.State };
+
+        if (c.ImageID) {
+          const byId = imageContainers.get(c.ImageID) || [];
+          byId.push(entry);
+          imageContainers.set(c.ImageID, byId);
+        }
+        if (c.Image) {
+          const byImg = imageContainers.get(c.Image) || [];
+          byImg.push(entry);
+          imageContainers.set(c.Image, byImg);
+        }
+      }
+
+      const images: ImageSummary[] = list.map((img) => {
+        const usersById = imageContainers.get(img.Id) || [];
+        const usersByTag = (img.RepoTags || []).flatMap((t) => imageContainers.get(t) || []);
+        const inUseBy = Array.from(
+          new Map([...usersById, ...usersByTag].map((u) => [u.id, u])).values(),
+        );
+
+        return {
+          id: img.Id,
+          repoTags: (img.RepoTags || []).filter((t) => t !== "<none>:<none>"),
+          repoDigests: img.RepoDigests || [],
+          created: img.Created,
+          size: img.Size,
+          containers: inUseBy.length,
+          labels: img.Labels || {},
+          inUseBy,
+        };
+      });
 
       return images;
     } catch (err: unknown) {
@@ -219,6 +250,51 @@ export const imageRoutes: FastifyPluginAsync = async (fastify) => {
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         return reply.status(502).send({ error: `Falha ao podar imagens: ${msg}` });
+      }
+    },
+  );
+
+  // POST /api/images/build-cache/prune
+  fastify.post(
+    "/images/build-cache/prune",
+    { preHandler: [requireRole("operator")] },
+    async (request, reply) => {
+      try {
+        let result: { CachesDeleted?: string[]; SpaceReclaimed?: number } = {};
+        if (typeof docker.pruneBuilder === "function") {
+          result = await docker.pruneBuilder();
+        } else {
+          result = await new Promise((resolve, reject) => {
+            docker.modem.dial(
+              {
+                path: "/build/prune",
+                method: "POST",
+                statusCodes: { 200: true, 500: true },
+              },
+              (err, data) => (err ? reject(err) : resolve(data as { CachesDeleted?: string[]; SpaceReclaimed?: number })),
+            );
+          });
+        }
+
+        logAudit({
+          userId: request.user?.id,
+          action: "build_cache.prune",
+          target: "build_cache",
+          details: {
+            cachesDeleted: result.CachesDeleted?.length || 0,
+            spaceReclaimed: result.SpaceReclaimed || 0,
+          },
+          ip: request.ip,
+        });
+
+        return {
+          success: true,
+          cachesDeleted: result.CachesDeleted || [],
+          spaceReclaimed: result.SpaceReclaimed || 0,
+        };
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return reply.status(502).send({ error: `Falha ao limpar cache de build: ${msg}` });
       }
     },
   );

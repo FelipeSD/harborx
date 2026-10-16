@@ -125,7 +125,11 @@ export const containerRoutes: FastifyPluginAsync = async (fastify) => {
         const cleanName = rawName.replace(/^\//, "");
         const labels = c.Labels || {};
         const stack =
-          labels["com.docker.compose.project"] || labels["io.portainer.stack.name"] || undefined;
+          labels["com.docker.compose.project"] ||
+          labels["io.portainer.stack.name"] ||
+          labels["harborx.stack"] ||
+          labels["com.docker.stack.namespace"] ||
+          undefined;
 
         return {
           id: c.Id,

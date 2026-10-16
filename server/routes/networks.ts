@@ -32,40 +32,87 @@ export const networkRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /api/networks - List networks
   fastify.get("/networks", async (_request, reply) => {
     try {
-      const list = await docker.listNetworks();
-      const networks: NetworkSummary[] = list.map((net) => ({
-        id: net.Id,
-        name: net.Name,
-        driver: net.Driver,
-        scope: net.Scope,
-        internal: Boolean(net.Internal),
-        attachable: Boolean(net.Attachable),
-        ipam: net.IPAM
-          ? {
-              driver: net.IPAM.Driver,
-              config: (net.IPAM.Config || []).map(
-                (cfg: { Subnet?: string | undefined; Gateway?: string | undefined }) => ({
-                  subnet: cfg.Subnet,
-                  gateway: cfg.Gateway,
-                }),
-              ),
-            }
-          : undefined,
-        containers: net.Containers
-          ? Object.fromEntries(
-              Object.entries(net.Containers).map(([cid, info]) => [
-                cid,
-                {
-                  name: info.Name,
-                  endpointId: info.EndpointID,
-                  macAddress: info.MacAddress,
-                  ipv4Address: info.IPv4Address,
-                  ipv6Address: info.IPv6Address,
-                },
-              ]),
-            )
-          : undefined,
-      }));
+      const [list, containerList] = await Promise.all([
+        docker.listNetworks(),
+        docker.listContainers({ all: true }).catch(() => []),
+      ]);
+
+      // Map network name/id -> containers
+      const networkContainers = new Map<string, Array<{ id: string; name: string; ipv4?: string }>>();
+      for (const c of containerList) {
+        const cleanName = (c.Names?.[0] || c.Id.slice(0, 12)).replace(/^\//, "");
+        const networks = c.NetworkSettings?.Networks || {};
+        for (const [netName, netInfo] of Object.entries(networks)) {
+          const entry = {
+            id: c.Id,
+            name: cleanName,
+            ipv4: (netInfo as { IPAddress?: string }).IPAddress || undefined,
+          };
+
+          const byName = networkContainers.get(netName) || [];
+          byName.push(entry);
+          networkContainers.set(netName, byName);
+
+          const netId = (netInfo as { NetworkID?: string }).NetworkID;
+          if (netId) {
+            const byId = networkContainers.get(netId) || [];
+            byId.push(entry);
+            networkContainers.set(netId, byId);
+          }
+        }
+      }
+
+      const networks: NetworkSummary[] = list.map((net) => {
+        const fromContainers = net.Containers
+          ? Object.entries(net.Containers).map(([cid, info]) => ({
+              id: cid,
+              name: info.Name,
+              ipv4: info.IPv4Address,
+            }))
+          : [];
+        const fromContainerList = [
+          ...(networkContainers.get(net.Id) || []),
+          ...(networkContainers.get(net.Name) || []),
+        ];
+        const inUseBy = Array.from(
+          new Map([...fromContainers, ...fromContainerList].map((u) => [u.id, u])).values(),
+        );
+
+        return {
+          id: net.Id,
+          name: net.Name,
+          driver: net.Driver,
+          scope: net.Scope,
+          internal: Boolean(net.Internal),
+          attachable: Boolean(net.Attachable),
+          ipam: net.IPAM
+            ? {
+                driver: net.IPAM.Driver,
+                config: (net.IPAM.Config || []).map(
+                  (cfg: { Subnet?: string | undefined; Gateway?: string | undefined }) => ({
+                    subnet: cfg.Subnet,
+                    gateway: cfg.Gateway,
+                  }),
+                ),
+              }
+            : undefined,
+          containers: net.Containers
+            ? Object.fromEntries(
+                Object.entries(net.Containers).map(([cid, info]) => [
+                  cid,
+                  {
+                    name: info.Name,
+                    endpointId: info.EndpointID,
+                    macAddress: info.MacAddress,
+                    ipv4Address: info.IPv4Address,
+                    ipv6Address: info.IPv6Address,
+                  },
+                ]),
+              )
+            : undefined,
+          inUseBy,
+        };
+      });
 
       return networks;
     } catch (err: unknown) {

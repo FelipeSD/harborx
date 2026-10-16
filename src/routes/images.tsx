@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Download,
@@ -13,6 +13,9 @@ import {
   CheckCircle2,
   Loader2,
   Copy,
+  Search,
+  Sparkles,
+  Box,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -99,6 +102,9 @@ function ImagesPage() {
   const [deleteTarget, setDeleteTarget] = useState<ImageSummary | null>(null);
   const [forceDelete, setForceDelete] = useState(false);
   const [isPruneOpen, setIsPruneOpen] = useState(false);
+  const [isPruneBuildCacheOpen, setIsPruneBuildCacheOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [filterUsage, setFilterUsage] = useState<"all" | "in_use" | "unused">("all");
 
   const {
     data: images = [],
@@ -200,6 +206,50 @@ function ImagesPage() {
     },
   });
 
+  const pruneBuildCacheMutation = useMutation({
+    mutationFn: () => api.images.pruneBuildCache(),
+    onSuccess: (data) => {
+      const count = data.cachesDeleted?.length || 0;
+      toast.success(
+        count > 0
+          ? `${count} item(ns) de cache de build removidos (${formatBytes(data.spaceReclaimed)} liberados)`
+          : "Nenhum cache de build residual para limpar",
+      );
+      setIsPruneBuildCacheOpen(false);
+      void queryClient.invalidateQueries({ queryKey: ["images"] });
+      void queryClient.invalidateQueries({ queryKey: ["systemInfo"] });
+    },
+    onError: (err: Error) => {
+      toast.error(`Erro ao limpar cache de build: ${err.message}`);
+    },
+  });
+
+  const inUseCount = useMemo(
+    () => images.filter((img) => img.inUseBy && img.inUseBy.length > 0).length,
+    [images],
+  );
+  const unusedCount = useMemo(
+    () => images.filter((img) => !img.inUseBy || img.inUseBy.length === 0).length,
+    [images],
+  );
+
+  const filteredImages = useMemo(() => {
+    return images.filter((img) => {
+      const isInUse = Boolean(img.inUseBy && img.inUseBy.length > 0);
+      if (filterUsage === "in_use" && !isInUse) return false;
+      if (filterUsage === "unused" && isInUse) return false;
+
+      const term = search.toLowerCase().trim();
+      if (!term) return true;
+
+      return (
+        img.repoTags.some((t) => t.toLowerCase().includes(term)) ||
+        img.id.toLowerCase().includes(term) ||
+        (img.inUseBy && img.inUseBy.some((c) => c.name.toLowerCase().includes(term)))
+      );
+    });
+  }, [images, filterUsage, search]);
+
   return (
     <>
       <PageHeader
@@ -217,15 +267,27 @@ function ImagesPage() {
               Atualizar
             </Button>
             {isOperator && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsPruneOpen(true)}
-                disabled={pruneMutation.isPending}
-              >
-                <Scissors className="size-4" />
-                Podar não usadas
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsPruneOpen(true)}
+                  disabled={pruneMutation.isPending}
+                >
+                  <Scissors className="size-4" />
+                  Podar imagens órfãs
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsPruneBuildCacheOpen(true)}
+                  disabled={pruneBuildCacheMutation.isPending}
+                  className="border-amber-500/30 text-amber-500 hover:bg-amber-500/10 hover:text-amber-400"
+                >
+                  <Sparkles className="size-4" />
+                  Limpar cache de build
+                </Button>
+              </>
             )}
           </div>
         }
@@ -300,6 +362,99 @@ function ImagesPage() {
         )}
       </Panel>
 
+      {/* Divisórias Estilizadas tipo Fichário e Busca */}
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-border/70 bg-surface/50 p-1 backdrop-blur">
+          <button
+            type="button"
+            onClick={() => setFilterUsage("all")}
+            className={cn(
+              "flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
+              filterUsage === "all"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:bg-surface hover:text-foreground",
+            )}
+          >
+            <span>Todas as Imagens</span>
+            <Badge
+              variant="outline"
+              className={cn(
+                "h-5 px-1.5 text-[10px] font-mono",
+                filterUsage === "all"
+                  ? "border-primary-foreground/30 bg-primary-foreground/20 text-primary-foreground"
+                  : "bg-surface text-muted-foreground",
+              )}
+            >
+              {images.length}
+            </Badge>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFilterUsage("in_use")}
+            className={cn(
+              "flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
+              filterUsage === "in_use"
+                ? "bg-emerald-500 text-white shadow-sm"
+                : "text-muted-foreground hover:bg-surface hover:text-foreground",
+            )}
+          >
+            <span className="flex items-center gap-1.5">
+              <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+              Em Uso
+            </span>
+            <Badge
+              variant="outline"
+              className={cn(
+                "h-5 px-1.5 text-[10px] font-mono",
+                filterUsage === "in_use"
+                  ? "border-white/30 bg-white/20 text-white"
+                  : "bg-surface text-muted-foreground",
+              )}
+            >
+              {inUseCount}
+            </Badge>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFilterUsage("unused")}
+            className={cn(
+              "flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
+              filterUsage === "unused"
+                ? "bg-amber-500 text-black font-semibold shadow-sm"
+                : "text-muted-foreground hover:bg-surface hover:text-foreground",
+            )}
+          >
+            <span className="flex items-center gap-1.5">
+              <span className="size-2 rounded-full bg-amber-400" />
+              Não Utilizadas / Órfãs
+            </span>
+            <Badge
+              variant="outline"
+              className={cn(
+                "h-5 px-1.5 text-[10px] font-mono",
+                filterUsage === "unused"
+                  ? "border-black/30 bg-black/20 text-black"
+                  : "bg-surface text-muted-foreground",
+              )}
+            >
+              {unusedCount}
+            </Badge>
+          </button>
+        </div>
+
+        <div className="relative w-full sm:w-64">
+          <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
+          <Input
+            placeholder="Filtrar por tag, ID ou container..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-8 text-xs"
+          />
+        </div>
+      </div>
+
       {isError && (
         <Alert variant="destructive" className="mb-6">
           <AlertCircle className="size-4" />
@@ -323,15 +478,19 @@ function ImagesPage() {
             </Panel>
           ))}
         </div>
-      ) : images.length === 0 ? (
+      ) : filteredImages.length === 0 ? (
         <Panel className="p-12 text-center text-muted-foreground">
           <Layers className="mx-auto size-10 mb-3 opacity-40" />
           <p className="text-base font-medium">Nenhuma imagem Docker encontrada</p>
-          <p className="text-sm mt-1">Baixe uma imagem utilizando o campo acima para começar.</p>
+          <p className="text-sm mt-1">
+            {search || filterUsage !== "all"
+              ? "Tente ajustar os filtros ou a busca acima."
+              : "Baixe uma imagem utilizando o campo acima para começar."}
+          </p>
         </Panel>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {images.map((i) => {
+          {filteredImages.map((i) => {
             const primaryTag = i.repoTags[0] || "<none>:<none>";
             const [repo, tag] = primaryTag.includes(":")
               ? [
@@ -387,6 +546,55 @@ function ImagesPage() {
                       ))}
                     </div>
                   )}
+
+                  {/* Taxação / Quem está utilizando a imagem */}
+                  <div className="mt-3 rounded-lg border border-border/70 bg-surface/60 p-2.5 text-xs">
+                    <div className="flex items-center justify-between gap-1.5 mb-1.5">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                        <Box className="size-3 text-primary" />
+                        Uso por Containers
+                      </span>
+                      {i.inUseBy && i.inUseBy.length > 0 ? (
+                        <Badge
+                          variant="outline"
+                          className="border-emerald-500/40 bg-emerald-500/10 text-emerald-400 text-[10px] font-mono"
+                        >
+                          {i.inUseBy.length} container(s)
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className="border-amber-500/40 bg-amber-500/10 text-amber-400 text-[10px] font-mono"
+                        >
+                          Não utilizada (órfã)
+                        </Badge>
+                      )}
+                    </div>
+
+                    {i.inUseBy && i.inUseBy.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pt-1">
+                        {i.inUseBy.map((c) => (
+                          <span
+                            key={c.id}
+                            className="inline-flex items-center gap-1.5 rounded-md border border-border/80 bg-background/80 px-2 py-0.5 font-mono text-[11px] text-foreground hover:border-primary/40 transition-colors"
+                            title={`Container: ${c.name} (${c.state || "ativo"})`}
+                          >
+                            <span
+                              className={cn(
+                                "size-1.5 rounded-full shrink-0",
+                                c.state === "running" ? "bg-emerald-400" : "bg-slate-400",
+                              )}
+                            />
+                            <span className="truncate max-w-[140px]">{c.name}</span>
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-muted-foreground italic">
+                        Nenhum container ativo ou parado utiliza esta imagem. Pronta para poda.
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 <div className="mt-5 border-t pt-3">
@@ -552,6 +760,43 @@ function ImagesPage() {
               onClick={() => pruneMutation.mutate()}
             >
               {pruneMutation.isPending ? "Podando..." : "Confirmar poda"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Prune Build Cache Confirmation */}
+      <AlertDialog
+        open={isPruneBuildCacheOpen}
+        onOpenChange={setIsPruneBuildCacheOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Sparkles className="size-5 text-amber-500" />
+              Limpar cache de build do Docker?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <div>
+                Esta ação executa{" "}
+                <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">
+                  docker builder prune
+                </code>
+                , removendo camadas intermediárias e caches de compilação BuildKit armazenados pelo Docker Engine.
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Liberará espaço em disco do host. Suas imagens concluídas e containers ativos não serão afetados.
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-amber-500 text-black hover:bg-amber-400 font-medium"
+              disabled={pruneBuildCacheMutation.isPending}
+              onClick={() => pruneBuildCacheMutation.mutate()}
+            >
+              {pruneBuildCacheMutation.isPending ? "Limpando..." : "Sim, limpar cache"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

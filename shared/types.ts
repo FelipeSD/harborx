@@ -68,6 +68,7 @@ export interface ImageSummary {
   size: number;
   containers: number;
   labels: Record<string, string>;
+  inUseBy?: Array<{ id: string; name: string; state?: string }>;
 }
 
 export interface NetworkSummary {
@@ -95,6 +96,13 @@ export interface NetworkSummary {
         }
       >
     | undefined;
+  inUseBy?: Array<{ id: string; name: string; ipv4?: string }>;
+}
+
+export interface BuildCachePruneResponse {
+  success: boolean;
+  cachesDeleted: string[];
+  spaceReclaimed: number;
 }
 
 export interface VolumeSummary {

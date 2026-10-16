@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Plus,
@@ -12,6 +12,8 @@ import {
   Link as LinkIcon,
   Unlink,
   Loader2,
+  Search,
+  Box,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -88,6 +90,8 @@ function NetworksPage() {
   const [customIp, setCustomIp] = useState("");
 
   const [deleteTarget, setDeleteTarget] = useState<NetworkSummary | null>(null);
+  const [search, setSearch] = useState("");
+  const [filterUsage, setFilterUsage] = useState<"all" | "in_use" | "unused">("all");
 
   const {
     data: networks = [],
@@ -191,6 +195,60 @@ function NetworksPage() {
     });
   };
 
+  const inUseCount = useMemo(
+    () =>
+      networks.filter((n) => {
+        const hasInUse = n.inUseBy && n.inUseBy.length > 0;
+        const hasContainers = n.containers && Object.keys(n.containers).length > 0;
+        return hasInUse || hasContainers;
+      }).length,
+    [networks],
+  );
+
+  const unusedCount = useMemo(
+    () =>
+      networks.filter((n) => {
+        const hasInUse = n.inUseBy && n.inUseBy.length > 0;
+        const hasContainers = n.containers && Object.keys(n.containers).length > 0;
+        return !hasInUse && !hasContainers;
+      }).length,
+    [networks],
+  );
+
+  const filteredNetworks = useMemo(() => {
+    return networks.filter((n) => {
+      const hasInUse = Boolean(
+        (n.inUseBy && n.inUseBy.length > 0) ||
+          (n.containers && Object.keys(n.containers).length > 0),
+      );
+      if (filterUsage === "in_use" && !hasInUse) return false;
+      if (filterUsage === "unused" && hasInUse) return false;
+
+      const term = search.toLowerCase().trim();
+      if (!term) return true;
+
+      const matchesSubnet =
+        n.ipam?.config?.some(
+          (c) =>
+            (c.subnet && c.subnet.toLowerCase().includes(term)) ||
+            (c.gateway && c.gateway.toLowerCase().includes(term)),
+        ) || false;
+
+      const matchesContainers =
+        (n.inUseBy && n.inUseBy.some((c) => c.name.toLowerCase().includes(term))) ||
+        (n.containers &&
+          Object.values(n.containers).some((c) => c.name.toLowerCase().includes(term)));
+
+      return (
+        n.name.toLowerCase().includes(term) ||
+        n.driver.toLowerCase().includes(term) ||
+        n.id.toLowerCase().includes(term) ||
+        matchesSubnet ||
+        matchesContainers
+      );
+    });
+  }, [networks, filterUsage, search]);
+
   return (
     <>
       <PageHeader
@@ -215,6 +273,99 @@ function NetworksPage() {
           </div>
         }
       />
+
+      {/* Divisórias Estilizadas tipo Fichário e Busca */}
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-border/70 bg-surface/50 p-1 backdrop-blur">
+          <button
+            type="button"
+            onClick={() => setFilterUsage("all")}
+            className={cn(
+              "flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
+              filterUsage === "all"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:bg-surface hover:text-foreground",
+            )}
+          >
+            <span>Todas as Redes</span>
+            <Badge
+              variant="outline"
+              className={cn(
+                "h-5 px-1.5 text-[10px] font-mono",
+                filterUsage === "all"
+                  ? "border-primary-foreground/30 bg-primary-foreground/20 text-primary-foreground"
+                  : "bg-surface text-muted-foreground",
+              )}
+            >
+              {networks.length}
+            </Badge>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFilterUsage("in_use")}
+            className={cn(
+              "flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
+              filterUsage === "in_use"
+                ? "bg-emerald-500 text-white shadow-sm"
+                : "text-muted-foreground hover:bg-surface hover:text-foreground",
+            )}
+          >
+            <span className="flex items-center gap-1.5">
+              <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+              Com Containers
+            </span>
+            <Badge
+              variant="outline"
+              className={cn(
+                "h-5 px-1.5 text-[10px] font-mono",
+                filterUsage === "in_use"
+                  ? "border-white/30 bg-white/20 text-white"
+                  : "bg-surface text-muted-foreground",
+              )}
+            >
+              {inUseCount}
+            </Badge>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFilterUsage("unused")}
+            className={cn(
+              "flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
+              filterUsage === "unused"
+                ? "bg-amber-500 text-black font-semibold shadow-sm"
+                : "text-muted-foreground hover:bg-surface hover:text-foreground",
+            )}
+          >
+            <span className="flex items-center gap-1.5">
+              <span className="size-2 rounded-full bg-amber-400" />
+              Vazias / Desconectadas
+            </span>
+            <Badge
+              variant="outline"
+              className={cn(
+                "h-5 px-1.5 text-[10px] font-mono",
+                filterUsage === "unused"
+                  ? "border-black/30 bg-black/20 text-black"
+                  : "bg-surface text-muted-foreground",
+              )}
+            >
+              {unusedCount}
+            </Badge>
+          </button>
+        </div>
+
+        <div className="relative w-full sm:w-64">
+          <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
+          <Input
+            placeholder="Filtrar por nome, subnet ou container..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-8 text-xs"
+          />
+        </div>
+      </div>
 
       {isError && (
         <Alert variant="destructive" className="mb-6">
@@ -265,15 +416,18 @@ function NetworksPage() {
                   </td>
                 </tr>
               ))
-            ) : networks.length === 0 ? (
+            ) : filteredNetworks.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
                   <NetworkIcon className="mx-auto size-8 mb-2 opacity-40" />
                   Nenhuma rede Docker encontrada.
+                  {search || filterUsage !== "all" ? (
+                    <p className="text-xs mt-1">Tente ajustar os filtros ou a busca acima.</p>
+                  ) : null}
                 </td>
               </tr>
             ) : (
-              networks.map((n) => {
+              filteredNetworks.map((n) => {
                 const isBuiltin = BUILTIN_NETWORKS.includes(n.name.toLowerCase());
                 const subnets =
                   n.ipam?.config
@@ -285,7 +439,17 @@ function NetworksPage() {
                     ?.map((c) => c.gateway)
                     .filter(Boolean)
                     .join(", ") || "—";
-                const connectedList = n.containers ? Object.entries(n.containers) : [];
+
+                const inUseItems =
+                  n.inUseBy && n.inUseBy.length > 0
+                    ? n.inUseBy.map((c) => ({ id: c.id, name: c.name, ipv4: c.ipv4 }))
+                    : n.containers
+                      ? Object.entries(n.containers).map(([cid, info]) => ({
+                          id: cid,
+                          name: info.name,
+                          ipv4: info.ipv4Address ? info.ipv4Address.split("/")[0] : undefined,
+                        }))
+                      : [];
 
                 return (
                   <tr
@@ -323,28 +487,34 @@ function NetworksPage() {
                       )}
                     </td>
                     <td className="px-4 py-3 font-mono text-xs">
-                      {connectedList.length === 0 ? (
-                        <span className="text-muted-foreground">0 containers</span>
+                      {inUseItems.length === 0 ? (
+                        <Badge
+                          variant="outline"
+                          className="border-amber-500/40 bg-amber-500/10 text-amber-400 text-[10px] font-mono"
+                        >
+                          Vazia (0 containers)
+                        </Badge>
                       ) : (
-                        <div className="flex flex-wrap gap-1 max-w-xs">
-                          {connectedList.map(([cid, info]) => (
+                        <div className="flex flex-wrap gap-1.5 max-w-sm">
+                          {inUseItems.map((item) => (
                             <span
-                              key={cid}
-                              className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground group"
+                              key={item.id}
+                              className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-400 group"
                             >
-                              <span>{info.name}</span>
-                              {info.ipv4Address && (
-                                <span className="text-[10px] opacity-70 font-mono">
-                                  ({info.ipv4Address.split("/")[0]})
+                              <span className="size-1.5 rounded-full bg-emerald-400 shrink-0" />
+                              <span className="font-medium text-foreground">{item.name}</span>
+                              {item.ipv4 && (
+                                <span className="text-[10px] font-mono text-muted-foreground">
+                                  ({item.ipv4})
                                 </span>
                               )}
                               {isOperator && !isBuiltin && (
                                 <button
                                   type="button"
                                   title="Desconectar da rede"
-                                  className="text-destructive/60 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                                  className="text-destructive/60 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity ml-0.5"
                                   onClick={() =>
-                                    disconnectMutation.mutate({ netId: n.id, container: cid })
+                                    disconnectMutation.mutate({ netId: n.id, container: item.id })
                                   }
                                 >
                                   <Unlink className="size-2.5" />

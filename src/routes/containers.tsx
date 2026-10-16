@@ -23,11 +23,13 @@ import {
   Code,
   Shield,
   Loader2,
+  Table as TableIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import type { ContainerAction, ContainerSummary } from "../../shared/types";
+import { StackBinderView, type StackGroup } from "@/components/containers/StackBinderView";
 import { PageHeader, Panel, StatusPill } from "@/components/app/ui-bits";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -92,6 +94,7 @@ function ContainersPage() {
   const [search, setSearch] = useState("");
   const [filterStack, setFilterStack] = useState("all");
   const [filterState, setFilterState] = useState("all");
+  const [viewMode, setViewMode] = useState<"binder" | "table">("binder");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectedContainer, setSelectedContainer] = useState<ContainerSummary | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -237,6 +240,74 @@ function ContainersPage() {
     });
   }, [containers, filterStack, filterState, search]);
 
+  const groupedByStack = useMemo<StackGroup[]>(() => {
+    const stackMap = new Map<string, ContainerSummary[]>();
+    const standalone: ContainerSummary[] = [];
+
+    filteredList.forEach((c) => {
+      if (c.stack) {
+        const existing = stackMap.get(c.stack) || [];
+        existing.push(c);
+        stackMap.set(c.stack, existing);
+      } else {
+        standalone.push(c);
+      }
+    });
+
+    const groups: StackGroup[] = [];
+    const sortedStackNames = Array.from(stackMap.keys()).sort();
+    sortedStackNames.forEach((stackName) => {
+      const items = stackMap.get(stackName)!;
+      groups.push({
+        stackName,
+        isStandalone: false,
+        containers: items,
+        runningCount: items.filter((c) => c.state === "running").length,
+        stoppedCount: items.filter((c) => c.state !== "running").length,
+      });
+    });
+
+    if (standalone.length > 0) {
+      groups.push({
+        stackName: "Containers Avulsos (Sem Stack)",
+        isStandalone: true,
+        containers: standalone,
+        runningCount: standalone.filter((c) => c.state === "running").length,
+        stoppedCount: standalone.filter((c) => c.state !== "running").length,
+      });
+    }
+
+    return groups;
+  }, [filteredList]);
+
+  const handleStackAction = (containerIds: string[], action: ContainerAction) => {
+    api.containers
+      .batch({
+        ids: containerIds,
+        action,
+        force: true,
+      })
+      .then((data) => {
+        const successes = data.results.filter((r) => r.success).length;
+        const failures = data.results.filter((r) => !r.success);
+
+        if (failures.length === 0) {
+          toast.success(
+            `Ação "${action}" aplicada com sucesso a ${successes} container(s) da stack.`,
+          );
+        } else {
+          toast.warning(
+            `Ação "${action}": ${successes} com sucesso, ${failures.length} falha(s).`,
+          );
+        }
+        void queryClient.invalidateQueries({ queryKey: ["containers"] });
+        void queryClient.invalidateQueries({ queryKey: ["systemInfo"] });
+      })
+      .catch((err) => {
+        toast.error(err instanceof Error ? err.message : "Falha ao executar ação na stack.");
+      });
+  };
+
   const allFilteredSelected =
     filteredList.length > 0 && filteredList.every((c) => selectedIds.includes(c.id));
 
@@ -302,6 +373,38 @@ function ContainersPage() {
       {/* Barra de Filtros e Busca */}
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2">
+          {/* Alternador de Modo de Visualização */}
+          <div className="flex items-center rounded-lg border border-border/80 bg-surface/60 p-0.5">
+            <button
+              type="button"
+              onClick={() => setViewMode("binder")}
+              className={cn(
+                "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                viewMode === "binder"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Layers className="size-3.5" />
+              <span>Fichário de Stacks</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("table")}
+              className={cn(
+                "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                viewMode === "table"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <TableIcon className="size-3.5" />
+              <span>Tabela</span>
+            </button>
+          </div>
+
+          <div className="h-4 w-px bg-border/60 mx-1 hidden sm:block" />
+
           <button
             onClick={() => {
               setFilterStack("all");
@@ -412,8 +515,43 @@ function ContainersPage() {
         </div>
       )}
 
-      {/* Tabela de Containers */}
-      <Panel className="overflow-x-auto">
+      {viewMode === "binder" ? (
+        isLoading ? (
+          <div className="space-y-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Panel key={i} className="p-6">
+                <Skeleton className="h-6 w-48 mb-4" />
+                <Skeleton className="h-24 w-full" />
+              </Panel>
+            ))}
+          </div>
+        ) : filteredList.length === 0 ? (
+          <Panel className="p-12 text-center text-muted-foreground">
+            <Boxes className="mx-auto size-10 mb-3 opacity-40" />
+            <p className="text-base font-medium">Nenhum container encontrado</p>
+            <p className="text-sm mt-1">
+              {search || filterStack !== "all" || filterState !== "all"
+                ? "Tente ajustar os filtros ou a busca."
+                : "Crie um container ou inicie uma stack com docker compose."}
+            </p>
+          </Panel>
+        ) : (
+          <StackBinderView
+            groups={groupedByStack}
+            selectedIds={selectedIds}
+            toggleSelectOne={toggleSelectOne}
+            onSelectContainer={(c) => setSelectedContainer(c)}
+            onAction={(id, action) => actionMutation.mutate({ id, action })}
+            onStackAction={handleStackAction}
+            isViewer={isViewer}
+            isActionPending={actionMutation.isPending || batchMutation.isPending}
+            formatPorts={formatPorts}
+            formatDate={formatDate}
+          />
+        )
+      ) : (
+        /* Tabela de Containers */
+        <Panel className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="border-b text-left text-xs uppercase tracking-wider text-muted-foreground">
             <tr>
@@ -631,6 +769,7 @@ function ContainersPage() {
           </tbody>
         </table>
       </Panel>
+      )}
 
       {/* Drawer de Detalhes com Abas */}
       <Sheet open={!!selectedContainer} onOpenChange={(o) => !o && setSelectedContainer(null)}>

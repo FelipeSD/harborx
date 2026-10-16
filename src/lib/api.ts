@@ -209,6 +209,13 @@ export const api = {
           body: JSON.stringify({ danglingOnly }),
         },
       ),
+    pruneBuildCache: () =>
+      fetchApi<{ success: true; cachesDeleted: string[]; spaceReclaimed: number }>(
+        "/api/images/build-cache/prune",
+        {
+          method: "POST",
+        },
+      ),
   },
 
   networks: {

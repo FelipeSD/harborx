@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Plus,
@@ -11,6 +11,8 @@ import {
   Eye,
   Loader2,
   AlertTriangle,
+  Search,
+  Box,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -88,6 +90,8 @@ function VolumesPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [volName, setVolName] = useState("");
   const [volDriver, setVolDriver] = useState("local");
+  const [search, setSearch] = useState("");
+  const [filterUsage, setFilterUsage] = useState<"all" | "in_use" | "unused">("all");
 
   const [isPruneOpen, setIsPruneOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<VolumeSummary | null>(null);
@@ -175,6 +179,33 @@ function VolumesPage() {
     });
   };
 
+  const inUseCount = useMemo(
+    () => volumes.filter((v) => v.inUseBy && v.inUseBy.length > 0).length,
+    [volumes],
+  );
+  const unusedCount = useMemo(
+    () => volumes.filter((v) => !v.inUseBy || v.inUseBy.length === 0).length,
+    [volumes],
+  );
+
+  const filteredVolumes = useMemo(() => {
+    return volumes.filter((v) => {
+      const isInUse = Boolean(v.inUseBy && v.inUseBy.length > 0);
+      if (filterUsage === "in_use" && !isInUse) return false;
+      if (filterUsage === "unused" && isInUse) return false;
+
+      const term = search.toLowerCase().trim();
+      if (!term) return true;
+
+      return (
+        v.name.toLowerCase().includes(term) ||
+        v.driver.toLowerCase().includes(term) ||
+        v.mountpoint.toLowerCase().includes(term) ||
+        (v.inUseBy && v.inUseBy.some((c) => c.name.toLowerCase().includes(term)))
+      );
+    });
+  }, [volumes, filterUsage, search]);
+
   return (
     <>
       <PageHeader
@@ -210,6 +241,99 @@ function VolumesPage() {
           </div>
         }
       />
+
+      {/* Divisórias Estilizadas tipo Fichário e Busca */}
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-border/70 bg-surface/50 p-1 backdrop-blur">
+          <button
+            type="button"
+            onClick={() => setFilterUsage("all")}
+            className={cn(
+              "flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
+              filterUsage === "all"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:bg-surface hover:text-foreground",
+            )}
+          >
+            <span>Todos os Volumes</span>
+            <Badge
+              variant="outline"
+              className={cn(
+                "h-5 px-1.5 text-[10px] font-mono",
+                filterUsage === "all"
+                  ? "border-primary-foreground/30 bg-primary-foreground/20 text-primary-foreground"
+                  : "bg-surface text-muted-foreground",
+              )}
+            >
+              {volumes.length}
+            </Badge>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFilterUsage("in_use")}
+            className={cn(
+              "flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
+              filterUsage === "in_use"
+                ? "bg-emerald-500 text-white shadow-sm"
+                : "text-muted-foreground hover:bg-surface hover:text-foreground",
+            )}
+          >
+            <span className="flex items-center gap-1.5">
+              <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+              Em Uso
+            </span>
+            <Badge
+              variant="outline"
+              className={cn(
+                "h-5 px-1.5 text-[10px] font-mono",
+                filterUsage === "in_use"
+                  ? "border-white/30 bg-white/20 text-white"
+                  : "bg-surface text-muted-foreground",
+              )}
+            >
+              {inUseCount}
+            </Badge>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFilterUsage("unused")}
+            className={cn(
+              "flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
+              filterUsage === "unused"
+                ? "bg-amber-500 text-black font-semibold shadow-sm"
+                : "text-muted-foreground hover:bg-surface hover:text-foreground",
+            )}
+          >
+            <span className="flex items-center gap-1.5">
+              <span className="size-2 rounded-full bg-amber-400" />
+              Não Utilizados / Órfãos
+            </span>
+            <Badge
+              variant="outline"
+              className={cn(
+                "h-5 px-1.5 text-[10px] font-mono",
+                filterUsage === "unused"
+                  ? "border-black/30 bg-black/20 text-black"
+                  : "bg-surface text-muted-foreground",
+              )}
+            >
+              {unusedCount}
+            </Badge>
+          </button>
+        </div>
+
+        <div className="relative w-full sm:w-64">
+          <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
+          <Input
+            placeholder="Filtrar por nome, driver ou container..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-8 text-xs"
+          />
+        </div>
+      </div>
 
       {isError && (
         <Alert variant="destructive" className="mb-6">
@@ -259,15 +383,18 @@ function VolumesPage() {
                   </td>
                 </tr>
               ))
-            ) : volumes.length === 0 ? (
+            ) : filteredVolumes.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
                   <HardDrive className="mx-auto size-8 mb-2 opacity-40" />
-                  Nenhum volume persistente encontrado no Docker.
+                  Nenhum volume persistente encontrado.
+                  {search || filterUsage !== "all" ? (
+                    <p className="text-xs mt-1">Tente ajustar os filtros ou a busca acima.</p>
+                  ) : null}
                 </td>
               </tr>
             ) : (
-              volumes.map((v) => {
+              filteredVolumes.map((v) => {
                 const inUse = v.inUseBy && v.inUseBy.length > 0;
 
                 return (
@@ -285,19 +412,30 @@ function VolumesPage() {
                     </td>
                     <td className="px-4 py-3">
                       {inUse ? (
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap gap-1.5">
                           {v.inUseBy!.map((c) => (
-                            <Badge
+                            <span
                               key={c.id}
-                              variant="outline"
-                              className="text-[11px] font-mono border-emerald-500/30 text-emerald-500 bg-emerald-500/5"
+                              className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[11px] text-emerald-400"
+                              title={`Container: ${c.name} (${c.state || "ativo"})`}
                             >
-                              {c.name}
-                            </Badge>
+                              <span
+                                className={cn(
+                                  "size-1.5 rounded-full shrink-0",
+                                  c.state === "running" ? "bg-emerald-400" : "bg-slate-400",
+                                )}
+                              />
+                              <span>{c.name}</span>
+                            </span>
                           ))}
                         </div>
                       ) : (
-                        <span className="text-xs text-muted-foreground">Não utilizado</span>
+                        <Badge
+                          variant="outline"
+                          className="border-amber-500/40 bg-amber-500/10 text-amber-400 text-[10px] font-mono"
+                        >
+                          Não utilizado (órfão)
+                        </Badge>
                       )}
                     </td>
                     <td
