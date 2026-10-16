@@ -127,6 +127,12 @@ export function registerAuthHooks(fastify: FastifyInstance): void {
   });
 }
 
+const ROLE_HIERARCHY: Record<UserRole, number> = {
+  viewer: 1,
+  operator: 2,
+  admin: 3,
+};
+
 export function requireRole(...allowedRoles: UserRole[]) {
   return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
     if (!request.user) {
@@ -134,11 +140,26 @@ export function requireRole(...allowedRoles: UserRole[]) {
       return;
     }
 
-    if (!allowedRoles.includes(request.user.role)) {
-      reply.status(403).send({
-        error: `Acesso negado: seu papel atual (${request.user.role}) não tem permissão para esta ação.`,
-      });
+    const userRole = request.user.role;
+
+    // Administrador tem controle total do sistema (superusuário com permissão irrestrita)
+    if (userRole === "admin") {
       return;
     }
+
+    // Correspondência direta
+    if (allowedRoles.includes(userRole)) {
+      return;
+    }
+
+    // Hierarquia RBAC: se a ação requer viewer e o usuário é operator, permitir
+    const minRequired = Math.min(...allowedRoles.map((r) => ROLE_HIERARCHY[r] ?? 999));
+    if ((ROLE_HIERARCHY[userRole] ?? 0) >= minRequired) {
+      return;
+    }
+
+    reply.status(403).send({
+      error: `Acesso negado: seu papel atual (${userRole}) não tem permissão para esta ação.`,
+    });
   };
 }

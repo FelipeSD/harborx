@@ -95,7 +95,7 @@ export const imageRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /api/images/pull (SSE Streaming or sync pull)
   fastify.post(
     "/images/pull",
-    { preHandler: [requireRole("operator")] },
+    { preHandler: [requireRole("operator", "admin")] },
     async (request, reply) => {
       const parsed = pullSchema.safeParse(request.body);
       if (!parsed.success) {
@@ -193,7 +193,7 @@ export const imageRoutes: FastifyPluginAsync = async (fastify) => {
   // DELETE /api/images/:id
   fastify.delete<{ Params: { id: string }; Querystring: { force?: string } }>(
     "/images/:id",
-    { preHandler: [requireRole("operator")] },
+    { preHandler: [requireRole("operator", "admin")] },
     async (request, reply) => {
       const { id } = request.params;
       const force = request.query.force === "true";
@@ -221,7 +221,7 @@ export const imageRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /api/images/prune
   fastify.post(
     "/images/prune",
-    { preHandler: [requireRole("operator")] },
+    { preHandler: [requireRole("operator", "admin")] },
     async (request, reply) => {
       const parsed = pruneSchema.safeParse(request.body || {});
       const danglingOnly = parsed.success ? parsed.data.danglingOnly : false;
@@ -257,7 +257,7 @@ export const imageRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /api/images/build-cache/prune
   fastify.post(
     "/images/build-cache/prune",
-    { preHandler: [requireRole("operator")] },
+    { preHandler: [requireRole("operator", "admin")] },
     async (request, reply) => {
       try {
         let result: { CachesDeleted?: string[]; SpaceReclaimed?: number } = {};

@@ -81,7 +81,7 @@ export const volumeRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // POST /api/volumes - Create volume
-  fastify.post("/volumes", { preHandler: [requireRole("operator")] }, async (request, reply) => {
+  fastify.post("/volumes", { preHandler: [requireRole("operator", "admin")] }, async (request, reply) => {
     const parsed = createVolumeSchema.safeParse(request.body || {});
     if (!parsed.success) {
       return reply.status(400).send({
@@ -118,7 +118,7 @@ export const volumeRoutes: FastifyPluginAsync = async (fastify) => {
   // DELETE /api/volumes/:name
   fastify.delete<{ Params: { name: string }; Querystring: { force?: string } }>(
     "/volumes/:name",
-    { preHandler: [requireRole("operator")] },
+    { preHandler: [requireRole("operator", "admin")] },
     async (request, reply) => {
       const { name } = request.params;
       const force = request.query.force === "true";
@@ -146,7 +146,7 @@ export const volumeRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /api/volumes/prune
   fastify.post(
     "/volumes/prune",
-    { preHandler: [requireRole("operator")] },
+    { preHandler: [requireRole("operator", "admin")] },
     async (request, reply) => {
       try {
         const result = await docker.pruneVolumes();

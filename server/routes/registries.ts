@@ -18,7 +18,7 @@ export const registryRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // POST /api/registries
-  fastify.post("/registries", { preHandler: [requireRole("operator")] }, async (request, reply) => {
+  fastify.post("/registries", { preHandler: [requireRole("operator", "admin")] }, async (request, reply) => {
     const parsed = createRegistrySchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.status(400).send({
@@ -50,7 +50,7 @@ export const registryRoutes: FastifyPluginAsync = async (fastify) => {
   // DELETE /api/registries/:id
   fastify.delete<{ Params: { id: string } }>(
     "/registries/:id",
-    { preHandler: [requireRole("operator")] },
+    { preHandler: [requireRole("operator", "admin")] },
     async (request, reply) => {
       const { id } = request.params;
       const success = deleteRegistry(id);

@@ -63,7 +63,7 @@ export const stackRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // POST /api/stacks - Create stack
-  fastify.post("/stacks", { preHandler: [requireRole("operator")] }, async (request, reply) => {
+  fastify.post("/stacks", { preHandler: [requireRole("operator", "admin")] }, async (request, reply) => {
     const parsed = createStackSchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.status(400).send({
@@ -124,7 +124,7 @@ export const stackRoutes: FastifyPluginAsync = async (fastify) => {
   // PUT /api/stacks/:id - Update compose & redeploy
   fastify.put<{ Params: { id: string } }>(
     "/stacks/:id",
-    { preHandler: [requireRole("operator")] },
+    { preHandler: [requireRole("operator", "admin")] },
     async (request, reply) => {
       const parsed = updateStackSchema.safeParse(request.body);
       if (!parsed.success) {
@@ -163,7 +163,7 @@ export const stackRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /api/stacks/:id/deploy
   fastify.post<{ Params: { id: string } }>(
     "/stacks/:id/deploy",
-    { preHandler: [requireRole("operator")] },
+    { preHandler: [requireRole("operator", "admin")] },
     async (request, reply) => {
       try {
         const result = await deployStack(request.params.id, request.user?.username || "user");
@@ -186,7 +186,7 @@ export const stackRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /api/stacks/:id/stop
   fastify.post<{ Params: { id: string } }>(
     "/stacks/:id/stop",
-    { preHandler: [requireRole("operator")] },
+    { preHandler: [requireRole("operator", "admin")] },
     async (request, reply) => {
       try {
         await stopStack(request.params.id);
@@ -209,7 +209,7 @@ export const stackRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /api/stacks/:id/start
   fastify.post<{ Params: { id: string } }>(
     "/stacks/:id/start",
-    { preHandler: [requireRole("operator")] },
+    { preHandler: [requireRole("operator", "admin")] },
     async (request, reply) => {
       try {
         await startStack(request.params.id);
@@ -232,7 +232,7 @@ export const stackRoutes: FastifyPluginAsync = async (fastify) => {
   // DELETE /api/stacks/:id
   fastify.delete<{ Params: { id: string }; Querystring: { volumes?: string } }>(
     "/stacks/:id",
-    { preHandler: [requireRole("operator")] },
+    { preHandler: [requireRole("operator", "admin")] },
     async (request, reply) => {
       const removeVolumes = request.query.volumes === "true";
 

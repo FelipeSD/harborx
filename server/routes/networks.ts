@@ -134,7 +134,7 @@ export const networkRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // POST /api/networks - Create network
-  fastify.post("/networks", { preHandler: [requireRole("operator")] }, async (request, reply) => {
+  fastify.post("/networks", { preHandler: [requireRole("operator", "admin")] }, async (request, reply) => {
     const parsed = createNetworkSchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.status(400).send({
@@ -181,7 +181,7 @@ export const networkRoutes: FastifyPluginAsync = async (fastify) => {
   // DELETE /api/networks/:id
   fastify.delete<{ Params: { id: string } }>(
     "/networks/:id",
-    { preHandler: [requireRole("operator")] },
+    { preHandler: [requireRole("operator", "admin")] },
     async (request, reply) => {
       const { id } = request.params;
 
@@ -216,7 +216,7 @@ export const networkRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /api/networks/:id/connect
   fastify.post<{ Params: { id: string } }>(
     "/networks/:id/connect",
-    { preHandler: [requireRole("operator")] },
+    { preHandler: [requireRole("operator", "admin")] },
     async (request, reply) => {
       const parsed = connectSchema.safeParse(request.body);
       if (!parsed.success) {
@@ -262,7 +262,7 @@ export const networkRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /api/networks/:id/disconnect
   fastify.post<{ Params: { id: string } }>(
     "/networks/:id/disconnect",
-    { preHandler: [requireRole("operator")] },
+    { preHandler: [requireRole("operator", "admin")] },
     async (request, reply) => {
       const parsed = disconnectSchema.safeParse(request.body);
       if (!parsed.success) {

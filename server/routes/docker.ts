@@ -91,7 +91,7 @@ export const dockerRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /api/audit-logs (Audit log viewer)
   fastify.get<{ Querystring: { limit?: string; offset?: string } }>(
     "/audit-logs",
-    { preHandler: [requireRole("operator")] },
+    { preHandler: [requireRole("operator", "admin")] },
     async (request) => {
       const limit = parseInt(request.query.limit || "50", 10) || 50;
       const offset = parseInt(request.query.offset || "0", 10) || 0;
