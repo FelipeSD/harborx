@@ -28,6 +28,7 @@ import {
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { useDockerEvents } from "@/hooks/use-docker-events";
 import type { ContainerAction, ContainerSummary } from "../../shared/types";
 import { StackBinderView, type StackGroup } from "@/components/containers/StackBinderView";
 import { PageHeader, Panel, StatusPill } from "@/components/app/ui-bits";
@@ -106,6 +107,9 @@ function ContainersPage() {
   const [removeVolumes, setRemoveVolumes] = useState(false);
   const [isCopiedJson, setIsCopiedJson] = useState(false);
 
+  // Invalidação imediata baseada em eventos do Docker (/ws/events)
+  useDockerEvents();
+
   const {
     data: containers = [],
     isLoading,
@@ -116,7 +120,8 @@ function ContainersPage() {
   } = useQuery({
     queryKey: ["containers"],
     queryFn: api.containers.list,
-    refetchInterval: 5000,
+    refetchInterval: 12000,
+    refetchIntervalInBackground: false,
   });
 
   // Query para obter dados do inspect quando o container estiver selecionado

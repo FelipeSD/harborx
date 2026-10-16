@@ -433,21 +433,27 @@ export async function removeStack(stackId: string, removeVolumes = false): Promi
   const stack = await getStack(stackId);
   if (!stack) throw new Error("Stack não encontrada");
 
-  const stackDir = getStackDir(stack.name);
+  const stackDir = path.join(config.dataDir, "stacks", stack.name);
   const composeFile = stack.type === "git" ? stack.gitPath || "compose.yaml" : "compose.yaml";
+  const composePath = path.join(stackDir, composeFile);
 
-  const downArgs = ["compose", "-p", stack.name, "-f", composeFile, "down"];
-  if (removeVolumes) downArgs.push("-v");
+  // Executa 'docker compose down' apenas se a stack possuir containers e o compose existir
+  if (stack.containersCount > 0 && fs.existsSync(composePath)) {
+    const downArgs = ["compose", "-p", stack.name, "-f", composeFile, "down"];
+    if (removeVolumes) downArgs.push("-v");
 
-  try {
-    await execFileAsync("docker", downArgs, { cwd: stackDir, timeout: 90000 });
-  } catch {
-    // Ignore down errors if containers are already gone
+    try {
+      await execFileAsync("docker", downArgs, { cwd: stackDir, timeout: 15000 });
+    } catch {
+      // Ignore down errors if containers are already gone
+    }
   }
 
-  // Remove stack files
+  // Remove stack files se existirem
   try {
-    fs.rmSync(stackDir, { recursive: true, force: true });
+    if (fs.existsSync(stackDir)) {
+      fs.rmSync(stackDir, { recursive: true, force: true });
+    }
   } catch {
     // ignore
   }

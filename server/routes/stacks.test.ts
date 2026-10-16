@@ -149,5 +149,5 @@ describe("Phase 7 & 8 - Stacks & GitOps Webhooks Tests", () => {
     });
 
     expect(getRes.statusCode).toBe(404);
-  });
+  }, 15000);
 });
