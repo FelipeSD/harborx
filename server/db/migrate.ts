@@ -113,6 +113,18 @@ const migrations: Migration[] = [
       `);
     },
   },
+  {
+    name: "005_integration_settings",
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS integration_settings (
+          key TEXT PRIMARY KEY,
+          value_json TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+      `);
+    },
+  },
 ];
 
 export function runMigrations(db: Database.Database): void {

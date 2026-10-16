@@ -20,6 +20,7 @@ import {
   Code2,
   Copy,
   Loader2,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -61,6 +62,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { BackupToolkitInjectorDialog } from "@/components/stacks/BackupToolkitInjectorDialog";
 import type {
   CreateStackRequest,
   StackEnvVar,
@@ -98,6 +100,184 @@ const TEMPLATES: Record<string, { label: string; yaml: string }> = {
   wordpress: {
     label: "WordPress + MySQL 8",
     yaml: `services:\n  wordpress:\n    image: wordpress:latest\n    ports:\n      - "8080:80"\n    environment:\n      WORDPRESS_DB_HOST: db\n      WORDPRESS_DB_USER: wp_user\n      WORDPRESS_DB_PASSWORD: \${DB_PASS:-secret}\n      WORDPRESS_DB_NAME: wordpress\n    volumes:\n      - wpdata:/var/www/html\n    restart: unless-stopped\n\n  db:\n    image: mysql:8.0\n    environment:\n      MYSQL_DATABASE: wordpress\n      MYSQL_USER: wp_user\n      MYSQL_PASSWORD: \${DB_PASS:-secret}\n      MYSQL_RANDOM_ROOT_PASSWORD: "1"\n    volumes:\n      - dbdata:/var/lib/mysql\n    restart: unless-stopped\n\nvolumes:\n  wpdata:\n  dbdata:\n`,
+  },
+  postgres_backup: {
+    label: "🛡️ PostgreSQL 16 + Backup Toolkit (Cloudflare R2)",
+    yaml: `services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: \${CONTAINER_PREFIX:-app}-postgres
+    environment:
+      POSTGRES_USER: \${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: \${POSTGRES_PASSWORD:-secret}
+      POSTGRES_DB: \${POSTGRES_DB:-app_production}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \${POSTGRES_USER:-app} -d \${POSTGRES_DB:-app_production}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+
+  database-backup:
+    image: \${BACKUP_TOOLKIT_IMAGE:-felipesdam496/backup-toolkit:latest-postgres}
+    container_name: \${CONTAINER_PREFIX:-app}-database-backup
+    restart: unless-stopped
+    environment:
+      DB_TYPE: postgres
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: \${POSTGRES_DB:-app_production}
+      DB_USER: \${POSTGRES_USER:-app}
+      DB_PASSWORD: \${POSTGRES_PASSWORD:-secret}
+      R2_BUCKET: \${BACKUP_R2_BUCKET:-app-backups}
+      R2_ENDPOINT: \${R2_ENDPOINT:-}
+      AWS_ACCESS_KEY_ID: \${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: \${AWS_SECRET_ACCESS_KEY:-}
+      RESTIC_PASSWORD: \${BACKUP_RESTIC_PASSWORD:-}
+      BACKUP_INTERVAL_SECONDS: \${BACKUP_INTERVAL_SECONDS:-86400}
+      BACKUP_KEEP_DAILY: \${BACKUP_KEEP_DAILY:-7}
+      BACKUP_KEEP_WEEKLY: \${BACKUP_KEEP_WEEKLY:-4}
+      BACKUP_KEEP_MONTHLY: \${BACKUP_KEEP_MONTHLY:-12}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend
+      - backup-egress
+
+volumes:
+  postgres_data:
+
+networks:
+  backend:
+    internal: true
+  backup-egress:
+`,
+  },
+  mysql_backup: {
+    label: "🛡️ MySQL 8.0 + Backup Toolkit (Cloudflare R2)",
+    yaml: `services:
+  mysql:
+    image: mysql:8.0
+    container_name: \${CONTAINER_PREFIX:-app}-mysql
+    environment:
+      MYSQL_DATABASE: \${MYSQL_DATABASE:-app_production}
+      MYSQL_USER: \${MYSQL_USER:-app}
+      MYSQL_PASSWORD: \${MYSQL_PASSWORD:-secret}
+      MYSQL_ROOT_PASSWORD: \${MYSQL_ROOT_PASSWORD:-supersecret}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+
+  database-backup:
+    image: \${BACKUP_TOOLKIT_IMAGE:-felipesdam496/backup-toolkit:latest-mysql}
+    container_name: \${CONTAINER_PREFIX:-app}-database-backup
+    restart: unless-stopped
+    environment:
+      DB_TYPE: mysql
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_NAME: \${MYSQL_DATABASE:-app_production}
+      DB_USER: \${MYSQL_USER:-app}
+      DB_PASSWORD: \${MYSQL_PASSWORD:-secret}
+      R2_BUCKET: \${BACKUP_R2_BUCKET:-app-backups}
+      R2_ENDPOINT: \${R2_ENDPOINT:-}
+      AWS_ACCESS_KEY_ID: \${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: \${AWS_SECRET_ACCESS_KEY:-}
+      RESTIC_PASSWORD: \${BACKUP_RESTIC_PASSWORD:-}
+      BACKUP_INTERVAL_SECONDS: \${BACKUP_INTERVAL_SECONDS:-86400}
+      BACKUP_KEEP_DAILY: \${BACKUP_KEEP_DAILY:-7}
+      BACKUP_KEEP_WEEKLY: \${BACKUP_KEEP_WEEKLY:-4}
+      BACKUP_KEEP_MONTHLY: \${BACKUP_KEEP_MONTHLY:-12}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - backend
+      - backup-egress
+
+volumes:
+  mysql_data:
+
+networks:
+  backend:
+    internal: true
+  backup-egress:
+`,
+  },
+  mongo_backup: {
+    label: "🛡️ MongoDB 7.0 + Backup Toolkit (Cloudflare R2)",
+    yaml: `services:
+  mongo:
+    image: mongo:7.0
+    container_name: \${CONTAINER_PREFIX:-app}-mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: \${MONGO_USER:-app}
+      MONGO_INITDB_ROOT_PASSWORD: \${MONGO_PASSWORD:-secret}
+      MONGO_INITDB_DATABASE: \${MONGO_DB:-app_production}
+    volumes:
+      - mongodata:/data/db
+    ports:
+      - "27017:27017"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+
+  database-backup:
+    image: \${BACKUP_TOOLKIT_IMAGE:-felipesdam496/backup-toolkit:latest-mongodb}
+    container_name: \${CONTAINER_PREFIX:-app}-database-backup
+    restart: unless-stopped
+    environment:
+      DB_TYPE: mongodb
+      DB_HOST: mongo
+      DB_PORT: "27017"
+      DB_NAME: \${MONGO_DB:-app_production}
+      DB_USER: \${MONGO_USER:-app}
+      DB_PASSWORD: \${MONGO_PASSWORD:-secret}
+      R2_BUCKET: \${BACKUP_R2_BUCKET:-app-backups}
+      R2_ENDPOINT: \${R2_ENDPOINT:-}
+      AWS_ACCESS_KEY_ID: \${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: \${AWS_SECRET_ACCESS_KEY:-}
+      RESTIC_PASSWORD: \${BACKUP_RESTIC_PASSWORD:-}
+      BACKUP_INTERVAL_SECONDS: \${BACKUP_INTERVAL_SECONDS:-86400}
+      BACKUP_KEEP_DAILY: \${BACKUP_KEEP_DAILY:-7}
+      BACKUP_KEEP_WEEKLY: \${BACKUP_KEEP_WEEKLY:-4}
+      BACKUP_KEEP_MONTHLY: \${BACKUP_KEEP_MONTHLY:-12}
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks:
+      - backend
+      - backup-egress
+
+volumes:
+  mongodata:
+
+networks:
+  backend:
+    internal: true
+  backup-egress:
+`,
   },
 };
 
@@ -295,6 +475,18 @@ function StacksPage() {
   const [logStack, setLogStack] = useState<StackSummary | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<StackSummary | null>(null);
   const [removeVolumes, setRemoveVolumes] = useState(false);
+  const [isInjectorOpen, setIsInjectorOpen] = useState(false);
+  const [injectorTarget, setInjectorTarget] = useState<"create" | "edit">("create");
+
+  const handleInjectBackup = (newYaml: string, newEnv: StackEnvVar[]) => {
+    if (injectorTarget === "create") {
+      setComposeYaml(newYaml);
+      setEnvVars(newEnv);
+    } else {
+      setEditYaml(newYaml);
+      setEditEnv(newEnv);
+    }
+  };
 
   const {
     data: stacks = [],
@@ -762,7 +954,22 @@ function StacksPage() {
                 </div>
 
                 <div>
-                  <Label className="text-xs">docker-compose.yml *</Label>
+                  <div className="flex items-center justify-between mb-1">
+                    <Label className="text-xs">docker-compose.yml *</Label>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs gap-1.5 border-primary/40 bg-primary/5 text-primary hover:bg-primary/10"
+                      onClick={() => {
+                        setInjectorTarget("create");
+                        setIsInjectorOpen(true);
+                      }}
+                    >
+                      <ShieldCheck className="size-3.5 text-primary" />
+                      Anexar Backup Toolkit (R2)
+                    </Button>
+                  </div>
                   <Textarea
                     value={composeYaml}
                     onChange={(e) => setComposeYaml(e.target.value)}
@@ -917,7 +1124,22 @@ function StacksPage() {
                 </div>
 
                 <div>
-                  <Label className="text-xs">docker-compose.yml *</Label>
+                  <div className="flex items-center justify-between mb-1">
+                    <Label className="text-xs">docker-compose.yml *</Label>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs gap-1.5 border-primary/40 bg-primary/5 text-primary hover:bg-primary/10"
+                      onClick={() => {
+                        setInjectorTarget("edit");
+                        setIsInjectorOpen(true);
+                      }}
+                    >
+                      <ShieldCheck className="size-3.5 text-primary" />
+                      Anexar Backup Toolkit (R2)
+                    </Button>
+                  </div>
                   <Textarea
                     value={editYaml}
                     onChange={(e) => setEditYaml(e.target.value)}
@@ -1085,6 +1307,16 @@ function StacksPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Backup Toolkit R2 Injector Dialog */}
+      <BackupToolkitInjectorDialog
+        open={isInjectorOpen}
+        onOpenChange={setIsInjectorOpen}
+        currentYaml={injectorTarget === "create" ? composeYaml : editYaml}
+        currentEnv={injectorTarget === "create" ? envVars : editEnv}
+        stackName={injectorTarget === "create" ? name || "app" : editName || "app"}
+        onInject={handleInjectBackup}
+      />
     </>
   );
 }

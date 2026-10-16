@@ -14,6 +14,7 @@ import type {
   ImageSummary,
   LogLine,
   NetworkSummary,
+  R2BackupSettings,
   RegistrySummary,
   RenameContainerRequest,
   SetupStatusResponse,
@@ -470,5 +471,14 @@ export const api = {
         freeMem: number;
         usedMem: number;
       }>("/api/system/host"),
+  },
+
+  settings: {
+    getR2Backup: () => fetchApi<R2BackupSettings>("/api/settings/r2-backup"),
+    saveR2Backup: (data: R2BackupSettings) =>
+      fetchApi<{ success: true }>("/api/settings/r2-backup", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
   },
 };

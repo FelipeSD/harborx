@@ -367,3 +367,17 @@ export interface WebhookItem {
     createdAt: string;
   };
 }
+
+export interface R2BackupSettings {
+  endpoint?: string;
+  bucket?: string;
+  accessKeyId?: string;
+  secretAccessKey?: string;
+  resticPassword?: string;
+  hasSecretKey?: boolean;
+  hasResticPassword?: boolean;
+  intervalSeconds?: number;
+  keepDaily?: number;
+  keepWeekly?: number;
+  keepMonthly?: number;
+}
