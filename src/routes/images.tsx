@@ -301,7 +301,9 @@ function ImagesPage() {
                   ) : (
                     <Sparkles className="size-4" />
                   )}
-                  {pruneBuildCacheMutation.isPending ? "Limpando cache..." : "Limpar cache de build"}
+                  {pruneBuildCacheMutation.isPending
+                    ? "Limpando cache..."
+                    : "Limpar cache de build"}
                 </Button>
               </>
             )}
@@ -477,7 +479,8 @@ function ImagesPage() {
           <div>
             <p className="font-medium">Podando imagens órfãs no host Docker...</p>
             <p className="text-xs text-muted-foreground">
-              O daemon do Docker está removendo imagens sem containers associados e liberando espaço em disco. Aguarde um instante.
+              O daemon do Docker está removendo imagens sem containers associados e liberando espaço
+              em disco. Aguarde um instante.
             </p>
           </div>
         </div>
@@ -489,7 +492,8 @@ function ImagesPage() {
           <div>
             <p className="font-medium">Limpando cache de compilação BuildKit...</p>
             <p className="text-xs text-muted-foreground">
-              Removendo snapshots e camadas residuais de build. Isso pode levar alguns segundos dependendo do tamanho do cache.
+              Removendo snapshots e camadas residuais de build. Isso pode levar alguns segundos
+              dependendo do tamanho do cache.
             </p>
           </div>
         </div>
@@ -853,7 +857,9 @@ function ImagesPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={pruneBuildCacheMutation.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={pruneBuildCacheMutation.isPending}>
+              Cancelar
+            </AlertDialogCancel>
             <AlertDialogAction
               className="bg-amber-500 text-black hover:bg-amber-400 font-medium"
               disabled={pruneBuildCacheMutation.isPending}

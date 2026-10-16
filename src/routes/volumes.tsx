@@ -353,7 +353,8 @@ function VolumesPage() {
           <div>
             <p className="font-medium">Podando volumes não utilizados no host Docker...</p>
             <p className="text-xs text-muted-foreground">
-              O daemon do Docker está excluindo volumes órfãos sem containers associados. Aguarde um instante.
+              O daemon do Docker está excluindo volumes órfãos sem containers associados. Aguarde um
+              instante.
             </p>
           </div>
         </div>
@@ -488,13 +489,16 @@ function VolumesPage() {
                             size="icon"
                             className="size-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
                             title="Remover volume"
-                            disabled={deleteMutation.isPending && deleteMutation.variables?.name === v.name}
+                            disabled={
+                              deleteMutation.isPending && deleteMutation.variables?.name === v.name
+                            }
                             onClick={() => {
                               setDeleteTarget(v);
                               setForceDelete(false);
                             }}
                           >
-                            {deleteMutation.isPending && deleteMutation.variables?.name === v.name ? (
+                            {deleteMutation.isPending &&
+                            deleteMutation.variables?.name === v.name ? (
                               <Loader2 className="size-3.5 animate-spin" />
                             ) : (
                               <Trash2 className="size-3.5" />
