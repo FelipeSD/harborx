@@ -10,6 +10,7 @@ import type {
 import { requireRole } from "../auth/middleware.js";
 import { docker } from "../docker.js";
 import { logAudit } from "../services/audit.js";
+import { getRegistryAuthForImage } from "../services/registries.js";
 
 function checkHarborXSelfProtection(
   id: string,
@@ -48,32 +49,47 @@ function maskSensitiveEnv(envList: string[] = []): string[] {
   });
 }
 
+async function pullImage(imageName: string): Promise<void> {
+  const auth = getRegistryAuthForImage(imageName);
+  const authconfig = auth
+    ? {
+        username: auth.username,
+        password: auth.password,
+        serveraddress: auth.serveraddress,
+      }
+    : undefined;
+
+  await new Promise<void>((resolve, reject) => {
+    const pullTimeout = setTimeout(
+      () => {
+        reject(new Error(`Timeout ao baixar imagem ${imageName} após 5 minutos.`));
+      },
+      5 * 60 * 1000,
+    );
+
+    const pullOptions = authconfig ? { authconfig } : {};
+
+    docker.pull(imageName, pullOptions, (err: unknown, stream: NodeJS.ReadableStream) => {
+      if (err) {
+        clearTimeout(pullTimeout);
+        return reject(err);
+      }
+      docker.modem.followProgress(stream, (followErr: unknown) => {
+        clearTimeout(pullTimeout);
+        if (followErr) return reject(followErr);
+        resolve();
+      });
+    });
+  });
+}
+
 async function ensureImageExists(imageName: string): Promise<void> {
   try {
     const img = docker.getImage(imageName);
     await img.inspect();
     return;
   } catch {
-    await new Promise<void>((resolve, reject) => {
-      const pullTimeout = setTimeout(
-        () => {
-          reject(new Error(`Timeout ao baixar imagem ${imageName} após 3 minutos.`));
-        },
-        3 * 60 * 1000,
-      );
-
-      docker.pull(imageName, (err: unknown, stream: NodeJS.ReadableStream) => {
-        if (err) {
-          clearTimeout(pullTimeout);
-          return reject(err);
-        }
-        docker.modem.followProgress(stream, (followErr: unknown) => {
-          clearTimeout(pullTimeout);
-          if (followErr) return reject(followErr);
-          resolve();
-        });
-      });
-    });
+    await pullImage(imageName);
   }
 }
 
@@ -489,6 +505,8 @@ export const containerRoutes: FastifyPluginAsync = async (fastify) => {
         const isRunning = inspect.State.Running;
 
         if (request.body?.pullLatest) {
+          await pullImage(image);
+        } else {
           await ensureImageExists(image);
         }
 
@@ -507,6 +525,32 @@ export const containerRoutes: FastifyPluginAsync = async (fastify) => {
           HostConfig: inspect.HostConfig || {},
         });
 
+        const primaryNetwork = inspect.HostConfig?.NetworkMode;
+        if (inspect.NetworkSettings?.Networks) {
+          for (const [netName, netConfig] of Object.entries(inspect.NetworkSettings.Networks)) {
+            if (
+              netName !== primaryNetwork &&
+              netName !== "bridge" &&
+              netName !== "host" &&
+              netName !== "none" &&
+              netName !== "default"
+            ) {
+              try {
+                const net = docker.getNetwork(netName);
+                await net.connect({
+                  Container: newContainer.id,
+                  EndpointConfig: {
+                    IPAMConfig: netConfig.IPAMConfig,
+                    Aliases: netConfig.Aliases,
+                  },
+                });
+              } catch {
+                // Conexão de rede secundária em melhor esforço
+              }
+            }
+          }
+        }
+
         if (isRunning) {
           await newContainer.start();
         }
@@ -515,7 +559,12 @@ export const containerRoutes: FastifyPluginAsync = async (fastify) => {
           action: "container.recreate",
           userId: request.user?.id,
           target: newContainer.id,
-          details: { name, image, wasRunning: isRunning },
+          details: {
+            name,
+            image,
+            wasRunning: isRunning,
+            pullLatest: Boolean(request.body?.pullLatest),
+          },
           ip: request.ip,
         });
 

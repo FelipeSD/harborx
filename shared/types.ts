@@ -349,6 +349,7 @@ export interface UpdateStackRequest {
   gitPath?: string;
   autoDeploy?: boolean;
   redeploy?: boolean;
+  pull?: boolean;
 }
 
 export interface WebhookItem {

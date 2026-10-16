@@ -52,6 +52,7 @@ const updateStackSchema = z.object({
   gitPath: z.string().optional(),
   autoDeploy: z.boolean().optional(),
   redeploy: z.boolean().default(true),
+  pull: z.boolean().default(false).optional(),
 });
 
 export const stackRoutes: FastifyPluginAsync = async (fastify) => {
@@ -145,8 +146,18 @@ export const stackRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      const { name, type, composeYaml, env, gitRepo, gitBranch, gitPath, autoDeploy, redeploy } =
-        parsed.data;
+      const {
+        name,
+        type,
+        composeYaml,
+        env,
+        gitRepo,
+        gitBranch,
+        gitPath,
+        autoDeploy,
+        redeploy,
+        pull,
+      } = parsed.data;
 
       try {
         await updateStackRecord(request.params.id, {
@@ -164,12 +175,14 @@ export const stackRoutes: FastifyPluginAsync = async (fastify) => {
           userId: request.user?.id,
           action: "stack.update",
           target: request.params.id,
-          details: { name, type, redeploy },
+          details: { name, type, redeploy, pull },
           ip: request.ip,
         });
 
         if (redeploy) {
-          await deployStack(request.params.id, request.user?.username || "user");
+          await deployStack(request.params.id, request.user?.username || "user", {
+            pull: Boolean(pull),
+          });
         }
 
         const fresh = await getStack(request.params.id);
@@ -182,17 +195,21 @@ export const stackRoutes: FastifyPluginAsync = async (fastify) => {
   );
 
   // POST /api/stacks/:id/deploy
-  fastify.post<{ Params: { id: string } }>(
+  fastify.post<{ Params: { id: string }; Body?: { pull?: boolean } }>(
     "/stacks/:id/deploy",
     { preHandler: [requireRole("operator", "admin")] },
     async (request, reply) => {
       try {
-        const result = await deployStack(request.params.id, request.user?.username || "user");
+        const pull = Boolean(request.body?.pull);
+        const result = await deployStack(request.params.id, request.user?.username || "user", {
+          pull,
+        });
 
         logAudit({
           userId: request.user?.id,
           action: "stack.deploy",
           target: request.params.id,
+          details: { pull },
           ip: request.ip,
         });
 

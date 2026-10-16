@@ -21,6 +21,7 @@ import {
   Copy,
   Loader2,
   ShieldCheck,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -36,6 +37,12 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -471,6 +478,7 @@ function StacksPage() {
   const [editGitPath, setEditGitPath] = useState("compose.yaml");
   const [editAutoDeploy, setEditAutoDeploy] = useState(false);
   const [editRedeploy, setEditRedeploy] = useState(true);
+  const [editPull, setEditPull] = useState(false);
 
   const [logStack, setLogStack] = useState<StackSummary | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<StackSummary | null>(null);
@@ -511,6 +519,7 @@ function StacksPage() {
     setEditGitPath(s.gitPath || "compose.yaml");
     setEditAutoDeploy(Boolean(s.autoDeploy));
     setEditRedeploy(true);
+    setEditPull(false);
   };
 
   const createMutation = useMutation({
@@ -535,7 +544,9 @@ function StacksPage() {
     onSuccess: (res) => {
       toast.success(
         editRedeploy
-          ? `Stack '${res.name}' atualizada e redeploy iniciado!`
+          ? editPull
+            ? `Stack '${res.name}' atualizada e redeploy com repull iniciado!`
+            : `Stack '${res.name}' atualizada e redeploy iniciado!`
           : `Stack '${res.name}' atualizada com sucesso!`,
       );
       setEditStack(null);
@@ -575,15 +586,26 @@ function StacksPage() {
         autoDeploy: editMode === "git" ? editAutoDeploy : false,
         env: editEnv.filter((v) => v.key.trim().length > 0),
         redeploy: editRedeploy,
+        pull: editRedeploy ? editPull : false,
       },
     });
   };
 
   const deployMutation = useMutation({
-    mutationFn: (id: string) => api.stacks.deploy(id),
-    onSuccess: () => {
-      toast.success("Deploy concluído com sucesso!");
+    mutationFn: (args: string | { id: string; pull?: boolean }) => {
+      const id = typeof args === "string" ? args : args.id;
+      const pull = typeof args === "string" ? false : Boolean(args.pull);
+      return api.stacks.deploy(id, { pull });
+    },
+    onSuccess: (_, args) => {
+      const isPull = typeof args !== "string" && Boolean(args.pull);
+      toast.success(
+        isPull
+          ? "Deploy e Repull concluídos com imagens atualizadas!"
+          : "Deploy concluído com sucesso!",
+      );
       void queryClient.invalidateQueries({ queryKey: ["stacks"] });
+      void queryClient.invalidateQueries({ queryKey: ["containers"] });
     },
     onError: (err: Error) => {
       toast.error(`Erro no deploy: ${err.message}`);
@@ -709,7 +731,12 @@ function StacksPage() {
         <div className="grid gap-4 lg:grid-cols-2">
           {stacks.map((s) => {
             const isRunning = s.status === "deployed" || s.runningContainersCount > 0;
-            const isDeploying = s.status === "deploying" || deployMutation.isPending;
+            const isDeploying =
+              s.status === "deploying" ||
+              (deployMutation.isPending &&
+                (typeof deployMutation.variables === "string"
+                  ? deployMutation.variables === s.id
+                  : deployMutation.variables?.id === s.id));
 
             return (
               <Panel
@@ -830,18 +857,64 @@ function StacksPage() {
                 <div className="mt-5 border-t pt-3 flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     {isOperator && (
-                      <Button
-                        size="sm"
-                        disabled={isDeploying}
-                        onClick={() => deployMutation.mutate(s.id)}
-                      >
-                        {isDeploying ? (
-                          <Loader2 className="size-3.5 animate-spin" />
-                        ) : (
-                          <Rocket className="size-3.5" />
-                        )}
-                        Redeploy
-                      </Button>
+                      <div className="inline-flex rounded-md shadow-xs">
+                        <Button
+                          size="sm"
+                          className="rounded-r-none border-r border-primary-foreground/20"
+                          disabled={isDeploying}
+                          onClick={() => deployMutation.mutate({ id: s.id, pull: false })}
+                          title="Redeploy simples usando as imagens já existentes"
+                        >
+                          {isDeploying ? (
+                            <Loader2 className="size-3.5 animate-spin mr-1" />
+                          ) : (
+                            <Rocket className="size-3.5 mr-1" />
+                          )}
+                          Redeploy
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              size="sm"
+                              className="rounded-l-none px-1.5"
+                              disabled={isDeploying}
+                              title="Opções de deploy"
+                            >
+                              <ChevronDown className="size-3.5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" className="w-64">
+                            <DropdownMenuItem
+                              onClick={() => deployMutation.mutate({ id: s.id, pull: false })}
+                              disabled={isDeploying}
+                              className="cursor-pointer"
+                            >
+                              <Rocket className="mr-2 size-3.5 text-blue-500" />
+                              <div className="flex flex-col">
+                                <span className="font-medium">Redeploy Padrão</span>
+                                <span className="text-[11px] text-muted-foreground">
+                                  Usa imagens locais / em cache
+                                </span>
+                              </div>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => deployMutation.mutate({ id: s.id, pull: true })}
+                              disabled={isDeploying}
+                              className="cursor-pointer"
+                            >
+                              <RefreshCw className="mr-2 size-3.5 text-emerald-500" />
+                              <div className="flex flex-col">
+                                <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                                  Redeploy com Repull
+                                </span>
+                                <span className="text-[11px] text-muted-foreground">
+                                  Busca imagens atualizadas no hub (--pull always)
+                                </span>
+                              </div>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     )}
                     {isOperator && (
                       <Button size="sm" variant="outline" onClick={() => handleOpenEdit(s)}>
@@ -1206,18 +1279,40 @@ function StacksPage() {
               <EnvEditor env={editEnv} onChange={setEditEnv} />
             </div>
 
-            <div className="flex items-center space-x-2 pt-2">
-              <Checkbox
-                id="edit-redeploy"
-                checked={editRedeploy}
-                onCheckedChange={(v) => setEditRedeploy(Boolean(v))}
-              />
-              <label
-                htmlFor="edit-redeploy"
-                className="text-xs font-medium text-foreground cursor-pointer"
-              >
-                Executar deploy imediatamente após salvar (Redeploy)
-              </label>
+            <div className="space-y-2 pt-2">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="edit-redeploy"
+                  checked={editRedeploy}
+                  onCheckedChange={(v) => {
+                    const checked = Boolean(v);
+                    setEditRedeploy(checked);
+                    if (!checked) setEditPull(false);
+                  }}
+                />
+                <label
+                  htmlFor="edit-redeploy"
+                  className="text-xs font-medium text-foreground cursor-pointer"
+                >
+                  Executar deploy imediatamente após salvar (Redeploy)
+                </label>
+              </div>
+
+              {editRedeploy && (
+                <div className="flex items-center space-x-2 pl-6">
+                  <Checkbox
+                    id="edit-pull"
+                    checked={editPull}
+                    onCheckedChange={(v) => setEditPull(Boolean(v))}
+                  />
+                  <label
+                    htmlFor="edit-pull"
+                    className="text-xs text-muted-foreground cursor-pointer"
+                  >
+                    Buscar imagens atualizadas do registro no redeploy (Repull)
+                  </label>
+                </div>
+              )}
             </div>
 
             <DialogFooter className="pt-2">

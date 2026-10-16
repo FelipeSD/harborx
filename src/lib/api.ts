@@ -372,9 +372,10 @@ export const api = {
         method: "PUT",
         body: JSON.stringify(data),
       }),
-    deploy: (id: string) =>
+    deploy: (id: string, options?: { pull?: boolean }) =>
       fetchApi<{ success: true; output: string }>(`/api/stacks/${id}/deploy`, {
         method: "POST",
+        body: JSON.stringify(options || {}),
       }),
     stop: (id: string) =>
       fetchApi<{ success: true }>(`/api/stacks/${id}/stop`, {

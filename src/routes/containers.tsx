@@ -105,6 +105,7 @@ function ContainersPage() {
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
   const [confirmRemoveBatch, setConfirmRemoveBatch] = useState(false);
   const [confirmRecreateId, setConfirmRecreateId] = useState<string | null>(null);
+  const [recreatePullLatest, setRecreatePullLatest] = useState(true);
   const [removeVolumes, setRemoveVolumes] = useState(false);
   const [isCopiedJson, setIsCopiedJson] = useState(false);
 
@@ -198,9 +199,14 @@ function ContainersPage() {
 
   // Mutação para recriação
   const recreateMutation = useMutation({
-    mutationFn: ({ id }: { id: string }) => api.containers.recreate(id),
-    onSuccess: () => {
-      toast.success("Container recriado com sucesso!");
+    mutationFn: ({ id, pullLatest }: { id: string; pullLatest?: boolean }) =>
+      api.containers.recreate(id, { pullLatest }),
+    onSuccess: (_, vars) => {
+      toast.success(
+        vars?.pullLatest
+          ? "Container recriado com a imagem atualizada do registro!"
+          : "Container recriado com sucesso!",
+      );
       setConfirmRecreateId(null);
       void queryClient.invalidateQueries({ queryKey: ["containers"] });
       void queryClient.invalidateQueries({ queryKey: ["systemInfo"] });
@@ -625,6 +631,10 @@ function ContainersPage() {
             onAction={(id, action) => actionMutation.mutate({ id, action })}
             onStackAction={handleStackAction}
             onRemoveContainer={(id) => setConfirmRemoveId(id)}
+            onRecreateContainer={(id) => {
+              setRecreatePullLatest(true);
+              setConfirmRecreateId(id);
+            }}
             isViewer={isViewer}
             isActionPending={
               actionMutation.isPending ||
@@ -854,6 +864,25 @@ function ContainersPage() {
                                 )}
                               </Button>
 
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="size-8 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+                                title="Recriar container (com opção de repull)"
+                                onClick={() => {
+                                  setRecreatePullLatest(true);
+                                  setConfirmRecreateId(c.id);
+                                }}
+                                disabled={isRowDisabled || recreateMutation.isPending}
+                              >
+                                {recreateMutation.isPending &&
+                                recreateMutation.variables?.id === c.id ? (
+                                  <Loader2 className="size-3.5 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="size-3.5" />
+                                )}
+                              </Button>
+
                               {isRunning && (
                                 <Button
                                   size="icon"
@@ -1069,7 +1098,10 @@ function ContainersPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setConfirmRecreateId(selectedContainer.id)}
+                          onClick={() => {
+                            setRecreatePullLatest(true);
+                            setConfirmRecreateId(selectedContainer.id);
+                          }}
                           disabled={recreateMutation.isPending || removeMutation.isPending}
                         >
                           {recreateMutation.isPending ? (
@@ -1292,12 +1324,39 @@ function ContainersPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Recriar Container</AlertDialogTitle>
-            <AlertDialogDescription>
-              O container atual será parado, removido e criado novamente preservando nome, portas,
-              variáveis de ambiente, redes e volumes configurados. Deseja continuar?
+            <AlertDialogTitle className="flex items-center gap-2">
+              <RefreshCw className="size-5 text-primary" />
+              Recriar Container
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <span>
+                O container atual será parado, removido e criado novamente preservando nome, portas,
+                variáveis de ambiente, redes e volumes configurados.
+              </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          <div className="py-2">
+            <label className="flex items-start gap-3 cursor-pointer rounded-lg border border-border p-3 bg-muted/40 hover:bg-muted/60 transition-colors">
+              <Checkbox
+                id="recreate-pull-latest"
+                checked={recreatePullLatest}
+                onCheckedChange={(c) => setRecreatePullLatest(Boolean(c))}
+                className="mt-0.5"
+                disabled={recreateMutation.isPending}
+              />
+              <div className="space-y-0.5 text-left">
+                <span className="text-sm font-medium text-foreground block">
+                  Buscar imagem atualizada do registro (Repull)
+                </span>
+                <span className="text-xs text-muted-foreground block">
+                  Baixa a versão mais recente da tag no Docker Hub / GHCR antes de criar e iniciar o
+                  container.
+                </span>
+              </div>
+            </label>
+          </div>
+
           <AlertDialogFooter>
             <AlertDialogCancel disabled={recreateMutation.isPending}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
@@ -1305,17 +1364,20 @@ function ContainersPage() {
               onClick={(e) => {
                 e.preventDefault();
                 if (confirmRecreateId) {
-                  recreateMutation.mutate({ id: confirmRecreateId });
+                  recreateMutation.mutate({
+                    id: confirmRecreateId,
+                    pullLatest: recreatePullLatest,
+                  });
                 }
               }}
             >
               {recreateMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 size-4 animate-spin" />
-                  Recriando...
+                  {recreatePullLatest ? "Baixando imagem e recriando..." : "Recriando..."}
                 </>
               ) : (
-                "Recriar Agora"
+                "Recriar Container"
               )}
             </AlertDialogAction>
           </AlertDialogFooter>

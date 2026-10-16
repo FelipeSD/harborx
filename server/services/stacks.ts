@@ -303,6 +303,7 @@ export function createStackRecord(data: {
 export async function deployStack(
   stackId: string,
   triggeredBy = "user",
+  options?: { pull?: boolean },
 ): Promise<{ success: boolean; output: string }> {
   const stack = await getStack(stackId);
   if (!stack) throw new Error("Stack não encontrada");
@@ -351,11 +352,37 @@ export async function deployStack(
 
     // Execute docker compose up
     const composeFile = stack.type === "git" ? stack.gitPath || "compose.yaml" : "compose.yaml";
-    const upRes = await execFileAsync(
-      "docker",
-      ["compose", "-p", stack.name, "-f", composeFile, "up", "-d", "--remove-orphans"],
-      { cwd: stackDir, timeout: 300000 },
-    );
+
+    if (options?.pull) {
+      try {
+        const pullRes = await execFileAsync(
+          "docker",
+          ["compose", "-p", stack.name, "-f", composeFile, "pull"],
+          { cwd: stackDir, timeout: 300000 },
+        );
+        outputLog += `[docker compose pull]\n${pullRes.stdout}\n${pullRes.stderr}\n`;
+      } catch (pullErr: unknown) {
+        const msg = pullErr instanceof Error ? pullErr.message : String(pullErr);
+        outputLog += `[docker compose pull aviso]\n${msg}\n`;
+      }
+    }
+
+    const composeArgs = [
+      "compose",
+      "-p",
+      stack.name,
+      "-f",
+      composeFile,
+      "up",
+      "-d",
+      "--remove-orphans",
+    ];
+
+    if (options?.pull) {
+      composeArgs.push("--pull", "always", "--force-recreate");
+    }
+
+    const upRes = await execFileAsync("docker", composeArgs, { cwd: stackDir, timeout: 300000 });
 
     outputLog += `[docker compose up]\n${upRes.stdout}\n${upRes.stderr}\n`;
     finalStatus = "deployed";

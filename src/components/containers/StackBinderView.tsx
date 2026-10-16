@@ -15,6 +15,7 @@ import {
   Square as SquareOutline,
   ExternalLink,
   Loader2,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +40,7 @@ interface StackBinderViewProps {
   onAction: (id: string, action: ContainerAction) => void;
   onStackAction: (containerIds: string[], action: ContainerAction) => void;
   onRemoveContainer?: (id: string) => void;
+  onRecreateContainer?: (id: string) => void;
   isViewer: boolean;
   isActionPending: boolean;
   pendingAction?: { id: string; action: ContainerAction } | null;
@@ -56,6 +58,7 @@ export function StackBinderView({
   onAction,
   onStackAction,
   onRemoveContainer,
+  onRecreateContainer,
   isViewer,
   isActionPending,
   pendingAction,
@@ -373,6 +376,18 @@ export function StackBinderView({
                                   <RotateCw className="size-3.5" />
                                 )}
                               </Button>
+                              {onRecreateContainer && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="size-8 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+                                  onClick={() => onRecreateContainer(c.id)}
+                                  disabled={isRowDisabled}
+                                  title="Recriar container (Repull)"
+                                >
+                                  <RefreshCw className="size-3.5" />
+                                </Button>
+                              )}
                               {onRemoveContainer && (
                                 <Button
                                   size="icon"
@@ -551,6 +566,19 @@ export function StackBinderView({
                                         <RotateCw className="size-3.5" />
                                       )}
                                     </Button>
+
+                                    {onRecreateContainer && (
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="size-7 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+                                        title="Recriar container (com opção de repull)"
+                                        onClick={() => onRecreateContainer(c.id)}
+                                        disabled={isRowDisabled}
+                                      >
+                                        <RefreshCw className="size-3.5" />
+                                      </Button>
+                                    )}
 
                                     {onRemoveContainer && (
                                       <Button
