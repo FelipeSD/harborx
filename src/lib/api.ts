@@ -43,6 +43,12 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
   if (!headers.has("Content-Type") && options.body && typeof options.body === "string") {
     headers.set("Content-Type", "application/json");
   }
+  if (!headers.has("X-Requested-With")) {
+    headers.set("X-Requested-With", "XMLHttpRequest");
+  }
+  if (!headers.has("X-HarborX-Client")) {
+    headers.set("X-HarborX-Client", "web");
+  }
 
   const response = await fetch(endpoint, {
     ...options,
@@ -159,7 +165,11 @@ export const api = {
     pullStream: async (ref: string, onEvent: (event: ImagePullProgress) => void): Promise<void> => {
       const response = await fetch("/api/images/pull", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Requested-With": "XMLHttpRequest",
+          "X-HarborX-Client": "web",
+        },
         credentials: "include",
         body: JSON.stringify({ ref, stream: true }),
       });

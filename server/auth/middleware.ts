@@ -26,28 +26,72 @@ function isPublicRoute(urlPath: string): boolean {
   return false;
 }
 
+function isLoopback(hostname: string): boolean {
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1" ||
+    hostname === "[::1]" ||
+    hostname === "0.0.0.0"
+  );
+}
+
 function checkCsrf(request: FastifyRequest, reply: FastifyReply): boolean {
   const method = request.method.toUpperCase();
   if (method === "GET" || method === "HEAD" || method === "OPTIONS") {
     return true;
   }
 
+  // Se a requisição inclui cabeçalhos customizados enviados pelo frontend (X-Requested-With ou X-HarborX-Client),
+  // a proteção contra CSRF via formulários cross-site HTML tradicionais é garantida pelos navegadores.
+  const requestedWith = request.headers["x-requested-with"];
+  const harborxClient = request.headers["x-harborx-client"];
+  if (requestedWith === "XMLHttpRequest" || harborxClient === "web") {
+    return true;
+  }
+
+  // Validação por Sec-Fetch-Site (suportado por navegadores modernos Chromium, Safari, Firefox)
+  const secFetchSite = request.headers["sec-fetch-site"];
+  if (secFetchSite === "same-origin" || secFetchSite === "none") {
+    return true;
+  }
+
   const origin = request.headers.origin;
-  if (!origin) return true;
+  if (!origin) {
+    return true;
+  }
 
   try {
-    const originHost = new URL(origin).host;
+    const originUrl = new URL(origin);
+    const originHost = originUrl.host;
+    const originHostname = originUrl.hostname;
+
     const requestHost = request.headers.host;
-    if (originHost !== requestHost) {
-      reply.status(403).send({ error: "Origem da requisição inválida (CSRF detectado)" });
-      return false;
+    const forwardedHost = request.headers["x-forwarded-host"] as string | undefined;
+
+    // Correspondência direta com host ou x-forwarded-host (reverse proxy / Vite dev proxy)
+    if (originHost === requestHost || (forwardedHost && originHost === forwardedHost)) {
+      return true;
     }
+
+    // Suporte a desenvolvimento e proxy local (localhost <-> 127.0.0.1 em portas diferentes)
+    const requestHostname = requestHost ? requestHost.split(":")[0] : "";
+    const forwardedHostname = forwardedHost ? forwardedHost.split(":")[0] : "";
+
+    const isOriginLoopback = isLoopback(originHostname);
+    const isTargetLoopback =
+      isLoopback(requestHostname) || (forwardedHostname && isLoopback(forwardedHostname));
+
+    if (isOriginLoopback && isTargetLoopback) {
+      return true;
+    }
+
+    reply.status(403).send({ error: "Origem da requisição inválida (CSRF detectado)" });
+    return false;
   } catch {
     reply.status(403).send({ error: "Cabeçalho de origem malformado" });
     return false;
   }
-
-  return true;
 }
 
 export function registerAuthHooks(fastify: FastifyInstance): void {
