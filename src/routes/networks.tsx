@@ -219,7 +219,7 @@ function NetworksPage() {
     return networks.filter((n) => {
       const hasInUse = Boolean(
         (n.inUseBy && n.inUseBy.length > 0) ||
-          (n.containers && Object.keys(n.containers).length > 0),
+        (n.containers && Object.keys(n.containers).length > 0),
       );
       if (filterUsage === "in_use" && !hasInUse) return false;
       if (filterUsage === "unused" && hasInUse) return false;

@@ -5,7 +5,7 @@ services:
     # build: .
     container_name: harborx
     restart: unless-stopped
-    
+
     security_opt:
       - no-new-privileges:true
 
@@ -22,7 +22,7 @@ services:
 
 volumes:
   harborx-data:
-  
+
 networks:
   proxy:
     external: true

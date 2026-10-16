@@ -766,10 +766,7 @@ function ImagesPage() {
       </AlertDialog>
 
       {/* Prune Build Cache Confirmation */}
-      <AlertDialog
-        open={isPruneBuildCacheOpen}
-        onOpenChange={setIsPruneBuildCacheOpen}
-      >
+      <AlertDialog open={isPruneBuildCacheOpen} onOpenChange={setIsPruneBuildCacheOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
@@ -782,10 +779,12 @@ function ImagesPage() {
                 <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">
                   docker builder prune
                 </code>
-                , removendo camadas intermediárias e caches de compilação BuildKit armazenados pelo Docker Engine.
+                , removendo camadas intermediárias e caches de compilação BuildKit armazenados pelo
+                Docker Engine.
               </div>
               <div className="text-xs text-muted-foreground">
-                Liberará espaço em disco do host. Suas imagens concluídas e containers ativos não serão afetados.
+                Liberará espaço em disco do host. Suas imagens concluídas e containers ativos não
+                serão afetados.
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>

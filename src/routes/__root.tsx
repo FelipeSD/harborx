@@ -86,13 +86,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "HarborX — Docker para VMs" },
       {
         name: "description",
-        content: "Gerencie containers Docker nas suas VMs com interface moderna, logs em tempo real e console interativo.",
+        content:
+          "Gerencie containers Docker nas suas VMs com interface moderna, logs em tempo real e console interativo.",
       },
       { name: "author", content: "HarborX Team" },
 
       { property: "og:type", content: "website" },
       { property: "og:title", content: "HarborX — Docker para VMs" },
-      { property: "og:description", content: "Gerenciador Docker visual e leve para servidores e VMs." },
+      {
+        property: "og:description",
+        content: "Gerenciador Docker visual e leve para servidores e VMs.",
+      },
       { property: "og:image", content: "/og-image.png" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:image", content: "/og-image.png" },

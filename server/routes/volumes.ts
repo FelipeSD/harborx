@@ -81,39 +81,43 @@ export const volumeRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // POST /api/volumes - Create volume
-  fastify.post("/volumes", { preHandler: [requireRole("operator", "admin")] }, async (request, reply) => {
-    const parsed = createVolumeSchema.safeParse(request.body || {});
-    if (!parsed.success) {
-      return reply.status(400).send({
-        error: "Dados de requisição inválidos",
-        issues: parsed.error.issues,
-      });
-    }
+  fastify.post(
+    "/volumes",
+    { preHandler: [requireRole("operator", "admin")] },
+    async (request, reply) => {
+      const parsed = createVolumeSchema.safeParse(request.body || {});
+      if (!parsed.success) {
+        return reply.status(400).send({
+          error: "Dados de requisição inválidos",
+          issues: parsed.error.issues,
+        });
+      }
 
-    const { name, driver, driverOpts, labels } = parsed.data;
+      const { name, driver, driverOpts, labels } = parsed.data;
 
-    try {
-      const result = await docker.createVolume({
-        Name: name,
-        Driver: driver,
-        DriverOpts: driverOpts,
-        Labels: labels,
-      });
+      try {
+        const result = await docker.createVolume({
+          Name: name,
+          Driver: driver,
+          DriverOpts: driverOpts,
+          Labels: labels,
+        });
 
-      logAudit({
-        userId: request.user?.id,
-        action: "volume.create",
-        target: result.name || name || "novo-volume",
-        details: { driver, labels },
-        ip: request.ip,
-      });
+        logAudit({
+          userId: request.user?.id,
+          action: "volume.create",
+          target: result.name || name || "novo-volume",
+          details: { driver, labels },
+          ip: request.ip,
+        });
 
-      return reply.status(201).send(result);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      return reply.status(502).send({ error: `Falha ao criar volume: ${msg}` });
-    }
-  });
+        return reply.status(201).send(result);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return reply.status(502).send({ error: `Falha ao criar volume: ${msg}` });
+      }
+    },
+  );
 
   // DELETE /api/volumes/:name
   fastify.delete<{ Params: { name: string }; Querystring: { force?: string } }>(

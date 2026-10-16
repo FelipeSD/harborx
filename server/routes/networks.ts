@@ -38,7 +38,10 @@ export const networkRoutes: FastifyPluginAsync = async (fastify) => {
       ]);
 
       // Map network name/id -> containers
-      const networkContainers = new Map<string, Array<{ id: string; name: string; ipv4?: string }>>();
+      const networkContainers = new Map<
+        string,
+        Array<{ id: string; name: string; ipv4?: string }>
+      >();
       for (const c of containerList) {
         const cleanName = (c.Names?.[0] || c.Id.slice(0, 12)).replace(/^\//, "");
         const networks = c.NetworkSettings?.Networks || {};
@@ -134,49 +137,53 @@ export const networkRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // POST /api/networks - Create network
-  fastify.post("/networks", { preHandler: [requireRole("operator", "admin")] }, async (request, reply) => {
-    const parsed = createNetworkSchema.safeParse(request.body);
-    if (!parsed.success) {
-      return reply.status(400).send({
-        error: "Dados de requisição inválidos",
-        issues: parsed.error.issues,
-      });
-    }
-
-    const { name, driver, subnet, gateway, internal, attachable, labels } = parsed.data;
-
-    try {
-      const ipamConfig: Array<{ Subnet?: string; Gateway?: string }> = [];
-      if (subnet) {
-        ipamConfig.push({
-          Subnet: subnet,
-          ...(gateway ? { Gateway: gateway } : {}),
+  fastify.post(
+    "/networks",
+    { preHandler: [requireRole("operator", "admin")] },
+    async (request, reply) => {
+      const parsed = createNetworkSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          error: "Dados de requisição inválidos",
+          issues: parsed.error.issues,
         });
       }
 
-      const network = await docker.createNetwork({
-        Name: name,
-        Driver: driver,
-        Internal: internal,
-        Attachable: attachable,
-        Labels: labels,
-        ...(ipamConfig.length > 0 ? { IPAM: { Driver: "default", Config: ipamConfig } } : {}),
-      });
+      const { name, driver, subnet, gateway, internal, attachable, labels } = parsed.data;
 
-      logAudit({
-        userId: request.user?.id,
-        action: "network.create",
-        target: name,
-        details: { id: network.id, driver, subnet, gateway },
-        ip: request.ip,
-      });
+      try {
+        const ipamConfig: Array<{ Subnet?: string; Gateway?: string }> = [];
+        if (subnet) {
+          ipamConfig.push({
+            Subnet: subnet,
+            ...(gateway ? { Gateway: gateway } : {}),
+          });
+        }
 
-      return reply.status(201).send({ id: network.id, name });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      return reply.status(502).send({ error: `Falha ao criar rede: ${msg}` });
-    }
-  });
+        const network = await docker.createNetwork({
+          Name: name,
+          Driver: driver,
+          Internal: internal,
+          Attachable: attachable,
+          Labels: labels,
+          ...(ipamConfig.length > 0 ? { IPAM: { Driver: "default", Config: ipamConfig } } : {}),
+        });
+
+        logAudit({
+          userId: request.user?.id,
+          action: "network.create",
+          target: name,
+          details: { id: network.id, driver, subnet, gateway },
+          ip: request.ip,
+        });
+
+        return reply.status(201).send({ id: network.id, name });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return reply.status(502).send({ error: `Falha ao criar rede: ${msg}` });
+      }
+    },
+  );
 
   // DELETE /api/networks/:id
   fastify.delete<{ Params: { id: string } }>(

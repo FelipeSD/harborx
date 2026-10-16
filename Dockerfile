@@ -7,7 +7,7 @@ FROM docker:27-cli AS dockercli
 FROM oven/bun:1 AS build
 WORKDIR /app
 COPY package.json bun.lock bunfig.toml ./
-RUN bun install --frozen-lockfile
+RUN bun install --frozen-lockfile --ignore-scripts
 COPY . .
 RUN bun run build && bun run build:server
 
@@ -15,7 +15,7 @@ RUN bun run build && bun run build:server
 FROM oven/bun:1 AS deps
 WORKDIR /app
 COPY package.json bun.lock bunfig.toml ./
-RUN bun install --frozen-lockfile --production
+RUN bun install --frozen-lockfile --production --ignore-scripts
 
 # ---------- runtime ----------
 FROM node:22-bookworm-slim AS runtime

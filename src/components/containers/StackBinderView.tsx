@@ -67,10 +67,8 @@ export function StackBinderView({
         const groupKey = group.isStandalone ? "__standalone__" : group.stackName;
         const isCollapsed = Boolean(collapsed[groupKey]);
         const groupIds = group.containers.map((c) => c.id);
-        const allSelected =
-          groupIds.length > 0 && groupIds.every((id) => selectedIds.includes(id));
-        const someSelected =
-          groupIds.some((id) => selectedIds.includes(id)) && !allSelected;
+        const allSelected = groupIds.length > 0 && groupIds.every((id) => selectedIds.includes(id));
+        const someSelected = groupIds.some((id) => selectedIds.includes(id)) && !allSelected;
 
         const toggleSelectGroup = () => {
           if (allSelected) {
@@ -130,7 +128,8 @@ export function StackBinderView({
                           variant={group.isStandalone ? "secondary" : "default"}
                           className={cn(
                             "text-[10px] uppercase tracking-wider font-mono px-2 py-0.5",
-                            !group.isStandalone && "bg-primary/15 text-primary border-primary/30 hover:bg-primary/20",
+                            !group.isStandalone &&
+                              "bg-primary/15 text-primary border-primary/30 hover:bg-primary/20",
                           )}
                         >
                           {group.isStandalone ? "Avulso" : "Docker Compose"}
@@ -200,7 +199,9 @@ export function StackBinderView({
                   <button
                     onClick={toggleSelectGroup}
                     className="flex items-center gap-1.5 rounded-lg border border-border/60 bg-background/50 px-2.5 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
-                    title={allSelected ? "Desmarcar todos desta pasta" : "Selecionar todos desta pasta"}
+                    title={
+                      allSelected ? "Desmarcar todos desta pasta" : "Selecionar todos desta pasta"
+                    }
                   >
                     {allSelected ? (
                       <CheckSquare className="size-3.5 text-primary" />
@@ -372,4 +373,3 @@ export function StackBinderView({
     </div>
   );
 }
-

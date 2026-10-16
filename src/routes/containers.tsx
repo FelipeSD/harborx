@@ -296,9 +296,7 @@ function ContainersPage() {
             `Ação "${action}" aplicada com sucesso a ${successes} container(s) da stack.`,
           );
         } else {
-          toast.warning(
-            `Ação "${action}": ${successes} com sucesso, ${failures.length} falha(s).`,
-          );
+          toast.warning(`Ação "${action}": ${successes} com sucesso, ${failures.length} falha(s).`);
         }
         void queryClient.invalidateQueries({ queryKey: ["containers"] });
         void queryClient.invalidateQueries({ queryKey: ["systemInfo"] });
@@ -552,223 +550,229 @@ function ContainersPage() {
       ) : (
         /* Tabela de Containers */
         <Panel className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="border-b text-left text-xs uppercase tracking-wider text-muted-foreground">
-            <tr>
-              {!isViewer && (
-                <th className="w-10 px-4 py-3">
-                  <button
-                    onClick={toggleSelectAll}
-                    className="grid size-4 place-items-center text-muted-foreground hover:text-foreground"
-                    title={allFilteredSelected ? "Desmarcar todos" : "Selecionar todos"}
-                  >
-                    {allFilteredSelected ? (
-                      <CheckSquare className="size-4 text-primary" />
-                    ) : (
-                      <SquareOutline className="size-4" />
-                    )}
-                  </button>
-                </th>
-              )}
-              <th className="px-4 py-3 font-medium">Nome</th>
-              <th className="px-4 py-3 font-medium">Imagem</th>
-              <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium">Stack</th>
-              <th className="px-4 py-3 font-medium">Portas</th>
-              <th className="px-4 py-3 font-medium">Criado em</th>
-              <th className="px-4 py-3 font-medium text-right">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              Array.from({ length: 4 }).map((_, i) => (
-                <tr key={i} className="border-b last:border-0">
-                  {!isViewer && (
-                    <td className="px-4 py-3">
-                      <Skeleton className="size-4" />
-                    </td>
-                  )}
-                  <td className="px-4 py-3">
-                    <Skeleton className="h-4 w-28 mb-1" />
-                    <Skeleton className="h-3 w-16" />
-                  </td>
-                  <td className="px-4 py-3">
-                    <Skeleton className="h-4 w-36" />
-                  </td>
-                  <td className="px-4 py-3">
-                    <Skeleton className="h-5 w-20 rounded-full" />
-                  </td>
-                  <td className="px-4 py-3">
-                    <Skeleton className="h-4 w-16" />
-                  </td>
-                  <td className="px-4 py-3">
-                    <Skeleton className="h-4 w-24" />
-                  </td>
-                  <td className="px-4 py-3">
-                    <Skeleton className="h-4 w-20" />
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <Skeleton className="h-8 w-24 ml-auto" />
-                  </td>
-                </tr>
-              ))
-            ) : filteredList.length === 0 ? (
+          <table className="w-full text-sm">
+            <thead className="border-b text-left text-xs uppercase tracking-wider text-muted-foreground">
               <tr>
-                <td
-                  colSpan={isViewer ? 7 : 8}
-                  className="px-4 py-12 text-center text-muted-foreground"
-                >
-                  <Boxes className="mx-auto size-8 mb-2 opacity-50" />
-                  {search || filterStack !== "all" || filterState !== "all"
-                    ? "Nenhum container encontrado com os filtros aplicados."
-                    : "Nenhum container Docker encontrado na sua máquina."}
-                </td>
+                {!isViewer && (
+                  <th className="w-10 px-4 py-3">
+                    <button
+                      onClick={toggleSelectAll}
+                      className="grid size-4 place-items-center text-muted-foreground hover:text-foreground"
+                      title={allFilteredSelected ? "Desmarcar todos" : "Selecionar todos"}
+                    >
+                      {allFilteredSelected ? (
+                        <CheckSquare className="size-4 text-primary" />
+                      ) : (
+                        <SquareOutline className="size-4" />
+                      )}
+                    </button>
+                  </th>
+                )}
+                <th className="px-4 py-3 font-medium">Nome</th>
+                <th className="px-4 py-3 font-medium">Imagem</th>
+                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">Stack</th>
+                <th className="px-4 py-3 font-medium">Portas</th>
+                <th className="px-4 py-3 font-medium">Criado em</th>
+                <th className="px-4 py-3 font-medium text-right">Ações</th>
               </tr>
-            ) : (
-              filteredList.map((c) => {
-                const isSelected = selectedIds.includes(c.id);
-                const isRunning = c.state === "running";
-                const isPaused = c.state === "paused";
-
-                return (
-                  <tr
-                    key={c.id}
-                    className={cn(
-                      "border-b last:border-0 hover:bg-accent/40 transition-colors",
-                      isSelected && "bg-primary/5",
-                    )}
-                  >
+            </thead>
+            <tbody>
+              {isLoading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <tr key={i} className="border-b last:border-0">
                     {!isViewer && (
                       <td className="px-4 py-3">
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={() => toggleSelectOne(c.id)}
-                        />
+                        <Skeleton className="size-4" />
                       </td>
                     )}
                     <td className="px-4 py-3">
-                      <button
-                        onClick={() => setSelectedContainer(c)}
-                        className="font-medium hover:text-primary transition-colors text-left"
-                      >
-                        {c.name}
-                      </button>
-                      <p className="font-mono text-[11px] text-muted-foreground">
-                        {c.id.slice(0, 12)}
-                      </p>
+                      <Skeleton className="h-4 w-28 mb-1" />
+                      <Skeleton className="h-3 w-16" />
                     </td>
                     <td className="px-4 py-3">
-                      <span
-                        className="font-mono text-xs truncate max-w-[200px] block"
-                        title={c.image}
-                      >
-                        {c.image}
-                      </span>
+                      <Skeleton className="h-4 w-36" />
                     </td>
                     <td className="px-4 py-3">
-                      <StatusPill status={c.state} />
+                      <Skeleton className="h-5 w-20 rounded-full" />
                     </td>
                     <td className="px-4 py-3">
-                      {c.stack ? (
-                        <Badge variant="outline" className="font-mono text-[11px] gap-1">
-                          <Layers className="size-3 text-primary" />
-                          {c.stack}
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">—</span>
-                      )}
+                      <Skeleton className="h-4 w-16" />
                     </td>
-                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                      {formatPorts(c.ports)}
+                    <td className="px-4 py-3">
+                      <Skeleton className="h-4 w-24" />
                     </td>
-                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                      {formatDate(c.created)}
+                    <td className="px-4 py-3">
+                      <Skeleton className="h-4 w-20" />
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        {!isViewer ? (
-                          <>
-                            {isRunning ? (
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="size-8 text-amber-500 hover:text-amber-400"
-                                title="Parar"
-                                onClick={() => actionMutation.mutate({ id: c.id, action: "stop" })}
-                                disabled={actionMutation.isPending}
-                              >
-                                <Square className="size-3.5" />
-                              </Button>
-                            ) : (
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="size-8 text-emerald-500 hover:text-emerald-400"
-                                title="Iniciar"
-                                onClick={() => actionMutation.mutate({ id: c.id, action: "start" })}
-                                disabled={actionMutation.isPending}
-                              >
-                                <Play className="size-3.5" />
-                              </Button>
-                            )}
+                      <Skeleton className="h-8 w-24 ml-auto" />
+                    </td>
+                  </tr>
+                ))
+              ) : filteredList.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={isViewer ? 7 : 8}
+                    className="px-4 py-12 text-center text-muted-foreground"
+                  >
+                    <Boxes className="mx-auto size-8 mb-2 opacity-50" />
+                    {search || filterStack !== "all" || filterState !== "all"
+                      ? "Nenhum container encontrado com os filtros aplicados."
+                      : "Nenhum container Docker encontrado na sua máquina."}
+                  </td>
+                </tr>
+              ) : (
+                filteredList.map((c) => {
+                  const isSelected = selectedIds.includes(c.id);
+                  const isRunning = c.state === "running";
+                  const isPaused = c.state === "paused";
 
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="size-8 text-blue-400 hover:text-blue-300"
-                              title="Reiniciar"
-                              onClick={() => actionMutation.mutate({ id: c.id, action: "restart" })}
-                              disabled={actionMutation.isPending}
-                            >
-                              <RotateCw className="size-3.5" />
-                            </Button>
+                  return (
+                    <tr
+                      key={c.id}
+                      className={cn(
+                        "border-b last:border-0 hover:bg-accent/40 transition-colors",
+                        isSelected && "bg-primary/5",
+                      )}
+                    >
+                      {!isViewer && (
+                        <td className="px-4 py-3">
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => toggleSelectOne(c.id)}
+                          />
+                        </td>
+                      )}
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => setSelectedContainer(c)}
+                          className="font-medium hover:text-primary transition-colors text-left"
+                        >
+                          {c.name}
+                        </button>
+                        <p className="font-mono text-[11px] text-muted-foreground">
+                          {c.id.slice(0, 12)}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className="font-mono text-xs truncate max-w-[200px] block"
+                          title={c.image}
+                        >
+                          {c.image}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <StatusPill status={c.state} />
+                      </td>
+                      <td className="px-4 py-3">
+                        {c.stack ? (
+                          <Badge variant="outline" className="font-mono text-[11px] gap-1">
+                            <Layers className="size-3 text-primary" />
+                            {c.stack}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                        {formatPorts(c.ports)}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                        {formatDate(c.created)}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {!isViewer ? (
+                            <>
+                              {isRunning ? (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="size-8 text-amber-500 hover:text-amber-400"
+                                  title="Parar"
+                                  onClick={() =>
+                                    actionMutation.mutate({ id: c.id, action: "stop" })
+                                  }
+                                  disabled={actionMutation.isPending}
+                                >
+                                  <Square className="size-3.5" />
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="size-8 text-emerald-500 hover:text-emerald-400"
+                                  title="Iniciar"
+                                  onClick={() =>
+                                    actionMutation.mutate({ id: c.id, action: "start" })
+                                  }
+                                  disabled={actionMutation.isPending}
+                                >
+                                  <Play className="size-3.5" />
+                                </Button>
+                              )}
 
-                            {isRunning && (
                               <Button
                                 size="icon"
                                 variant="ghost"
-                                className="size-8 text-muted-foreground hover:text-foreground"
-                                title={isPaused ? "Retomar (unpause)" : "Pausar"}
+                                className="size-8 text-blue-400 hover:text-blue-300"
+                                title="Reiniciar"
                                 onClick={() =>
-                                  actionMutation.mutate({
-                                    id: c.id,
-                                    action: isPaused ? "unpause" : "pause",
-                                  })
+                                  actionMutation.mutate({ id: c.id, action: "restart" })
                                 }
                                 disabled={actionMutation.isPending}
                               >
-                                <Pause className="size-3.5" />
+                                <RotateCw className="size-3.5" />
                               </Button>
-                            )}
 
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="size-8 text-destructive hover:text-destructive/80"
-                              title="Remover"
-                              onClick={() => setConfirmRemoveId(c.id)}
-                            >
-                              <Trash2 className="size-3.5" />
-                            </Button>
-                          </>
-                        ) : (
-                          <Badge variant="outline" className="text-[10px] text-muted-foreground">
-                            Leitura
-                          </Badge>
-                        )}
+                              {isRunning && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="size-8 text-muted-foreground hover:text-foreground"
+                                  title={isPaused ? "Retomar (unpause)" : "Pausar"}
+                                  onClick={() =>
+                                    actionMutation.mutate({
+                                      id: c.id,
+                                      action: isPaused ? "unpause" : "pause",
+                                    })
+                                  }
+                                  disabled={actionMutation.isPending}
+                                >
+                                  <Pause className="size-3.5" />
+                                </Button>
+                              )}
 
-                        <Button size="sm" variant="ghost" onClick={() => setSelectedContainer(c)}>
-                          Detalhes
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </Panel>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="size-8 text-destructive hover:text-destructive/80"
+                                title="Remover"
+                                onClick={() => setConfirmRemoveId(c.id)}
+                              >
+                                <Trash2 className="size-3.5" />
+                              </Button>
+                            </>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                              Leitura
+                            </Badge>
+                          )}
+
+                          <Button size="sm" variant="ghost" onClick={() => setSelectedContainer(c)}>
+                            Detalhes
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </Panel>
       )}
 
       {/* Drawer de Detalhes com Abas */}

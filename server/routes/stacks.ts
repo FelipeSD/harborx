@@ -63,63 +63,67 @@ export const stackRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // POST /api/stacks - Create stack
-  fastify.post("/stacks", { preHandler: [requireRole("operator", "admin")] }, async (request, reply) => {
-    const parsed = createStackSchema.safeParse(request.body);
-    if (!parsed.success) {
-      return reply.status(400).send({
-        error: "Dados inválidos",
-        issues: parsed.error.issues,
-      });
-    }
-
-    const { name, type, composeYaml, env, gitRepo, gitBranch, gitPath, autoDeploy, deployNow } =
-      parsed.data;
-
-    // Ensure composeYaml or gitRepo is provided
-    if (type === "compose" && (!composeYaml || composeYaml.trim().length === 0)) {
-      return reply.status(400).send({ error: "Conteúdo do docker-compose.yml é obrigatório" });
-    }
-    if (type === "git" && (!gitRepo || gitRepo.trim().length === 0)) {
-      return reply.status(400).send({ error: "URL do repositório Git é obrigatória" });
-    }
-
-    try {
-      const stack = createStackRecord({
-        name,
-        type,
-        composeYaml,
-        env,
-        gitRepo,
-        gitBranch,
-        gitPath,
-        autoDeploy,
-      });
-
-      logAudit({
-        userId: request.user?.id,
-        action: "stack.create",
-        target: stack.name,
-        details: { id: stack.id, type },
-        ip: request.ip,
-      });
-
-      if (deployNow) {
-        // Trigger deploy
-        try {
-          await deployStack(stack.id, request.user?.username || "user");
-        } catch (deployErr: unknown) {
-          const msg = deployErr instanceof Error ? deployErr.message : String(deployErr);
-          request.log.warn(`Deploy inicial da stack ${name} falhou: ${msg}`);
-        }
+  fastify.post(
+    "/stacks",
+    { preHandler: [requireRole("operator", "admin")] },
+    async (request, reply) => {
+      const parsed = createStackSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          error: "Dados inválidos",
+          issues: parsed.error.issues,
+        });
       }
 
-      const fresh = await getStack(stack.id);
-      return reply.status(201).send(fresh || stack);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      return reply.status(502).send({ error: `Falha ao criar stack: ${msg}` });
-    }
-  });
+      const { name, type, composeYaml, env, gitRepo, gitBranch, gitPath, autoDeploy, deployNow } =
+        parsed.data;
+
+      // Ensure composeYaml or gitRepo is provided
+      if (type === "compose" && (!composeYaml || composeYaml.trim().length === 0)) {
+        return reply.status(400).send({ error: "Conteúdo do docker-compose.yml é obrigatório" });
+      }
+      if (type === "git" && (!gitRepo || gitRepo.trim().length === 0)) {
+        return reply.status(400).send({ error: "URL do repositório Git é obrigatória" });
+      }
+
+      try {
+        const stack = createStackRecord({
+          name,
+          type,
+          composeYaml,
+          env,
+          gitRepo,
+          gitBranch,
+          gitPath,
+          autoDeploy,
+        });
+
+        logAudit({
+          userId: request.user?.id,
+          action: "stack.create",
+          target: stack.name,
+          details: { id: stack.id, type },
+          ip: request.ip,
+        });
+
+        if (deployNow) {
+          // Trigger deploy
+          try {
+            await deployStack(stack.id, request.user?.username || "user");
+          } catch (deployErr: unknown) {
+            const msg = deployErr instanceof Error ? deployErr.message : String(deployErr);
+            request.log.warn(`Deploy inicial da stack ${name} falhou: ${msg}`);
+          }
+        }
+
+        const fresh = await getStack(stack.id);
+        return reply.status(201).send(fresh || stack);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return reply.status(502).send({ error: `Falha ao criar stack: ${msg}` });
+      }
+    },
+  );
 
   // PUT /api/stacks/:id - Update compose & redeploy
   fastify.put<{ Params: { id: string } }>(

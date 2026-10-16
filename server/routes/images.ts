@@ -25,7 +25,10 @@ export const imageRoutes: FastifyPluginAsync = async (fastify) => {
       ]);
 
       // Map image ID or repoTag -> containers
-      const imageContainers = new Map<string, Array<{ id: string; name: string; state?: string }>>();
+      const imageContainers = new Map<
+        string,
+        Array<{ id: string; name: string; state?: string }>
+      >();
       for (const c of containerList) {
         const cleanName = (c.Names?.[0] || c.Id.slice(0, 12)).replace(/^\//, "");
         const entry = { id: c.Id, name: cleanName, state: c.State };
@@ -271,7 +274,10 @@ export const imageRoutes: FastifyPluginAsync = async (fastify) => {
                 method: "POST",
                 statusCodes: { 200: true, 500: true },
               },
-              (err, data) => (err ? reject(err) : resolve(data as { CachesDeleted?: string[]; SpaceReclaimed?: number })),
+              (err, data) =>
+                err
+                  ? reject(err)
+                  : resolve(data as { CachesDeleted?: string[]; SpaceReclaimed?: number }),
             );
           });
         }

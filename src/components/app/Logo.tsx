@@ -8,12 +8,7 @@ interface LogoProps {
   className?: string;
 }
 
-export function Logo({
-  size = "md",
-  iconOnly = false,
-  subtitle,
-  className = "",
-}: LogoProps) {
+export function Logo({ size = "md", iconOnly = false, subtitle, className = "" }: LogoProps) {
   const iconSizes = {
     sm: "size-8 rounded-lg",
     md: "size-10 rounded-xl",
@@ -57,4 +52,3 @@ export function Logo({
     </div>
   );
 }
-

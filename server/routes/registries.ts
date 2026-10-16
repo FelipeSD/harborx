@@ -18,34 +18,38 @@ export const registryRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // POST /api/registries
-  fastify.post("/registries", { preHandler: [requireRole("operator", "admin")] }, async (request, reply) => {
-    const parsed = createRegistrySchema.safeParse(request.body);
-    if (!parsed.success) {
-      return reply.status(400).send({
-        error: "Dados de requisição inválidos",
-        issues: parsed.error.issues,
-      });
-    }
+  fastify.post(
+    "/registries",
+    { preHandler: [requireRole("operator", "admin")] },
+    async (request, reply) => {
+      const parsed = createRegistrySchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          error: "Dados de requisição inválidos",
+          issues: parsed.error.issues,
+        });
+      }
 
-    const { name, url, username, secret } = parsed.data;
+      const { name, url, username, secret } = parsed.data;
 
-    try {
-      const item = createRegistry(name, url, username, secret);
+      try {
+        const item = createRegistry(name, url, username, secret);
 
-      logAudit({
-        userId: request.user?.id,
-        action: "registry.create",
-        target: name,
-        details: { url, username },
-        ip: request.ip,
-      });
+        logAudit({
+          userId: request.user?.id,
+          action: "registry.create",
+          target: name,
+          details: { url, username },
+          ip: request.ip,
+        });
 
-      return reply.status(201).send(item);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      return reply.status(502).send({ error: `Falha ao salvar registro: ${msg}` });
-    }
-  });
+        return reply.status(201).send(item);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return reply.status(502).send({ error: `Falha ao salvar registro: ${msg}` });
+      }
+    },
+  );
 
   // DELETE /api/registries/:id
   fastify.delete<{ Params: { id: string } }>(
