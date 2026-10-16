@@ -3,12 +3,6 @@
 # ---------- docker CLI + compose plugin (used for stacks) ----------
 FROM docker:27-cli AS dockercli
 
-# ---------- upx fast compress docker-compose (~75MB -> ~28MB in seconds) ----------
-FROM alpine:3.20 AS upx
-RUN apk add --no-cache upx
-COPY --from=dockercli /usr/local/libexec/docker/cli-plugins/docker-compose /bin/docker-compose
-RUN upx -1 -q /bin/docker-compose || true
-
 # ---------- build (front-end SPA + backend bundle) ----------
 FROM oven/bun:1 AS build
 WORKDIR /app
@@ -28,21 +22,38 @@ RUN bun install --frozen-lockfile --production --ignore-scripts \
     node_modules/@testing-library \
     node_modules/@types \
     node_modules/@xterm \
-    node_modules/lucide-react \
+    node_modules/@tailwindcss \
+    node_modules/@babel \
+    node_modules/@esbuild \
+    node_modules/@rollup \
+    node_modules/@hookform \
+    node_modules/@floating-ui \
+    node_modules/lightningcss* \
+    node_modules/vinxi \
+    node_modules/nitropack* \
+    node_modules/vite* \
+    node_modules/rollup* \
+    node_modules/esbuild* \
     node_modules/recharts \
+    node_modules/d3* \
     node_modules/date-fns \
     node_modules/tailwindcss \
-    node_modules/@tailwindcss \
     node_modules/embla-carousel-react \
     node_modules/react \
     node_modules/react-dom \
     node_modules/react-hook-form \
     node_modules/react-resizable-panels \
+    node_modules/react-day-picker \
     node_modules/sonner \
     node_modules/vaul \
     node_modules/cmdk \
     node_modules/input-otp \
     node_modules/tw-animate-css \
+    node_modules/postcss* \
+    node_modules/autoprefixer* \
+    node_modules/caniuse* \
+    node_modules/browserslist* \
+    node_modules/lucide-react \
     node_modules/.cache
 
 # ---------- runtime ----------
@@ -57,8 +68,8 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/* /var/cache/apt/* /usr/share/doc/* /usr/share/man/* \
            /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /usr/local/include/node
 
-# Copy compressed docker-compose and create transparent wrapper script for "docker compose"
-COPY --from=upx /bin/docker-compose /usr/local/bin/docker-compose
+# Copy docker-compose directly and create transparent wrapper script for "docker compose"
+COPY --from=dockercli /usr/local/libexec/docker/cli-plugins/docker-compose /usr/local/bin/docker-compose
 RUN printf '#!/bin/sh\nif [ "$1" = "compose" ]; then\n  shift\n  exec docker-compose "$@"\nfi\nexec docker-compose "$@"\n' > /usr/local/bin/docker \
  && chmod +x /usr/local/bin/docker /usr/local/bin/docker-compose \
  && mkdir -p /usr/local/lib/docker/cli-plugins \

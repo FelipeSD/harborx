@@ -152,6 +152,11 @@ function VolumesPage() {
           ? `${count} volumes não utilizados foram removidos (${formatBytes(res.spaceReclaimed)} liberados)`
           : "Nenhum volume não utilizado para podar",
       );
+      if (count > 0) {
+        queryClient.setQueryData<VolumeSummary[]>(["volumes"], (old) =>
+          old ? old.filter((v) => v.inUseBy && v.inUseBy.length > 0) : [],
+        );
+      }
       setIsPruneOpen(false);
       void queryClient.invalidateQueries({ queryKey: ["volumes"] });
     },
@@ -233,8 +238,12 @@ function VolumesPage() {
                   onClick={() => setIsPruneOpen(true)}
                   disabled={pruneMutation.isPending}
                 >
-                  <Scissors className="size-4" />
-                  Podar não usados
+                  {pruneMutation.isPending ? (
+                    <Loader2 className="size-4 animate-spin text-destructive" />
+                  ) : (
+                    <Scissors className="size-4" />
+                  )}
+                  {pruneMutation.isPending ? "Podando volumes..." : "Podar não usados"}
                 </Button>
                 <Button size="sm" onClick={() => setIsCreateOpen(true)}>
                   <Plus className="size-4" /> Novo volume
@@ -337,6 +346,18 @@ function VolumesPage() {
           />
         </div>
       </div>
+
+      {pruneMutation.isPending && (
+        <div className="mb-6 flex items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+          <Loader2 className="size-5 shrink-0 animate-spin" />
+          <div>
+            <p className="font-medium">Podando volumes não utilizados no host Docker...</p>
+            <p className="text-xs text-muted-foreground">
+              O daemon do Docker está excluindo volumes órfãos sem containers associados. Aguarde um instante.
+            </p>
+          </div>
+        </div>
+      )}
 
       {isError && (
         <Alert variant="destructive" className="mb-6">
@@ -467,12 +488,17 @@ function VolumesPage() {
                             size="icon"
                             className="size-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
                             title="Remover volume"
+                            disabled={deleteMutation.isPending && deleteMutation.variables?.name === v.name}
                             onClick={() => {
                               setDeleteTarget(v);
                               setForceDelete(false);
                             }}
                           >
-                            <Trash2 className="size-3.5" />
+                            {deleteMutation.isPending && deleteMutation.variables?.name === v.name ? (
+                              <Loader2 className="size-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="size-3.5" />
+                            )}
                           </Button>
                         )}
                       </div>
@@ -628,13 +654,23 @@ function VolumesPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={pruneMutation.isPending}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={pruneMutation.isPending}
-              onClick={() => pruneMutation.mutate()}
+              onClick={(e) => {
+                e.preventDefault();
+                pruneMutation.mutate();
+              }}
             >
-              {pruneMutation.isPending ? "Podando..." : "Confirmar poda"}
+              {pruneMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Podando volumes...
+                </>
+              ) : (
+                "Confirmar poda"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

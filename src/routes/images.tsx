@@ -201,6 +201,11 @@ function ImagesPage() {
           ? `${count} imagens podadas (${formatBytes(data.spaceReclaimed)} liberados)`
           : "Nenhuma imagem não utilizada para podar",
       );
+      if (count > 0) {
+        queryClient.setQueryData<ImageSummary[]>(["images"], (old) =>
+          old ? old.filter((img) => img.inUseBy && img.inUseBy.length > 0) : [],
+        );
+      }
       setIsPruneOpen(false);
       void queryClient.invalidateQueries({ queryKey: ["images"] });
     },
@@ -275,20 +280,28 @@ function ImagesPage() {
                   variant="outline"
                   size="sm"
                   onClick={() => setIsPruneOpen(true)}
-                  disabled={pruneMutation.isPending}
+                  disabled={pruneMutation.isPending || pruneBuildCacheMutation.isPending}
                 >
-                  <Scissors className="size-4" />
-                  Podar imagens órfãs
+                  {pruneMutation.isPending ? (
+                    <Loader2 className="size-4 animate-spin text-destructive" />
+                  ) : (
+                    <Scissors className="size-4" />
+                  )}
+                  {pruneMutation.isPending ? "Podando imagens..." : "Podar imagens órfãs"}
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setIsPruneBuildCacheOpen(true)}
-                  disabled={pruneBuildCacheMutation.isPending}
+                  disabled={pruneMutation.isPending || pruneBuildCacheMutation.isPending}
                   className="border-amber-500/30 text-amber-500 hover:bg-amber-500/10 hover:text-amber-400"
                 >
-                  <Sparkles className="size-4" />
-                  Limpar cache de build
+                  {pruneBuildCacheMutation.isPending ? (
+                    <Loader2 className="size-4 animate-spin text-amber-500" />
+                  ) : (
+                    <Sparkles className="size-4" />
+                  )}
+                  {pruneBuildCacheMutation.isPending ? "Limpando cache..." : "Limpar cache de build"}
                 </Button>
               </>
             )}
@@ -458,6 +471,30 @@ function ImagesPage() {
         </div>
       </div>
 
+      {pruneMutation.isPending && (
+        <div className="mb-6 flex items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+          <Loader2 className="size-5 shrink-0 animate-spin" />
+          <div>
+            <p className="font-medium">Podando imagens órfãs no host Docker...</p>
+            <p className="text-xs text-muted-foreground">
+              O daemon do Docker está removendo imagens sem containers associados e liberando espaço em disco. Aguarde um instante.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {pruneBuildCacheMutation.isPending && (
+        <div className="mb-6 flex items-center gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-500">
+          <Loader2 className="size-5 shrink-0 animate-spin" />
+          <div>
+            <p className="font-medium">Limpando cache de compilação BuildKit...</p>
+            <p className="text-xs text-muted-foreground">
+              Removendo snapshots e camadas residuais de build. Isso pode levar alguns segundos dependendo do tamanho do cache.
+            </p>
+          </div>
+        </div>
+      )}
+
       {isError && (
         <Alert variant="destructive" className="mb-6">
           <AlertCircle className="size-4" />
@@ -623,12 +660,18 @@ function ImagesPage() {
                         variant="ghost"
                         size="sm"
                         className="h-8 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        disabled={deleteMutation.isPending && deleteMutation.variables?.id === i.id}
                         onClick={() => {
                           setDeleteTarget(i);
                           setForceDelete(false);
                         }}
                       >
-                        <Trash2 className="size-3.5" /> Remover
+                        {deleteMutation.isPending && deleteMutation.variables?.id === i.id ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="size-3.5" />
+                        )}
+                        Remover
                       </Button>
                     )}
                   </div>
@@ -764,13 +807,23 @@ function ImagesPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={pruneMutation.isPending}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={pruneMutation.isPending}
-              onClick={() => pruneMutation.mutate()}
+              onClick={(e) => {
+                e.preventDefault();
+                pruneMutation.mutate();
+              }}
             >
-              {pruneMutation.isPending ? "Podando..." : "Confirmar poda"}
+              {pruneMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Podando imagens...
+                </>
+              ) : (
+                "Confirmar poda"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -800,13 +853,23 @@ function ImagesPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={pruneBuildCacheMutation.isPending}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="bg-amber-500 text-black hover:bg-amber-400 font-medium"
               disabled={pruneBuildCacheMutation.isPending}
-              onClick={() => pruneBuildCacheMutation.mutate()}
+              onClick={(e) => {
+                e.preventDefault();
+                pruneBuildCacheMutation.mutate();
+              }}
             >
-              {pruneBuildCacheMutation.isPending ? "Limpando..." : "Sim, limpar cache"}
+              {pruneBuildCacheMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin text-black" />
+                  Limpando cache...
+                </>
+              ) : (
+                "Sim, limpar cache"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

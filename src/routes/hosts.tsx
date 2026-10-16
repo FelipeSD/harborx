@@ -201,6 +201,11 @@ function HostsPage() {
       toast.success(`Limpeza concluída! ${formatBytes(res.spaceReclaimed)} liberados em disco.`);
       setIsPruneOpen(false);
       void queryClient.invalidateQueries({ queryKey: ["system-df"] });
+      void queryClient.invalidateQueries({ queryKey: ["systemInfo"] });
+      void queryClient.invalidateQueries({ queryKey: ["containers"] });
+      void queryClient.invalidateQueries({ queryKey: ["images"] });
+      void queryClient.invalidateQueries({ queryKey: ["volumes"] });
+      void queryClient.invalidateQueries({ queryKey: ["networks"] });
     },
     onError: (err: Error) => {
       toast.error(`Falha ao limpar sistema: ${err.message}`);
@@ -642,7 +647,12 @@ function HostsPage() {
                   onClick={() => setIsPruneOpen(true)}
                   disabled={pruneSystemMutation.isPending}
                 >
-                  <Scissors className="size-3.5" /> Executar Limpeza Geral
+                  {pruneSystemMutation.isPending ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Scissors className="size-3.5" />
+                  )}
+                  {pruneSystemMutation.isPending ? "Limpando sistema..." : "Executar Limpeza Geral"}
                 </Button>
               </Panel>
             </div>
@@ -764,13 +774,23 @@ function HostsPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={pruneSystemMutation.isPending}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={pruneSystemMutation.isPending}
-              onClick={() => pruneSystemMutation.mutate()}
+              onClick={(e) => {
+                e.preventDefault();
+                pruneSystemMutation.mutate();
+              }}
             >
-              {pruneSystemMutation.isPending ? "Limpando..." : "Confirmar Limpeza"}
+              {pruneSystemMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Limpando sistema...
+                </>
+              ) : (
+                "Confirmar Limpeza"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
