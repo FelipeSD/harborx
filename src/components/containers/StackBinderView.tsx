@@ -218,154 +218,273 @@ export function StackBinderView({
 
             {/* Conteúdo da Pasta (Containers do Fichário) */}
             {!isCollapsed && (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="border-b border-border/40 bg-surface/30 text-left text-xs uppercase tracking-wider text-muted-foreground">
-                    <tr>
-                      {!isViewer && <th className="w-10 px-4 py-2.5"></th>}
-                      <th className="px-4 py-2.5 font-medium">Container</th>
-                      <th className="px-4 py-2.5 font-medium">Imagem</th>
-                      <th className="px-4 py-2.5 font-medium">Status</th>
-                      <th className="px-4 py-2.5 font-medium">Portas</th>
-                      <th className="px-4 py-2.5 font-medium">Criado em</th>
-                      <th className="px-4 py-2.5 font-medium text-right">Ações Rápidas</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border/30">
-                    {group.containers.map((c) => {
-                      const isSelected = selectedIds.includes(c.id);
-                      const isRunning = c.state === "running";
+              <>
+                {/* Visualização em Cartões para Mobile */}
+                <div className="block md:hidden p-3 space-y-2.5">
+                  {group.containers.map((c) => {
+                    const isSelected = selectedIds.includes(c.id);
+                    const isRunning = c.state === "running";
 
-                      return (
-                        <tr
-                          key={c.id}
-                          className={cn(
-                            "transition-colors hover:bg-accent/40",
-                            isSelected && "bg-primary/5",
-                          )}
-                        >
-                          {!isViewer && (
-                            <td className="px-4 py-3">
+                    return (
+                      <div
+                        key={`mobile-${c.id}`}
+                        className={cn(
+                          "rounded-lg border border-border/50 bg-surface/50 p-3 space-y-2 transition-colors",
+                          isSelected && "bg-primary/5 border-primary/40",
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            {!isViewer && (
                               <Checkbox
                                 checked={isSelected}
                                 onCheckedChange={() => toggleSelectOne(c.id)}
                               />
-                            </td>
-                          )}
-                          <td className="px-4 py-3">
-                            <button
-                              onClick={() => onSelectContainer(c)}
-                              className="font-medium hover:text-primary transition-colors text-left flex items-center gap-1.5"
-                            >
-                              <span>{c.name}</span>
-                              <ExternalLink className="size-3 opacity-40 hover:opacity-100" />
-                            </button>
-                            <p className="font-mono text-[11px] text-muted-foreground">
-                              {c.id.slice(0, 12)}
+                            )}
+                            <div className="min-w-0">
+                              <button
+                                onClick={() => onSelectContainer(c)}
+                                className="font-medium text-sm hover:text-primary transition-colors text-left flex items-center gap-1.5 truncate"
+                              >
+                                <span className="truncate">{c.name}</span>
+                                <ExternalLink className="size-3 shrink-0 opacity-40 hover:opacity-100" />
+                              </button>
+                              <p className="font-mono text-[10px] text-muted-foreground truncate">
+                                {c.id.slice(0, 12)}
+                              </p>
+                            </div>
+                          </div>
+                          <StatusPill status={c.state} />
+                        </div>
+
+                        <div className="text-xs space-y-0.5 font-mono text-muted-foreground">
+                          <p className="truncate" title={c.image}>
+                            <span className="text-foreground/70">img:</span> {c.image}
+                          </p>
+                          {formatPorts(c.ports) && (
+                            <p className="truncate">
+                              <span className="text-foreground/70">portas:</span>{" "}
+                              {formatPorts(c.ports)}
                             </p>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span
-                              className="font-mono text-xs truncate max-w-[220px] block text-muted-foreground hover:text-foreground"
-                              title={c.image}
+                          )}
+                        </div>
+
+                        {/* Ações Mobile com toque confortável */}
+                        <div className="flex flex-wrap items-center justify-between pt-2 border-t border-border/40 gap-1.5">
+                          <div className="flex items-center gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 px-2 text-xs"
+                              onClick={() => onSelectContainer(c)}
                             >
-                              {c.image}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <StatusPill status={c.state} />
-                          </td>
-                          <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                            {formatPorts(c.ports)}
-                          </td>
-                          <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                            {formatDate(c.created)}
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              {/* Botão de Logs */}
+                              <FileText className="size-3.5 mr-1" />
+                              Logs
+                            </Button>
+                            {isRunning && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 px-2 text-xs"
+                                onClick={() => onSelectContainer(c)}
+                              >
+                                <Terminal className="size-3.5 mr-1" />
+                                Exec
+                              </Button>
+                            )}
+                          </div>
+
+                          {!isViewer && (
+                            <div className="flex items-center gap-1">
+                              {isRunning ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 px-2 text-xs text-amber-500 hover:text-amber-400"
+                                  onClick={() => onAction(c.id, "stop")}
+                                  disabled={isActionPending}
+                                >
+                                  <Square className="size-3 mr-1" /> Parar
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 px-2 text-xs text-emerald-500 hover:text-emerald-400"
+                                  onClick={() => onAction(c.id, "start")}
+                                  disabled={isActionPending}
+                                >
+                                  <Play className="size-3 mr-1" /> Iniciar
+                                </Button>
+                              )}
                               <Button
                                 size="icon"
                                 variant="ghost"
-                                className="size-7 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                                title="Ver logs em tempo real"
-                                onClick={() => onSelectContainer(c)}
+                                className="size-8 text-blue-400 hover:text-blue-300"
+                                onClick={() => onAction(c.id, "restart")}
+                                disabled={isActionPending}
+                                title="Reiniciar"
                               >
-                                <FileText className="size-3.5" />
+                                <RotateCw className="size-3.5" />
                               </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
 
-                              {/* Botão de Terminal */}
-                              {isRunning && (
+                {/* Tabela para Desktop */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="border-b border-border/40 bg-surface/30 text-left text-xs uppercase tracking-wider text-muted-foreground">
+                      <tr>
+                        {!isViewer && <th className="w-10 px-4 py-2.5"></th>}
+                        <th className="px-4 py-2.5 font-medium">Container</th>
+                        <th className="px-4 py-2.5 font-medium">Imagem</th>
+                        <th className="px-4 py-2.5 font-medium">Status</th>
+                        <th className="px-4 py-2.5 font-medium">Portas</th>
+                        <th className="px-4 py-2.5 font-medium">Criado em</th>
+                        <th className="px-4 py-2.5 font-medium text-right">Ações Rápidas</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/30">
+                      {group.containers.map((c) => {
+                        const isSelected = selectedIds.includes(c.id);
+                        const isRunning = c.state === "running";
+
+                        return (
+                          <tr
+                            key={c.id}
+                            className={cn(
+                              "transition-colors hover:bg-accent/40",
+                              isSelected && "bg-primary/5",
+                            )}
+                          >
+                            {!isViewer && (
+                              <td className="px-4 py-3">
+                                <Checkbox
+                                  checked={isSelected}
+                                  onCheckedChange={() => toggleSelectOne(c.id)}
+                                />
+                              </td>
+                            )}
+                            <td className="px-4 py-3">
+                              <button
+                                onClick={() => onSelectContainer(c)}
+                                className="font-medium hover:text-primary transition-colors text-left flex items-center gap-1.5"
+                              >
+                                <span>{c.name}</span>
+                                <ExternalLink className="size-3 opacity-40 hover:opacity-100" />
+                              </button>
+                              <p className="font-mono text-[11px] text-muted-foreground">
+                                {c.id.slice(0, 12)}
+                              </p>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span
+                                className="font-mono text-xs truncate max-w-[220px] block text-muted-foreground hover:text-foreground"
+                                title={c.image}
+                              >
+                                {c.image}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <StatusPill status={c.state} />
+                            </td>
+                            <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                              {formatPorts(c.ports)}
+                            </td>
+                            <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                              {formatDate(c.created)}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                {/* Botão de Logs */}
                                 <Button
                                   size="icon"
                                   variant="ghost"
                                   className="size-7 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                                  title="Abrir terminal interativo (exec)"
+                                  title="Ver logs em tempo real"
                                   onClick={() => onSelectContainer(c)}
                                 >
-                                  <Terminal className="size-3.5" />
+                                  <FileText className="size-3.5" />
                                 </Button>
-                              )}
 
-                              {/* Botão de Métricas */}
-                              {isRunning && (
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="size-7 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                                  title="Estatísticas ao vivo"
-                                  onClick={() => onSelectContainer(c)}
-                                >
-                                  <Activity className="size-3.5" />
-                                </Button>
-                              )}
-
-                              {!isViewer && (
-                                <>
-                                  {isRunning ? (
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      className="size-7 text-amber-500 hover:text-amber-400 hover:bg-amber-500/10"
-                                      title="Parar container"
-                                      onClick={() => onAction(c.id, "stop")}
-                                      disabled={isActionPending}
-                                    >
-                                      <Square className="size-3.5" />
-                                    </Button>
-                                  ) : (
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      className="size-7 text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10"
-                                      title="Iniciar container"
-                                      onClick={() => onAction(c.id, "start")}
-                                      disabled={isActionPending}
-                                    >
-                                      <Play className="size-3.5" />
-                                    </Button>
-                                  )}
-
+                                {/* Botão de Terminal */}
+                                {isRunning && (
                                   <Button
                                     size="icon"
                                     variant="ghost"
-                                    className="size-7 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
-                                    title="Reiniciar container"
-                                    onClick={() => onAction(c.id, "restart")}
-                                    disabled={isActionPending}
+                                    className="size-7 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                                    title="Abrir terminal interativo (exec)"
+                                    onClick={() => onSelectContainer(c)}
                                   >
-                                    <RotateCw className="size-3.5" />
+                                    <Terminal className="size-3.5" />
                                   </Button>
-                                </>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                                )}
+
+                                {/* Botão de Métricas */}
+                                {isRunning && (
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="size-7 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                                    title="Estatísticas ao vivo"
+                                    onClick={() => onSelectContainer(c)}
+                                  >
+                                    <Activity className="size-3.5" />
+                                  </Button>
+                                )}
+
+                                {!isViewer && (
+                                  <>
+                                    {isRunning ? (
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="size-7 text-amber-500 hover:text-amber-400 hover:bg-amber-500/10"
+                                        title="Parar container"
+                                        onClick={() => onAction(c.id, "stop")}
+                                        disabled={isActionPending}
+                                      >
+                                        <Square className="size-3.5" />
+                                      </Button>
+                                    ) : (
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="size-7 text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10"
+                                        title="Iniciar container"
+                                        onClick={() => onAction(c.id, "start")}
+                                        disabled={isActionPending}
+                                      >
+                                        <Play className="size-3.5" />
+                                      </Button>
+                                    )}
+
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="size-7 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
+                                      title="Reiniciar container"
+                                      onClick={() => onAction(c.id, "restart")}
+                                      disabled={isActionPending}
+                                    >
+                                      <RotateCw className="size-3.5" />
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </div>
         );

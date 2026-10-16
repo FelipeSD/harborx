@@ -793,17 +793,27 @@ function ContainersPage() {
               </SheetHeader>
 
               <Tabs defaultValue="overview" className="mt-6 w-full">
-                <TabsList className="grid grid-cols-5 w-full">
-                  <TabsTrigger value="overview">Visão Geral</TabsTrigger>
-                  <TabsTrigger value="inspect">Inspecionar</TabsTrigger>
-                  <TabsTrigger value="logs">Logs</TabsTrigger>
-                  <TabsTrigger value="console">Console</TabsTrigger>
-                  <TabsTrigger value="stats">Métricas</TabsTrigger>
+                <TabsList className="grid grid-cols-5 w-full h-auto p-1 text-[11px] sm:text-xs">
+                  <TabsTrigger value="overview" className="px-1 py-1.5 sm:px-3 truncate">
+                    Visão Geral
+                  </TabsTrigger>
+                  <TabsTrigger value="inspect" className="px-1 py-1.5 sm:px-3 truncate">
+                    Inspecionar
+                  </TabsTrigger>
+                  <TabsTrigger value="logs" className="px-1 py-1.5 sm:px-3 truncate">
+                    Logs
+                  </TabsTrigger>
+                  <TabsTrigger value="console" className="px-1 py-1.5 sm:px-3 truncate">
+                    Console
+                  </TabsTrigger>
+                  <TabsTrigger value="stats" className="px-1 py-1.5 sm:px-3 truncate">
+                    Métricas
+                  </TabsTrigger>
                 </TabsList>
 
                 {/* Aba 1: Visão Geral */}
                 <TabsContent value="overview" className="space-y-5 pt-4">
-                  <dl className="grid grid-cols-2 gap-3 text-sm">
+                  <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                     {[
                       ["ID do Container", selectedContainer.id.slice(0, 16)],
                       ["Imagem", selectedContainer.image],

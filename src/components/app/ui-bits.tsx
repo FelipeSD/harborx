@@ -56,12 +56,16 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
+    <div className="mb-5 sm:mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4">
+      <div className="min-w-0">
+        <h1 className="text-xl sm:text-2xl font-semibold tracking-tight truncate">{title}</h1>
+        {subtitle && (
+          <p className="mt-0.5 sm:mt-1 text-xs sm:text-sm text-muted-foreground leading-relaxed">
+            {subtitle}
+          </p>
+        )}
       </div>
-      {actions && <div className="flex gap-2">{actions}</div>}
+      {actions && <div className="flex flex-wrap items-center gap-2 shrink-0">{actions}</div>}
     </div>
   );
 }
