@@ -120,7 +120,7 @@ export const stackRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(201).send(fresh || stack);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
-        return reply.status(502).send({ error: `Falha ao criar stack: ${msg}` });
+        return reply.status(400).send({ error: `Falha ao criar stack: ${msg}` });
       }
     },
   );
@@ -159,7 +159,7 @@ export const stackRoutes: FastifyPluginAsync = async (fastify) => {
         return fresh;
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
-        return reply.status(502).send({ error: `Falha ao atualizar stack: ${msg}` });
+        return reply.status(400).send({ error: `Falha ao atualizar stack: ${msg}` });
       }
     },
   );
@@ -182,7 +182,7 @@ export const stackRoutes: FastifyPluginAsync = async (fastify) => {
         return result;
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
-        return reply.status(502).send({ error: `Falha no deploy da stack: ${msg}` });
+        return reply.status(400).send({ error: `Falha no deploy da stack: ${msg}` });
       }
     },
   );
@@ -205,7 +205,7 @@ export const stackRoutes: FastifyPluginAsync = async (fastify) => {
         return { success: true };
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
-        return reply.status(502).send({ error: `Falha ao parar stack: ${msg}` });
+        return reply.status(400).send({ error: `Falha ao parar stack: ${msg}` });
       }
     },
   );
@@ -228,7 +228,7 @@ export const stackRoutes: FastifyPluginAsync = async (fastify) => {
         return { success: true };
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
-        return reply.status(502).send({ error: `Falha ao iniciar stack: ${msg}` });
+        return reply.status(400).send({ error: `Falha ao iniciar stack: ${msg}` });
       }
     },
   );
@@ -254,7 +254,7 @@ export const stackRoutes: FastifyPluginAsync = async (fastify) => {
         return { success: true };
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
-        return reply.status(502).send({ error: `Falha ao remover stack: ${msg}` });
+        return reply.status(400).send({ error: `Falha ao remover stack: ${msg}` });
       }
     },
   );

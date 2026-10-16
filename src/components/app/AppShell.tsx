@@ -20,6 +20,7 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { Logo } from "@/components/app/Logo";
 import { NotificationCenter } from "@/components/app/NotificationCenter";
+import { GlobalSearchCommand } from "@/components/app/GlobalSearchCommand";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,6 +49,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   const handleLogout = async () => {
     await logout();
@@ -177,17 +179,33 @@ export function AppShell({ children }: { children: ReactNode }) {
             </span>
           </div>
 
-          {/* Campo de Busca (responsivo) */}
-          <div className="hidden sm:flex flex-1 items-center gap-2 rounded-md border bg-surface px-3 py-1.5 text-sm text-muted-foreground md:max-w-md">
-            <Search className="size-4 shrink-0" />
-            <input
-              placeholder="Buscar containers, imagens, stacks…"
-              className="flex-1 bg-transparent outline-none placeholder:text-muted-foreground text-xs sm:text-sm"
-            />
-            <kbd className="hidden lg:inline rounded border px-1.5 font-mono text-[10px]">⌘K</kbd>
-          </div>
+          {/* Campo de Busca Interativo (desktop) */}
+          <button
+            type="button"
+            onClick={() => setIsSearchOpen(true)}
+            className="hidden sm:flex flex-1 items-center gap-2 rounded-md border bg-surface/80 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:bg-surface md:max-w-md text-left cursor-pointer"
+          >
+            <Search className="size-4 shrink-0 text-muted-foreground" />
+            <span className="flex-1 text-xs text-muted-foreground truncate">
+              Buscar containers, imagens, stacks…
+            </span>
+            <kbd className="hidden lg:inline rounded border bg-muted/50 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+              ⌘K
+            </kbd>
+          </button>
 
           <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+            {/* Botão de Busca Mobile */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="sm:hidden size-8 text-muted-foreground hover:text-foreground"
+              onClick={() => setIsSearchOpen(true)}
+              aria-label="Buscar no HarborX"
+            >
+              <Search className="size-4" />
+            </Button>
+
             {/* Centro de Notificações Ativo */}
             <NotificationCenter />
 
@@ -231,6 +249,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <main className="flex-1 p-3.5 sm:p-6 lg:p-8">{children}</main>
       </div>
+
+      <GlobalSearchCommand open={isSearchOpen} onOpenChange={setIsSearchOpen} />
     </div>
   );
 }

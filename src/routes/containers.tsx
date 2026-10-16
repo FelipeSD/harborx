@@ -54,6 +54,7 @@ import { CreateContainerDialog } from "@/components/containers/CreateContainerDi
 import { LogViewer } from "@/components/containers/LogViewer";
 import { TerminalViewer } from "@/components/containers/TerminalViewer";
 import { ContainerStatsViewer } from "@/components/containers/ContainerStatsViewer";
+import { ContainerEnvViewer } from "@/components/containers/ContainerEnvViewer";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/containers")({
@@ -930,12 +931,12 @@ function ContainersPage() {
               </SheetHeader>
 
               <Tabs defaultValue="overview" className="mt-6 w-full">
-                <TabsList className="grid grid-cols-5 w-full h-auto p-1 text-[11px] sm:text-xs">
+                <TabsList className="grid grid-cols-3 sm:grid-cols-6 w-full h-auto p-1 text-[11px] sm:text-xs">
                   <TabsTrigger value="overview" className="px-1 py-1.5 sm:px-3 truncate">
                     Visão Geral
                   </TabsTrigger>
-                  <TabsTrigger value="inspect" className="px-1 py-1.5 sm:px-3 truncate">
-                    Inspecionar
+                  <TabsTrigger value="env" className="px-1 py-1.5 sm:px-3 truncate">
+                    Variáveis
                   </TabsTrigger>
                   <TabsTrigger value="logs" className="px-1 py-1.5 sm:px-3 truncate">
                     Logs
@@ -945,6 +946,9 @@ function ContainersPage() {
                   </TabsTrigger>
                   <TabsTrigger value="stats" className="px-1 py-1.5 sm:px-3 truncate">
                     Métricas
+                  </TabsTrigger>
+                  <TabsTrigger value="inspect" className="px-1 py-1.5 sm:px-3 truncate">
+                    Inspecionar
                   </TabsTrigger>
                 </TabsList>
 
@@ -1094,7 +1098,19 @@ function ContainersPage() {
                   )}
                 </TabsContent>
 
-                {/* Aba 2: Inspecionar JSON */}
+                {/* Aba 2: Variáveis de Ambiente */}
+                <TabsContent value="env" className="space-y-4 pt-4">
+                  <ContainerEnvViewer
+                    envList={
+                      (inspectData as { Config?: { Env?: string[] } } | null | undefined)?.Config
+                        ?.Env || []
+                    }
+                    isLoading={isInspectLoading}
+                    isViewer={isViewer}
+                  />
+                </TabsContent>
+
+                {/* Aba 3: Inspecionar JSON */}
                 <TabsContent value="inspect" className="space-y-3 pt-4">
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">

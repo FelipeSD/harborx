@@ -38,6 +38,72 @@ export class ApiError extends Error {
   }
 }
 
+function extractCleanErrorMessage(
+  data: unknown,
+  status: number,
+  contentType: string | null,
+): string {
+  if (data && typeof data === "object") {
+    if ("error" in data && typeof (data as { error: unknown }).error === "string") {
+      return (data as { error: string }).error;
+    }
+    if ("message" in data && typeof (data as { message: unknown }).message === "string") {
+      return (data as { message: string }).message;
+    }
+  }
+
+  if (typeof data === "string" && data.trim().length > 0) {
+    const raw = data.trim();
+    const isHtml =
+      Boolean(contentType && contentType.includes("text/html")) ||
+      raw.startsWith("<!DOCTYPE") ||
+      raw.startsWith("<html") ||
+      raw.includes("<head>") ||
+      raw.includes("<body");
+
+    if (isHtml) {
+      // Check for Cloudflare / Proxy status codes
+      if (status === 502) {
+        return "502 Bad Gateway: O proxy ou servidor reverso (Cloudflare) não conseguiu comunicar com o container do HarborX. O serviço pode estar reiniciando ou a operação demorou mais que o limite.";
+      }
+      if (status === 504) {
+        return "504 Gateway Timeout: A operação excedeu o tempo limite do proxy reverso (Cloudflare). Verifique se o container ou build ainda está em andamento no host.";
+      }
+      if (status === 503) {
+        return "503 Service Unavailable: O serviço está temporariamente indisponível.";
+      }
+      if (status === 413) {
+        return "413 Payload Too Large: O payload enviado excedeu o limite permitido pelo proxy.";
+      }
+
+      // Try extracting <title> content
+      const titleMatch = raw.match(/<title[^>]*>([^<]+)<\/title>/i);
+      if (titleMatch && titleMatch[1]) {
+        const title = titleMatch[1].trim();
+        return `${status} Erro: ${title}`;
+      }
+
+      // Strip HTML tags and collapse whitespace
+      const stripped = raw
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      if (stripped.length > 0) {
+        return stripped.length > 140 ? `${stripped.slice(0, 140)}…` : stripped;
+      }
+
+      return `Erro no proxy/servidor HTTP (${status})`;
+    }
+
+    return raw.length > 200 ? `${raw.slice(0, 200)}…` : raw;
+  }
+
+  return `Erro na requisição HTTP (${status})`;
+}
+
 async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers || {});
   if (!headers.has("Content-Type") && options.body && typeof options.body === "string") {
@@ -61,13 +127,7 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
   const data = isJson ? await response.json() : await response.text();
 
   if (!response.ok) {
-    const errorMsg =
-      (isJson && data && typeof data === "object" && "error" in data
-        ? (data as { error: string }).error
-        : typeof data === "string" && data.length > 0
-          ? data
-          : `Erro na requisição HTTP (${response.status})`) || "Erro inesperado";
-
+    const errorMsg = extractCleanErrorMessage(data, response.status, contentType);
     throw new ApiError(response.status, errorMsg, data);
   }
 
