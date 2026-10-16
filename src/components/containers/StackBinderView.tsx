@@ -14,6 +14,7 @@ import {
   CheckSquare,
   Square as SquareOutline,
   ExternalLink,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,8 +38,12 @@ interface StackBinderViewProps {
   onSelectContainer: (c: ContainerSummary) => void;
   onAction: (id: string, action: ContainerAction) => void;
   onStackAction: (containerIds: string[], action: ContainerAction) => void;
+  onRemoveContainer?: (id: string) => void;
   isViewer: boolean;
   isActionPending: boolean;
+  pendingAction?: { id: string; action: ContainerAction } | null;
+  pendingRemoveId?: string | null;
+  pendingBatchAction?: ContainerAction | null;
   formatPorts: (ports: ContainerSummary["ports"]) => string;
   formatDate: (unix: number) => string;
 }
@@ -50,8 +55,12 @@ export function StackBinderView({
   onSelectContainer,
   onAction,
   onStackAction,
+  onRemoveContainer,
   isViewer,
   isActionPending,
+  pendingAction,
+  pendingRemoveId,
+  pendingBatchAction,
   formatPorts,
   formatDate,
 }: StackBinderViewProps) {
@@ -167,8 +176,14 @@ export function StackBinderView({
                       onClick={() => onStackAction(groupIds, "start")}
                       disabled={isActionPending || group.runningCount === group.containers.length}
                     >
-                      <Play className="mr-1 size-3" />
-                      Iniciar
+                      {isActionPending && pendingBatchAction === "start" ? (
+                        <Loader2 className="mr-1 size-3 animate-spin text-emerald-500" />
+                      ) : (
+                        <Play className="mr-1 size-3" />
+                      )}
+                      {isActionPending && pendingBatchAction === "start"
+                        ? "Iniciando..."
+                        : "Iniciar"}
                     </Button>
                     <Button
                       size="sm"
@@ -178,8 +193,12 @@ export function StackBinderView({
                       onClick={() => onStackAction(groupIds, "stop")}
                       disabled={isActionPending || group.runningCount === 0}
                     >
-                      <Square className="mr-1 size-3" />
-                      Parar
+                      {isActionPending && pendingBatchAction === "stop" ? (
+                        <Loader2 className="mr-1 size-3 animate-spin text-amber-500" />
+                      ) : (
+                        <Square className="mr-1 size-3" />
+                      )}
+                      {isActionPending && pendingBatchAction === "stop" ? "Parando..." : "Parar"}
                     </Button>
                     <Button
                       size="sm"
@@ -189,8 +208,14 @@ export function StackBinderView({
                       onClick={() => onStackAction(groupIds, "restart")}
                       disabled={isActionPending}
                     >
-                      <RotateCw className="mr-1 size-3" />
-                      Reiniciar
+                      {isActionPending && pendingBatchAction === "restart" ? (
+                        <Loader2 className="mr-1 size-3 animate-spin text-blue-400" />
+                      ) : (
+                        <RotateCw className="mr-1 size-3" />
+                      )}
+                      {isActionPending && pendingBatchAction === "restart"
+                        ? "Reiniciando..."
+                        : "Reiniciar"}
                     </Button>
                   </div>
                 )}
@@ -224,6 +249,9 @@ export function StackBinderView({
                   {group.containers.map((c) => {
                     const isSelected = selectedIds.includes(c.id);
                     const isRunning = c.state === "running";
+                    const isThisAction = pendingAction?.id === c.id;
+                    const isThisRemoving = pendingRemoveId === c.id;
+                    const isRowDisabled = isActionPending || isThisAction || isThisRemoving;
 
                     return (
                       <div
@@ -302,9 +330,16 @@ export function StackBinderView({
                                   variant="outline"
                                   className="h-8 px-2 text-xs text-amber-500 hover:text-amber-400"
                                   onClick={() => onAction(c.id, "stop")}
-                                  disabled={isActionPending}
+                                  disabled={isRowDisabled}
                                 >
-                                  <Square className="size-3 mr-1" /> Parar
+                                  {isThisAction && pendingAction?.action === "stop" ? (
+                                    <Loader2 className="size-3 mr-1 animate-spin" />
+                                  ) : (
+                                    <Square className="size-3 mr-1" />
+                                  )}
+                                  {isThisAction && pendingAction?.action === "stop"
+                                    ? "Parando..."
+                                    : "Parar"}
                                 </Button>
                               ) : (
                                 <Button
@@ -312,9 +347,16 @@ export function StackBinderView({
                                   variant="outline"
                                   className="h-8 px-2 text-xs text-emerald-500 hover:text-emerald-400"
                                   onClick={() => onAction(c.id, "start")}
-                                  disabled={isActionPending}
+                                  disabled={isRowDisabled}
                                 >
-                                  <Play className="size-3 mr-1" /> Iniciar
+                                  {isThisAction && pendingAction?.action === "start" ? (
+                                    <Loader2 className="size-3 mr-1 animate-spin" />
+                                  ) : (
+                                    <Play className="size-3 mr-1" />
+                                  )}
+                                  {isThisAction && pendingAction?.action === "start"
+                                    ? "Iniciando..."
+                                    : "Iniciar"}
                                 </Button>
                               )}
                               <Button
@@ -322,11 +364,31 @@ export function StackBinderView({
                                 variant="ghost"
                                 className="size-8 text-blue-400 hover:text-blue-300"
                                 onClick={() => onAction(c.id, "restart")}
-                                disabled={isActionPending}
+                                disabled={isRowDisabled}
                                 title="Reiniciar"
                               >
-                                <RotateCw className="size-3.5" />
+                                {isThisAction && pendingAction?.action === "restart" ? (
+                                  <Loader2 className="size-3.5 animate-spin" />
+                                ) : (
+                                  <RotateCw className="size-3.5" />
+                                )}
                               </Button>
+                              {onRemoveContainer && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="size-8 text-destructive hover:text-destructive/80 hover:bg-destructive/10"
+                                  onClick={() => onRemoveContainer(c.id)}
+                                  disabled={isRowDisabled}
+                                  title="Remover container"
+                                >
+                                  {isThisRemoving ? (
+                                    <Loader2 className="size-3.5 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="size-3.5" />
+                                  )}
+                                </Button>
+                              )}
                             </div>
                           )}
                         </div>
@@ -353,6 +415,9 @@ export function StackBinderView({
                       {group.containers.map((c) => {
                         const isSelected = selectedIds.includes(c.id);
                         const isRunning = c.state === "running";
+                        const isThisAction = pendingAction?.id === c.id;
+                        const isThisRemoving = pendingRemoveId === c.id;
+                        const isRowDisabled = isActionPending || isThisAction || isThisRemoving;
 
                         return (
                           <tr
@@ -447,9 +512,13 @@ export function StackBinderView({
                                         className="size-7 text-amber-500 hover:text-amber-400 hover:bg-amber-500/10"
                                         title="Parar container"
                                         onClick={() => onAction(c.id, "stop")}
-                                        disabled={isActionPending}
+                                        disabled={isRowDisabled}
                                       >
-                                        <Square className="size-3.5" />
+                                        {isThisAction && pendingAction?.action === "stop" ? (
+                                          <Loader2 className="size-3.5 animate-spin" />
+                                        ) : (
+                                          <Square className="size-3.5" />
+                                        )}
                                       </Button>
                                     ) : (
                                       <Button
@@ -458,9 +527,13 @@ export function StackBinderView({
                                         className="size-7 text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10"
                                         title="Iniciar container"
                                         onClick={() => onAction(c.id, "start")}
-                                        disabled={isActionPending}
+                                        disabled={isRowDisabled}
                                       >
-                                        <Play className="size-3.5" />
+                                        {isThisAction && pendingAction?.action === "start" ? (
+                                          <Loader2 className="size-3.5 animate-spin" />
+                                        ) : (
+                                          <Play className="size-3.5" />
+                                        )}
                                       </Button>
                                     )}
 
@@ -470,10 +543,31 @@ export function StackBinderView({
                                       className="size-7 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
                                       title="Reiniciar container"
                                       onClick={() => onAction(c.id, "restart")}
-                                      disabled={isActionPending}
+                                      disabled={isRowDisabled}
                                     >
-                                      <RotateCw className="size-3.5" />
+                                      {isThisAction && pendingAction?.action === "restart" ? (
+                                        <Loader2 className="size-3.5 animate-spin" />
+                                      ) : (
+                                        <RotateCw className="size-3.5" />
+                                      )}
                                     </Button>
+
+                                    {onRemoveContainer && (
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="size-7 text-destructive hover:text-destructive/80 hover:bg-destructive/10"
+                                        title="Remover container"
+                                        onClick={() => onRemoveContainer(c.id)}
+                                        disabled={isRowDisabled}
+                                      >
+                                        {isThisRemoving ? (
+                                          <Loader2 className="size-3.5 animate-spin" />
+                                        ) : (
+                                          <Trash2 className="size-3.5" />
+                                        )}
+                                      </Button>
+                                    )}
                                   </>
                                 )}
                               </div>

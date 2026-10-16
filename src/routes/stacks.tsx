@@ -360,8 +360,11 @@ function StacksPage() {
 
   const deleteMutation = useMutation({
     mutationFn: ({ id, vols }: { id: string; vols: boolean }) => api.stacks.remove(id, vols),
-    onSuccess: () => {
+    onSuccess: (_, vars) => {
       toast.success("Stack removida.");
+      queryClient.setQueryData<StackSummary[]>(["stacks"], (old) =>
+        old ? old.filter((s) => s.id !== vars.id) : [],
+      );
       setDeleteTarget(null);
       void queryClient.invalidateQueries({ queryKey: ["stacks"] });
     },
@@ -895,17 +898,25 @@ function StacksPage() {
             </label>
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={deleteMutation.isPending}
-              onClick={() => {
+              onClick={(e) => {
+                e.preventDefault();
                 if (deleteTarget) {
                   deleteMutation.mutate({ id: deleteTarget.id, vols: removeVolumes });
                 }
               }}
             >
-              {deleteMutation.isPending ? "Removendo..." : "Sim, remover stack"}
+              {deleteMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Removendo...
+                </>
+              ) : (
+                "Sim, remover stack"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

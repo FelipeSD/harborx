@@ -130,8 +130,11 @@ function VolumesPage() {
   const deleteMutation = useMutation({
     mutationFn: ({ name, force }: { name: string; force: boolean }) =>
       api.volumes.remove(name, force),
-    onSuccess: (res) => {
-      toast.success(`Volume '${res.name}' removido.`);
+    onSuccess: (res, vars) => {
+      toast.success(`Volume '${res.name || vars.name}' removido.`);
+      queryClient.setQueryData<VolumeSummary[]>(["volumes"], (old) =>
+        old ? old.filter((v) => v.name !== vars.name) : [],
+      );
       setDeleteTarget(null);
       void queryClient.invalidateQueries({ queryKey: ["volumes"] });
     },
@@ -590,17 +593,25 @@ function VolumesPage() {
             </label>
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={deleteMutation.isPending}
-              onClick={() => {
+              onClick={(e) => {
+                e.preventDefault();
                 if (deleteTarget) {
                   deleteMutation.mutate({ name: deleteTarget.name, force: forceDelete });
                 }
               }}
             >
-              {deleteMutation.isPending ? "Removendo..." : "Sim, remover"}
+              {deleteMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Removendo...
+                </>
+              ) : (
+                "Sim, remover"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

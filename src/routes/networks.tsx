@@ -129,8 +129,11 @@ function NetworksPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.networks.remove(id),
-    onSuccess: (res) => {
-      toast.success(`Rede '${res.name}' removida.`);
+    onSuccess: (res, id) => {
+      toast.success(`Rede '${res.name || id}' removida.`);
+      queryClient.setQueryData<NetworkSummary[]>(["networks"], (old) =>
+        old ? old.filter((n) => n.id !== id) : [],
+      );
       setDeleteTarget(null);
       void queryClient.invalidateQueries({ queryKey: ["networks"] });
     },
@@ -769,17 +772,25 @@ function NetworksPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={deleteMutation.isPending}
-              onClick={() => {
+              onClick={(e) => {
+                e.preventDefault();
                 if (deleteTarget) {
                   deleteMutation.mutate(deleteTarget.id);
                 }
               }}
             >
-              {deleteMutation.isPending ? "Removendo..." : "Sim, remover"}
+              {deleteMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Removendo...
+                </>
+              ) : (
+                "Sim, remover"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

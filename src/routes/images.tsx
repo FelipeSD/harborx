@@ -179,8 +179,11 @@ function ImagesPage() {
 
   const deleteMutation = useMutation({
     mutationFn: ({ id, force }: { id: string; force: boolean }) => api.images.remove(id, force),
-    onSuccess: () => {
+    onSuccess: (_, vars) => {
       toast.success("Imagem removida com sucesso");
+      queryClient.setQueryData<ImageSummary[]>(["images"], (old) =>
+        old ? old.filter((img) => img.id !== vars.id) : [],
+      );
       setDeleteTarget(null);
       void queryClient.invalidateQueries({ queryKey: ["images"] });
     },
@@ -726,17 +729,25 @@ function ImagesPage() {
             </label>
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={deleteMutation.isPending}
-              onClick={() => {
+              onClick={(e) => {
+                e.preventDefault();
                 if (deleteTarget) {
                   deleteMutation.mutate({ id: deleteTarget.id, force: forceDelete });
                 }
               }}
             >
-              {deleteMutation.isPending ? "Removendo..." : "Sim, remover"}
+              {deleteMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Removendo...
+                </>
+              ) : (
+                "Sim, remover"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

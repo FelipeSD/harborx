@@ -137,6 +137,33 @@ function ContainersPage() {
       api.containers.action(id, action),
     onSuccess: (_, vars) => {
       toast.success(`Ação "${vars.action}" executada com sucesso!`);
+      queryClient.setQueryData<ContainerSummary[]>(["containers"], (old) => {
+        if (!old) return [];
+        return old.map((c) => {
+          if (c.id !== vars.id) return c;
+          let nextState = c.state;
+          if (vars.action === "start" || vars.action === "restart" || vars.action === "unpause") {
+            nextState = "running";
+          } else if (vars.action === "stop") {
+            nextState = "exited";
+          } else if (vars.action === "pause") {
+            nextState = "paused";
+          }
+          return { ...c, state: nextState };
+        });
+      });
+      setSelectedContainer((current) => {
+        if (!current || current.id !== vars.id) return current;
+        let nextState = current.state;
+        if (vars.action === "start" || vars.action === "restart" || vars.action === "unpause") {
+          nextState = "running";
+        } else if (vars.action === "stop") {
+          nextState = "exited";
+        } else if (vars.action === "pause") {
+          nextState = "paused";
+        }
+        return { ...current, state: nextState };
+      });
       void queryClient.invalidateQueries({ queryKey: ["containers"] });
       void queryClient.invalidateQueries({ queryKey: ["systemInfo"] });
     },
@@ -145,16 +172,23 @@ function ContainersPage() {
     },
   });
 
-  // Mutação para remoção
+  // Mutação para remoção com desaparecimento imediato (0ms de atraso visual)
   const removeMutation = useMutation({
     mutationFn: ({ id, volumes }: { id: string; volumes: boolean }) =>
       api.containers.remove(id, { force: true, volumes }),
-    onSuccess: () => {
+    onSuccess: (_, vars) => {
       toast.success("Container removido com sucesso!");
+      // Remove do cache React Query instantaneamente para não permitir novos cliques
+      queryClient.setQueryData<ContainerSummary[]>(["containers"], (old) =>
+        old ? old.filter((c) => c.id !== vars.id) : [],
+      );
+      setConfirmRemoveId(null);
+      if (selectedContainer?.id === vars.id) {
+        setSelectedContainer(null);
+      }
+      setSelectedIds((prev) => prev.filter((id) => id !== vars.id));
       void queryClient.invalidateQueries({ queryKey: ["containers"] });
       void queryClient.invalidateQueries({ queryKey: ["systemInfo"] });
-      setConfirmRemoveId(null);
-      if (selectedContainer) setSelectedContainer(null);
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : "Falha ao remover container.");
@@ -166,9 +200,9 @@ function ContainersPage() {
     mutationFn: ({ id }: { id: string }) => api.containers.recreate(id),
     onSuccess: () => {
       toast.success("Container recriado com sucesso!");
+      setConfirmRecreateId(null);
       void queryClient.invalidateQueries({ queryKey: ["containers"] });
       void queryClient.invalidateQueries({ queryKey: ["systemInfo"] });
-      setConfirmRecreateId(null);
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : "Falha ao recriar container.");
@@ -209,6 +243,16 @@ function ContainersPage() {
         );
       }
 
+      if (action === "remove") {
+        const removedIds = new Set(data.results.filter((r) => r.success).map((r) => r.id));
+        queryClient.setQueryData<ContainerSummary[]>(["containers"], (old) =>
+          old ? old.filter((c) => !removedIds.has(c.id)) : [],
+        );
+        if (selectedContainer && removedIds.has(selectedContainer.id)) {
+          setSelectedContainer(null);
+        }
+      }
+
       setSelectedIds([]);
       setConfirmRemoveBatch(false);
       void queryClient.invalidateQueries({ queryKey: ["containers"] });
@@ -216,6 +260,35 @@ function ContainersPage() {
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : "Falha na ação em lote.");
+    },
+  });
+
+  // Mutação de lote para ações de Stack
+  const stackActionMutation = useMutation({
+    mutationFn: ({ containerIds, action }: { containerIds: string[]; action: ContainerAction }) =>
+      api.containers.batch({
+        ids: containerIds,
+        action,
+        force: true,
+      }),
+    onSuccess: (data, vars) => {
+      const successes = data.results.filter((r) => r.success).length;
+      const failures = data.results.filter((r) => !r.success);
+
+      if (failures.length === 0) {
+        toast.success(
+          `Ação "${vars.action}" aplicada com sucesso a ${successes} container(s) da stack.`,
+        );
+      } else {
+        toast.warning(
+          `Ação "${vars.action}": ${successes} com sucesso, ${failures.length} falha(s).`,
+        );
+      }
+      void queryClient.invalidateQueries({ queryKey: ["containers"] });
+      void queryClient.invalidateQueries({ queryKey: ["systemInfo"] });
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : "Falha ao executar ação na stack.");
     },
   });
 
@@ -286,29 +359,7 @@ function ContainersPage() {
   }, [filteredList]);
 
   const handleStackAction = (containerIds: string[], action: ContainerAction) => {
-    api.containers
-      .batch({
-        ids: containerIds,
-        action,
-        force: true,
-      })
-      .then((data) => {
-        const successes = data.results.filter((r) => r.success).length;
-        const failures = data.results.filter((r) => !r.success);
-
-        if (failures.length === 0) {
-          toast.success(
-            `Ação "${action}" aplicada com sucesso a ${successes} container(s) da stack.`,
-          );
-        } else {
-          toast.warning(`Ação "${action}": ${successes} com sucesso, ${failures.length} falha(s).`);
-        }
-        void queryClient.invalidateQueries({ queryKey: ["containers"] });
-        void queryClient.invalidateQueries({ queryKey: ["systemInfo"] });
-      })
-      .catch((err) => {
-        toast.error(err instanceof Error ? err.message : "Falha ao executar ação na stack.");
-      });
+    stackActionMutation.mutate({ containerIds, action });
   };
 
   const allFilteredSelected =
@@ -485,7 +536,14 @@ function ContainersPage() {
               onClick={() => batchMutation.mutate("start")}
               disabled={batchMutation.isPending}
             >
-              <Play className="size-3.5 mr-1 text-emerald-500" /> Iniciar
+              {batchMutation.isPending && batchMutation.variables === "start" ? (
+                <Loader2 className="size-3.5 mr-1 animate-spin text-emerald-500" />
+              ) : (
+                <Play className="size-3.5 mr-1 text-emerald-500" />
+              )}
+              {batchMutation.isPending && batchMutation.variables === "start"
+                ? "Iniciando..."
+                : "Iniciar"}
             </Button>
             <Button
               size="sm"
@@ -493,7 +551,14 @@ function ContainersPage() {
               onClick={() => batchMutation.mutate("stop")}
               disabled={batchMutation.isPending}
             >
-              <Square className="size-3.5 mr-1 text-amber-500" /> Parar
+              {batchMutation.isPending && batchMutation.variables === "stop" ? (
+                <Loader2 className="size-3.5 mr-1 animate-spin text-amber-500" />
+              ) : (
+                <Square className="size-3.5 mr-1 text-amber-500" />
+              )}
+              {batchMutation.isPending && batchMutation.variables === "stop"
+                ? "Parando..."
+                : "Parar"}
             </Button>
             <Button
               size="sm"
@@ -501,7 +566,14 @@ function ContainersPage() {
               onClick={() => batchMutation.mutate("restart")}
               disabled={batchMutation.isPending}
             >
-              <RotateCw className="size-3.5 mr-1 text-blue-400" /> Reiniciar
+              {batchMutation.isPending && batchMutation.variables === "restart" ? (
+                <Loader2 className="size-3.5 mr-1 animate-spin text-blue-400" />
+              ) : (
+                <RotateCw className="size-3.5 mr-1 text-blue-400" />
+              )}
+              {batchMutation.isPending && batchMutation.variables === "restart"
+                ? "Reiniciando..."
+                : "Reiniciar"}
             </Button>
             <Button
               size="sm"
@@ -511,7 +583,12 @@ function ContainersPage() {
             >
               <Trash2 className="size-3.5 mr-1" /> Remover selecionados
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => setSelectedIds([])}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setSelectedIds([])}
+              disabled={batchMutation.isPending}
+            >
               Limpar seleção
             </Button>
           </div>
@@ -546,8 +623,29 @@ function ContainersPage() {
             onSelectContainer={(c) => setSelectedContainer(c)}
             onAction={(id, action) => actionMutation.mutate({ id, action })}
             onStackAction={handleStackAction}
+            onRemoveContainer={(id) => setConfirmRemoveId(id)}
             isViewer={isViewer}
-            isActionPending={actionMutation.isPending || batchMutation.isPending}
+            isActionPending={
+              actionMutation.isPending ||
+              batchMutation.isPending ||
+              stackActionMutation.isPending ||
+              removeMutation.isPending
+            }
+            pendingAction={
+              actionMutation.isPending && actionMutation.variables ? actionMutation.variables : null
+            }
+            pendingRemoveId={
+              removeMutation.isPending && removeMutation.variables
+                ? removeMutation.variables.id
+                : null
+            }
+            pendingBatchAction={
+              stackActionMutation.isPending
+                ? stackActionMutation.variables?.action
+                : batchMutation.isPending
+                  ? batchMutation.variables
+                  : null
+            }
             formatPorts={formatPorts}
             formatDate={formatDate}
           />
@@ -632,6 +730,16 @@ function ContainersPage() {
                   const isSelected = selectedIds.includes(c.id);
                   const isRunning = c.state === "running";
                   const isPaused = c.state === "paused";
+                  const isThisAction =
+                    actionMutation.isPending && actionMutation.variables?.id === c.id;
+                  const isThisRemoving =
+                    removeMutation.isPending && removeMutation.variables?.id === c.id;
+                  const isRowDisabled =
+                    actionMutation.isPending ||
+                    removeMutation.isPending ||
+                    batchMutation.isPending ||
+                    isThisAction ||
+                    isThisRemoving;
 
                   return (
                     <tr
@@ -646,6 +754,7 @@ function ContainersPage() {
                           <Checkbox
                             checked={isSelected}
                             onCheckedChange={() => toggleSelectOne(c.id)}
+                            disabled={isRowDisabled}
                           />
                         </td>
                       )}
@@ -695,41 +804,53 @@ function ContainersPage() {
                                 <Button
                                   size="icon"
                                   variant="ghost"
-                                  className="size-8 text-amber-500 hover:text-amber-400"
+                                  className="size-8 text-amber-500 hover:text-amber-400 hover:bg-amber-500/10"
                                   title="Parar"
                                   onClick={() =>
                                     actionMutation.mutate({ id: c.id, action: "stop" })
                                   }
-                                  disabled={actionMutation.isPending}
+                                  disabled={isRowDisabled}
                                 >
-                                  <Square className="size-3.5" />
+                                  {isThisAction && actionMutation.variables?.action === "stop" ? (
+                                    <Loader2 className="size-3.5 animate-spin" />
+                                  ) : (
+                                    <Square className="size-3.5" />
+                                  )}
                                 </Button>
                               ) : (
                                 <Button
                                   size="icon"
                                   variant="ghost"
-                                  className="size-8 text-emerald-500 hover:text-emerald-400"
+                                  className="size-8 text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10"
                                   title="Iniciar"
                                   onClick={() =>
                                     actionMutation.mutate({ id: c.id, action: "start" })
                                   }
-                                  disabled={actionMutation.isPending}
+                                  disabled={isRowDisabled}
                                 >
-                                  <Play className="size-3.5" />
+                                  {isThisAction && actionMutation.variables?.action === "start" ? (
+                                    <Loader2 className="size-3.5 animate-spin" />
+                                  ) : (
+                                    <Play className="size-3.5" />
+                                  )}
                                 </Button>
                               )}
 
                               <Button
                                 size="icon"
                                 variant="ghost"
-                                className="size-8 text-blue-400 hover:text-blue-300"
+                                className="size-8 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
                                 title="Reiniciar"
                                 onClick={() =>
                                   actionMutation.mutate({ id: c.id, action: "restart" })
                                 }
-                                disabled={actionMutation.isPending}
+                                disabled={isRowDisabled}
                               >
-                                <RotateCw className="size-3.5" />
+                                {isThisAction && actionMutation.variables?.action === "restart" ? (
+                                  <Loader2 className="size-3.5 animate-spin" />
+                                ) : (
+                                  <RotateCw className="size-3.5" />
+                                )}
                               </Button>
 
                               {isRunning && (
@@ -744,20 +865,31 @@ function ContainersPage() {
                                       action: isPaused ? "unpause" : "pause",
                                     })
                                   }
-                                  disabled={actionMutation.isPending}
+                                  disabled={isRowDisabled}
                                 >
-                                  <Pause className="size-3.5" />
+                                  {isThisAction &&
+                                  (actionMutation.variables?.action === "pause" ||
+                                    actionMutation.variables?.action === "unpause") ? (
+                                    <Loader2 className="size-3.5 animate-spin" />
+                                  ) : (
+                                    <Pause className="size-3.5" />
+                                  )}
                                 </Button>
                               )}
 
                               <Button
                                 size="icon"
                                 variant="ghost"
-                                className="size-8 text-destructive hover:text-destructive/80"
+                                className="size-8 text-destructive hover:text-destructive/80 hover:bg-destructive/10"
                                 title="Remover"
                                 onClick={() => setConfirmRemoveId(c.id)}
+                                disabled={isRowDisabled}
                               >
-                                <Trash2 className="size-3.5" />
+                                {isThisRemoving ? (
+                                  <Loader2 className="size-3.5 animate-spin" />
+                                ) : (
+                                  <Trash2 className="size-3.5" />
+                                )}
                               </Button>
                             </>
                           ) : (
@@ -766,7 +898,12 @@ function ContainersPage() {
                             </Badge>
                           )}
 
-                          <Button size="sm" variant="ghost" onClick={() => setSelectedContainer(c)}>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setSelectedContainer(c)}
+                            disabled={isThisRemoving}
+                          >
                             Detalhes
                           </Button>
                         </div>
@@ -853,9 +990,20 @@ function ContainersPage() {
                             onClick={() =>
                               actionMutation.mutate({ id: selectedContainer.id, action: "stop" })
                             }
-                            disabled={actionMutation.isPending}
+                            disabled={actionMutation.isPending || removeMutation.isPending}
                           >
-                            <Square className="size-3.5 mr-1 text-amber-500" /> Parar
+                            {actionMutation.isPending &&
+                            actionMutation.variables?.id === selectedContainer.id &&
+                            actionMutation.variables.action === "stop" ? (
+                              <Loader2 className="size-3.5 mr-1 animate-spin text-amber-500" />
+                            ) : (
+                              <Square className="size-3.5 mr-1 text-amber-500" />
+                            )}
+                            {actionMutation.isPending &&
+                            actionMutation.variables?.id === selectedContainer.id &&
+                            actionMutation.variables.action === "stop"
+                              ? "Parando..."
+                              : "Parar"}
                           </Button>
                         ) : (
                           <Button
@@ -864,9 +1012,20 @@ function ContainersPage() {
                             onClick={() =>
                               actionMutation.mutate({ id: selectedContainer.id, action: "start" })
                             }
-                            disabled={actionMutation.isPending}
+                            disabled={actionMutation.isPending || removeMutation.isPending}
                           >
-                            <Play className="size-3.5 mr-1 text-emerald-500" /> Iniciar
+                            {actionMutation.isPending &&
+                            actionMutation.variables?.id === selectedContainer.id &&
+                            actionMutation.variables.action === "start" ? (
+                              <Loader2 className="size-3.5 mr-1 animate-spin text-emerald-500" />
+                            ) : (
+                              <Play className="size-3.5 mr-1 text-emerald-500" />
+                            )}
+                            {actionMutation.isPending &&
+                            actionMutation.variables?.id === selectedContainer.id &&
+                            actionMutation.variables.action === "start"
+                              ? "Iniciando..."
+                              : "Iniciar"}
                           </Button>
                         )}
                         <Button
@@ -875,32 +1034,60 @@ function ContainersPage() {
                           onClick={() =>
                             actionMutation.mutate({ id: selectedContainer.id, action: "restart" })
                           }
-                          disabled={actionMutation.isPending}
+                          disabled={actionMutation.isPending || removeMutation.isPending}
                         >
-                          <RotateCw className="size-3.5 mr-1 text-blue-400" /> Reiniciar
+                          {actionMutation.isPending &&
+                          actionMutation.variables?.id === selectedContainer.id &&
+                          actionMutation.variables.action === "restart" ? (
+                            <Loader2 className="size-3.5 mr-1 animate-spin text-blue-400" />
+                          ) : (
+                            <RotateCw className="size-3.5 mr-1 text-blue-400" />
+                          )}
+                          {actionMutation.isPending &&
+                          actionMutation.variables?.id === selectedContainer.id &&
+                          actionMutation.variables.action === "restart"
+                            ? "Reiniciando..."
+                            : "Reiniciar"}
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => duplicateMutation.mutate({ id: selectedContainer.id })}
-                          disabled={duplicateMutation.isPending}
+                          disabled={duplicateMutation.isPending || removeMutation.isPending}
                         >
-                          <Copy className="size-3.5 mr-1" /> Duplicar
+                          {duplicateMutation.isPending ? (
+                            <Loader2 className="size-3.5 mr-1 animate-spin" />
+                          ) : (
+                            <Copy className="size-3.5 mr-1" />
+                          )}
+                          {duplicateMutation.isPending ? "Duplicando..." : "Duplicar"}
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => setConfirmRecreateId(selectedContainer.id)}
-                          disabled={recreateMutation.isPending}
+                          disabled={recreateMutation.isPending || removeMutation.isPending}
                         >
-                          <RotateCw className="size-3.5 mr-1" /> Recriar
+                          {recreateMutation.isPending ? (
+                            <Loader2 className="size-3.5 mr-1 animate-spin" />
+                          ) : (
+                            <RotateCw className="size-3.5 mr-1" />
+                          )}
+                          {recreateMutation.isPending ? "Recriando..." : "Recriar"}
                         </Button>
                         <Button
                           variant="destructive"
                           size="sm"
                           onClick={() => setConfirmRemoveId(selectedContainer.id)}
+                          disabled={removeMutation.isPending || actionMutation.isPending}
                         >
-                          <Trash2 className="size-3.5 mr-1" /> Remover
+                          {removeMutation.isPending &&
+                          removeMutation.variables?.id === selectedContainer.id ? (
+                            <Loader2 className="size-3.5 mr-1 animate-spin" />
+                          ) : (
+                            <Trash2 className="size-3.5 mr-1" />
+                          )}
+                          Remover
                         </Button>
                       </div>
                     </div>
@@ -975,7 +1162,14 @@ function ContainersPage() {
       <CreateContainerDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
 
       {/* AlertDialog de Confirmação de Remoção Individual */}
-      <AlertDialog open={!!confirmRemoveId} onOpenChange={(o) => !o && setConfirmRemoveId(null)}>
+      <AlertDialog
+        open={!!confirmRemoveId}
+        onOpenChange={(o) => {
+          if (!removeMutation.isPending) {
+            setConfirmRemoveId(o ? confirmRemoveId : null);
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remover Container</AlertDialogTitle>
@@ -989,29 +1183,46 @@ function ContainersPage() {
               id="remove-vols"
               checked={removeVolumes}
               onCheckedChange={(c) => setRemoveVolumes(Boolean(c))}
+              disabled={removeMutation.isPending}
             />
             <label htmlFor="remove-vols" className="text-xs cursor-pointer">
               Remover também volumes anônimos associados
             </label>
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={removeMutation.isPending}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => {
+              disabled={removeMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault();
                 if (confirmRemoveId) {
                   removeMutation.mutate({ id: confirmRemoveId, volumes: removeVolumes });
                 }
               }}
             >
-              Remover
+              {removeMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Removendo...
+                </>
+              ) : (
+                "Remover"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {/* AlertDialog de Confirmação de Remoção em Lote */}
-      <AlertDialog open={confirmRemoveBatch} onOpenChange={setConfirmRemoveBatch}>
+      <AlertDialog
+        open={confirmRemoveBatch}
+        onOpenChange={(o) => {
+          if (!batchMutation.isPending) {
+            setConfirmRemoveBatch(o);
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remover {selectedIds.length} Container(s)</AlertDialogTitle>
@@ -1025,18 +1236,30 @@ function ContainersPage() {
               id="batch-remove-vols"
               checked={removeVolumes}
               onCheckedChange={(c) => setRemoveVolumes(Boolean(c))}
+              disabled={batchMutation.isPending}
             />
             <label htmlFor="batch-remove-vols" className="text-xs cursor-pointer">
               Remover também volumes anônimos associados
             </label>
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={batchMutation.isPending}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => batchMutation.mutate("remove")}
+              disabled={batchMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                batchMutation.mutate("remove");
+              }}
             >
-              Remover Selecionados
+              {batchMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Removendo...
+                </>
+              ) : (
+                "Remover Selecionados"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1045,7 +1268,11 @@ function ContainersPage() {
       {/* AlertDialog de Confirmação de Recriação */}
       <AlertDialog
         open={!!confirmRecreateId}
-        onOpenChange={(o) => !o && setConfirmRecreateId(null)}
+        onOpenChange={(o) => {
+          if (!recreateMutation.isPending) {
+            setConfirmRecreateId(o ? confirmRecreateId : null);
+          }
+        }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1056,15 +1283,24 @@ function ContainersPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={recreateMutation.isPending}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => {
+              disabled={recreateMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault();
                 if (confirmRecreateId) {
                   recreateMutation.mutate({ id: confirmRecreateId });
                 }
               }}
             >
-              Recriar Agora
+              {recreateMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Recriando...
+                </>
+              ) : (
+                "Recriar Agora"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
