@@ -1,171 +1,187 @@
-# HarborX (Docker Harmony Hub)
+# HarborX
 
-> Um gerenciador Docker moderno, visual e de alta performance para VMs e servidores — alternativa leve e elegante ao Portainer, distribuído como um único container Docker.
+> Modern, lightweight, and high-performance Docker web management UI for virtual machines and servers. A sleek, fast alternative to Portainer packaged as a single lightweight Docker container.
 
----
+[🇺🇸 English](README.md) | [🇧🇷 Português](README.pt-BR.md)
 
-## ⚡ Principais Funcionalidades
-
-- **Dashboard 100% em Tempo Real**: Métricas de host (CPU %, RAM, Disco) com histórico de 24h, contagem de containers ativos e streaming contínuo de eventos do Docker Engine.
-- **Visualizador de Logs com ANSI & Virtualização**:
-  - WebSocket bidirecional streaming logs demuxados (stdout / stderr).
-  - Virtualização com `@tanstack/react-virtual` para suportar 50.000+ linhas sem travamento.
-  - Busca regex/texto, coloração ANSI com `anser`, pausa de buffer e auto-scroll inteligente.
-- **Console Web Interativo (Exec / Terminal)**:
-  - Terminal real no navegador motorizado por `@xterm/xterm` e `@xterm/addon-fit`.
-  - Suporte completo a PTY interativo com redimensionamento dinâmico de janela (`resize`).
-  - Detecção automática de shells disponíveis (`/bin/bash`, `/bin/sh`, `/bin/ash`, `/bin/zsh`, `powershell`).
-- **Métricas de Containers ao Vivo**: Gráficos de CPU %, Memória MB/%, Tráfego de Rede (RX/TX KB/s), E/S de bloco e contagem de threads/PIDs em tempo real.
-- **Gestão Completa de Containers**:
-  - Assistente de criação com mapeamento de portas, volumes, variáveis de ambiente e limites de recursos.
-  - Ações de ciclo de vida com 1 clique: Iniciar, Parar, Reiniciar, Pausar, Despausar, Duplicar, Renomear, Recriar com pull da imagem mais recente e Remoção forçada.
-  - Proteção contra auto-exclusão do container do HarborX.
-- **Imagens com Download em Tempo Real**:
-  - Download streaming camada por camada (progresso visual de download e extração).
-  - Inspeção de camadas e histórico do Dockerfile.
-  - Poda (prune) de imagens dangling/não utilizadas.
-- **Redes & Volumes Inteligentes**:
-  - Criação de redes bridge, macvlan e overlay com subnets isoladas.
-  - Conexão e desconexão de containers em tempo de execução.
-  - Detecção e exibição visual de quais containers estão usando cada volume persistente para evitar perda acidental de dados.
-- **Cofre de Registros Privados (AES-256-GCM)**:
-  - Autenticação com Docker Hub, GitHub Container Registry (ghcr.io), GitLab e registros privados (Harbor, Nexus).
-  - Senhas e tokens de acesso armazenados de forma criptografada usando AES-256-GCM.
-- **Stacks Docker Compose & GitOps**:
-  - Editor web de arquivos `docker-compose.yml` com modelos prontos (Postgres, Redis, WordPress, Nginx).
-  - Sincronização direta com repositórios Git públicos ou privados.
-  - URLs de Webhooks únicas por stack para acionar redeploys automáticos a partir do GitHub Actions ou pipelines CI/CD.
-- **Segurança & Controle de Acesso (RBAC)**:
-  - Perfis de acesso rígidos:
-    - **Administrador**: Controle total, gestão de usuários, backups e limpeza do sistema.
-    - **Operador**: Criação e controle de containers, logs, terminal interativo, stacks e imagens.
-    - **Visualizador**: Acesso de somente leitura para monitoramento seguro e logs.
-  - Trilha de auditoria completa gravada em SQLite WAL.
-  - Proteção CSRF, cookies HttpOnly e senhas criptografadas com Argon2id.
+[![Docker Pulls](https://img.shields.io/docker/pulls/felipesdam496/harborx?style=flat-square&logo=docker)](https://hub.docker.com/r/felipesdam496/harborx)
+[![Image Size](https://img.shields.io/docker/image-size/felipesdam496/harborx/latest?style=flat-square)](https://hub.docker.com/r/felipesdam496/harborx)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
 
 ---
 
-## 🚀 Instalação Rápida em VM / Servidor Linux
+## ⚡ Features
 
-### Opção 1: Via Docker Run (1 comando)
+- **Real-Time Host & Container Dashboard**: Live CPU %, RAM, and disk utilization graphs (24h history) with Docker daemon event streaming.
+- **Interactive Web Terminal (Exec / Console)**: Full xterm.js PTY shell in your browser with dynamic terminal resizing and auto-detected shells (`bash`, `sh`, `zsh`, `ash`).
+- **Live Logs Viewer with ANSI & Virtualization**: Fast streaming stdout/stderr with `@tanstack/react-virtual` handling 50,000+ lines with regex search and pause buffer.
+- **Docker Compose Stacks & GitOps**: Built-in compose editor, Git repository sync, and unique webhook endpoints for automated CI/CD redeployments.
+- **Binder-style Stack Organizer**: Beautiful visual folders grouping containers by stack with resource usage tagging (`inUseBy`) across images, volumes, and networks.
+- **Live Notification Center**: Header bell with real-time alerts for container failures, starts, and image downloads via WebSocket.
+- **100% Mobile Responsive**: Dedicated slide-over drawer and touch-friendly container cards designed for smartphone management on the go.
+- **Lightweight Footprint**: Embedded SQLite with WAL mode, consuming only ~45–75 MB of RAM and negligible CPU.
+- **Role-Based Access Control (RBAC)**: Fine-grained `admin`, `operator`, and `viewer` roles with Argon2id passwords and encrypted credential vaults (AES-256-GCM).
+
+---
+
+## 🚀 Quickstart: Run on a Linux VM via Terminal
+
+Deploy HarborX on your virtual machine using Docker Compose in 3 simple terminal steps.
+
+### Step 1: Create the directory and `.env` file
+
+Connect to your server terminal via SSH and run:
 
 ```bash
-docker run -d \
-  --name harborx \
-  --restart always \
-  -p 3000:8080 \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  -v harborx-data:/data \
-  -e HARBORX_SECRET="$(openssl rand -hex 32)" \
-  felipesd/harborx:latest
+# 1. Create HarborX directories
+sudo mkdir -p /opt/harborx/data && cd /opt/harborx
+
+# 2. Generate a secure random 32-byte secret in your .env file
+cat <<EOF > .env
+HARBORX_SECRET=$(openssl rand -hex 32)
+COOKIE_SECURE=false
+EOF
 ```
 
-Acesse: `http://<ip-da-vm>:3000` e configure a conta de administrador inicial.
+> [!NOTE]
+> If you are serving HarborX through HTTPS (behind a reverse proxy such as Nginx, Traefik, or Caddy), set `COOKIE_SECURE=true`.
 
 ---
 
-### Opção 2: Via Docker Compose
+### Step 2: Create `docker-compose.yml`
 
-Crie um arquivo `docker-compose.yml`:
+Create your `docker-compose.yml` file in `/opt/harborx/docker-compose.yml`:
 
 ```yaml
 services:
   harborx:
-    image: felipesd/harborx:latest
+    image: felipesdam496/harborx:latest
     container_name: harborx
     restart: unless-stopped
+
+    security_opt:
+      - no-new-privileges:true
+
+    # If accessing directly without a reverse proxy, expose port 8080:
     ports:
-      - "3000:8080"
+      - "8080:8080"
+
     environment:
-      - NODE_ENV=production
-      - HARBORX_SECRET=crie_uma_chave_secreta_com_pelo_menos_32_caracteres_hex
-      - HARBORX_DATA_DIR=/data
-      - COOKIE_SECURE=false # Defina como true se usar HTTPS com proxy reverso (Nginx, Traefik, Caddy)
+      # Generate with: openssl rand -hex 32 (placed in .env file)
+      HARBORX_SECRET: ${HARBORX_SECRET:?set HARBORX_SECRET in .env}
+      # Must be the SAME path inside and outside the container for stack bind mounts.
+      HARBORX_DATA_DIR: /opt/harborx/data
+      # Set to "true" when serving through HTTPS.
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - harborx-data:/data
+      - /opt/harborx/data:/opt/harborx/data
 
 volumes:
   harborx-data:
+
+networks:
+  proxy:
+    external: true
 ```
 
-Execute:
+> [!TIP]
+> **Using an external `proxy` network?**
+> If your `proxy` network does not exist yet, create it once:
+>
+> ```bash
+> docker network create proxy 2>/dev/null || true
+> ```
+>
+> If you don't use an external proxy network, you can remove the `networks:` block or set `networks: [default]`.
+
+---
+
+### Step 3: Start HarborX
+
+Launch the container in detached mode:
 
 ```bash
 docker compose up -d
 ```
 
----
-
-## 🚢 CI/CD: Publicação Automática no Docker Hub
-
-O repositório possui uma pipeline automatizada via GitHub Actions em [`.github/workflows/docker-publish.yml`](.github/workflows/docker-publish.yml).
-
-### Como funciona:
-
-- **Push na branch `main`**: Compila a imagem multi-arquitetura (`linux/amd64` e `linux/arm64`) e publica no Docker Hub com as tags `latest` e `sha-<commit>`.
-- **Criação de tags de versão (ex: `git tag v1.0.0 && git push origin v1.0.0`)**: Publica automaticamente com versionamento semântico: `1.0.0`, `1.0`, `1` e `latest`.
-- **Push em branches de versão (ex: `v1.x`, `release/*`)**: Gera builds identificados com o nome da branch correspondente.
-
-### 🔑 Configuração dos Segredos no GitHub:
-
-Acesse o seu repositório no GitHub: **Settings** ➔ **Secrets and variables** ➔ **Actions** ➔ **New repository secret**:
-
-| Nome do Segredo      | Descrição                                                     | Exemplo           |
-| -------------------- | ------------------------------------------------------------- | ----------------- |
-| `DOCKERHUB_USERNAME` | Seu nome de usuário ou organização no Docker Hub              | `felipesd`        |
-| `DOCKERHUB_PASSWORD` | Seu **Personal Access Token** gerado no Docker Hub (ou senha) | `dckr_pat_xxx...` |
-
-> [!TIP]
-> **Como gerar o token no Docker Hub:** Acesse [hub.docker.com](https://hub.docker.com) ➔ Clique no seu avatar (canto superior direito) ➔ **Account Settings** ➔ **Security** ➔ **New Access Token** ➔ Selecione permissões **Read & Write** ➔ Copie o token gerado.
-
----
-
-## 🔄 GitOps: Auto-deploy com GitHub Actions
-
-Cada stack criada no HarborX gera uma URL de webhook única. Para acionar o deploy automático ao fazer push no GitHub, adicione o seguinte step no seu workflow `.github/workflows/deploy.yml`:
-
-```yaml
-name: Deploy to HarborX
-
-on:
-  push:
-    branches: [main]
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Trigger HarborX Redeploy
-        run: |
-          curl -fsS -X POST "http://sua-vm:3000/api/public/hooks/SEU_TOKEN_DE_WEBHOOK"
-```
-
----
-
-## 🛠️ Desenvolvimento Local
-
-Requisitos: [Bun](https://bun.sh) ou Node.js 22+.
+Check the status:
 
 ```bash
-# Instalar dependências
-bun install
-
-# Executar suíte de testes (Vitest)
-bun run test
-
-# Executar em modo de desenvolvimento
-bun run dev
-
-# Compilar aplicação completa (Front-end SPA + Fastify Server)
-bun run build
-bun run build:server
+docker compose logs -f harborx
 ```
 
 ---
 
-## 🔒 Segurança
+## 🔑 Initial Setup & First Login
 
-- O acesso ao socket `/var/run/docker.sock` confere privilégios equivalentes a root na máquina host.
-- Em ambientes de produção abertos para a internet, utilize um proxy reverso com certificado SSL/TLS (Caddy, Traefik ou Nginx) e defina `COOKIE_SECURE=true`.
-- Todos os segredos e credenciais de registros privados são protegidos no banco de dados local com cifra de fluxo autenticada **AES-256-GCM**.
+1. Open your web browser and navigate to:
+   ```text
+   http://<YOUR_VM_IP>:8080
+   ```
+2. When launching HarborX for the first time, you will be automatically prompted to create the **primary Administrator account**.
+3. Choose your administrator username and password to access the full management dashboard.
+
+---
+
+## ⚙️ Environment Variables Reference
+
+| Variable           | Required |       Default       | Description                                                                                                         |
+| :----------------- | :------: | :-----------------: | :------------------------------------------------------------------------------------------------------------------ |
+| `HARBORX_SECRET`   | **Yes**  |          —          | 32-byte hexadecimal secret key used for session signing and AES-256-GCM encryption.                                 |
+| `HARBORX_DATA_DIR` |    No    | `/opt/harborx/data` | Path on the host where SQLite database, stacks, and Git repositories are stored. Must match host & container paths. |
+| `COOKIE_SECURE`    |    No    |       `false`       | Enables the `Secure` flag on cookies. Set to `true` when running behind an SSL/TLS reverse proxy.                   |
+| `PORT`             |    No    |       `8080`        | Internal port Fastify listens on inside the container.                                                              |
+| `NODE_ENV`         |    No    |    `production`     | Application execution mode.                                                                                         |
+
+---
+
+## 🌐 Reverse Proxy Examples
+
+### Nginx Proxy Manager / Nginx
+
+```nginx
+server {
+    server_name harborx.yourdomain.com;
+
+    location / {
+        proxy_pass http://harborx:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 86400; # Necessary for long-lived WebSocket connections (logs and exec)
+    }
+}
+```
+
+### Traefik (Docker Labels)
+
+Add these labels to the `harborx` service in `docker-compose.yml`:
+
+```yaml
+labels:
+  - "traefik.enable=true"
+  - "traefik.http.routers.harborx.rule=Host(`harborx.yourdomain.com`)"
+  - "traefik.http.routers.harborx.entrypoints=websecure"
+  - "traefik.http.routers.harborx.tls.certresolver=letsencrypt"
+  - "traefik.http.services.harborx.loadbalancer.server.port=8080"
+```
+
+---
+
+## 🔒 Security Best Practices
+
+- **Docker Socket Access**: `/var/run/docker.sock` grants root-equivalent control over the host Docker daemon. Keep HarborX protected behind strong credentials and HTTPS.
+- **`no-new-privileges`**: The compose file enables `no-new-privileges:true` to prevent privilege escalation attacks.
+- **Zero Cloud Leakage**: HarborX runs completely self-contained on your infrastructure. All metrics, audit logs, and configs remain inside the local SQLite database.
+
+---
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE).

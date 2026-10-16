@@ -1,6 +1,6 @@
 services:
   harborx:
-    image: ${DOCKERHUB_USERNAME:-felipesd}/harborx:latest
+    image: felipesdam496/harborx:latest
     # Or build locally:
     # build: .
     container_name: harborx

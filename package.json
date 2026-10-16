@@ -1,5 +1,6 @@
 {
-  "name": "tanstack_start_ts",
+  "name": "harborx",
+  "description": "Modern, lightweight Docker web UI with live logs, web terminal, and stack orchestration",
   "private": true,
   "sideEffects": false,
   "type": "module",
