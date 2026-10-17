@@ -111,7 +111,7 @@ export interface NetworkSummary {
         }
       >
     | undefined;
-  inUseBy?: Array<{ id: string; name: string; ipv4?: string }>;
+  inUseBy?: Array<{ id: string; name: string; ipv4?: string | undefined }> | undefined;
 }
 
 export interface BuildCachePruneResponse {
@@ -133,7 +133,7 @@ export interface VolumeSummary {
         refCount: number;
       }
     | undefined;
-  inUseBy?: Array<{ id: string; name: string }>;
+  inUseBy?: Array<{ id: string; name: string; state?: string | undefined }> | undefined;
 }
 
 export interface RegistrySummary {
@@ -153,74 +153,78 @@ export interface CreateRegistryRequest {
 }
 
 export interface UpdateRegistryRequest {
-  name?: string;
-  url?: string;
-  username?: string;
-  secret?: string;
+  name?: string | undefined;
+  url?: string | undefined;
+  username?: string | undefined;
+  secret?: string | undefined;
 }
 
 export interface TestRegistryRequest {
   url: string;
   username: string;
-  secret?: string;
-  registryId?: string;
-  repoUrl?: string;
+  secret?: string | undefined;
+  registryId?: string | undefined;
+  repoUrl?: string | undefined;
 }
 
 export interface TestRegistryResponse {
   success: boolean;
-  status?: string;
-  error?: string;
-  warning?: string;
-  scopes?: string[];
-  permissions?: {
-    canCloneRepos: boolean;
-    canPullImages: boolean;
-    provider?: string;
-    account?: string;
-  };
+  status?: string | undefined;
+  error?: string | undefined;
+  warning?: string | undefined;
+  scopes?: string[] | undefined;
+  permissions?:
+    | {
+        canCloneRepos: boolean;
+        canPullImages: boolean;
+        provider?: string | undefined;
+        account?: string | undefined;
+      }
+    | undefined;
 }
 
 export interface TestGitRepoRequest {
   gitRepo: string;
-  gitBranch?: string;
-  gitRegistryId?: string | null;
+  gitBranch?: string | undefined;
+  gitRegistryId?: string | null | undefined;
 }
 
 export interface TestGitRepoResponse {
   success: boolean;
-  status?: string;
-  error?: string;
-  warning?: string;
+  status?: string | undefined;
+  error?: string | undefined;
+  warning?: string | undefined;
 }
 
 export interface CreateNetworkRequest {
   name: string;
-  driver?: "bridge" | "overlay" | "macvlan" | "ipvlan";
-  subnet?: string;
-  gateway?: string;
-  internal?: boolean;
-  attachable?: boolean;
-  labels?: Record<string, string>;
+  driver?: "bridge" | "overlay" | "macvlan" | "ipvlan" | undefined;
+  subnet?: string | undefined;
+  gateway?: string | undefined;
+  internal?: boolean | undefined;
+  attachable?: boolean | undefined;
+  labels?: Record<string, string> | undefined;
 }
 
 export interface CreateVolumeRequest {
-  name?: string;
-  driver?: string;
-  driverOpts?: Record<string, string>;
-  labels?: Record<string, string>;
+  name?: string | undefined;
+  driver?: string | undefined;
+  driverOpts?: Record<string, string> | undefined;
+  labels?: Record<string, string> | undefined;
 }
 
 export interface ImagePullProgress {
-  status?: string;
-  id?: string;
-  progressDetail?: {
-    current?: number;
-    total?: number;
-  };
-  progress?: string;
-  error?: string;
-  success?: boolean;
+  status?: string | undefined;
+  id?: string | undefined;
+  progressDetail?:
+    | {
+        current?: number | undefined;
+        total?: number | undefined;
+      }
+    | undefined;
+  progress?: string | undefined;
+  error?: string | undefined;
+  success?: boolean | undefined;
 }
 
 export interface SystemInfo {
@@ -346,10 +350,10 @@ export interface StackSummary {
   status: "deployed" | "stopped" | "failed" | "deploying";
   composeYaml: string;
   env: StackEnvVar[];
-  gitRepo?: string;
-  gitBranch?: string;
-  gitPath?: string;
-  gitRegistryId?: string;
+  gitRepo?: string | undefined;
+  gitBranch?: string | undefined;
+  gitPath?: string | undefined;
+  gitRegistryId?: string | undefined;
   webhookToken: string;
   autoDeploy: boolean;
   createdAt: string;
@@ -362,42 +366,44 @@ export interface StackSummary {
     state: string;
     status: string;
     image: string;
-    ports: Array<{ hostPort?: number; containerPort: number; protocol: string }>;
+    ports: Array<{ hostPort?: number | undefined; containerPort: number; protocol: string }>;
   }>;
-  recentDeployment?: {
-    id: string;
-    triggeredBy: string;
-    status: string;
-    outputLog: string;
-    createdAt: string;
-  };
+  recentDeployment?:
+    | {
+        id: string;
+        triggeredBy: string;
+        status: string;
+        outputLog: string;
+        createdAt: string;
+      }
+    | undefined;
 }
 
 export interface CreateStackRequest {
   name: string;
-  type?: "compose" | "git";
-  composeYaml?: string;
-  env?: StackEnvVar[];
-  gitRepo?: string;
-  gitBranch?: string;
-  gitPath?: string;
-  gitRegistryId?: string | null;
-  autoDeploy?: boolean;
-  deployNow?: boolean;
+  type?: "compose" | "git" | undefined;
+  composeYaml?: string | undefined;
+  env?: StackEnvVar[] | undefined;
+  gitRepo?: string | undefined;
+  gitBranch?: string | undefined;
+  gitPath?: string | undefined;
+  gitRegistryId?: string | null | undefined;
+  autoDeploy?: boolean | undefined;
+  deployNow?: boolean | undefined;
 }
 
 export interface UpdateStackRequest {
-  name?: string;
-  type?: "compose" | "git";
-  composeYaml?: string;
-  env?: StackEnvVar[];
-  gitRepo?: string;
-  gitBranch?: string;
-  gitPath?: string;
-  gitRegistryId?: string | null;
-  autoDeploy?: boolean;
-  redeploy?: boolean;
-  pull?: boolean;
+  name?: string | undefined;
+  type?: "compose" | "git" | undefined;
+  composeYaml?: string | undefined;
+  env?: StackEnvVar[] | undefined;
+  gitRepo?: string | undefined;
+  gitBranch?: string | undefined;
+  gitPath?: string | undefined;
+  gitRegistryId?: string | null | undefined;
+  autoDeploy?: boolean | undefined;
+  redeploy?: boolean | undefined;
+  pull?: boolean | undefined;
 }
 
 export interface WebhookItem {
@@ -408,25 +414,27 @@ export interface WebhookItem {
   autoDeploy: boolean;
   webhookToken: string;
   webhookUrl: string;
-  recentDeployment?: {
-    id: string;
-    triggeredBy: string;
-    status: string;
-    outputLog: string;
-    createdAt: string;
-  };
+  recentDeployment?:
+    | {
+        id: string;
+        triggeredBy: string;
+        status: string;
+        outputLog: string;
+        createdAt: string;
+      }
+    | undefined;
 }
 
 export interface R2BackupSettings {
-  endpoint?: string;
-  bucket?: string;
-  accessKeyId?: string;
-  secretAccessKey?: string;
-  resticPassword?: string;
-  hasSecretKey?: boolean;
-  hasResticPassword?: boolean;
-  intervalSeconds?: number;
-  keepDaily?: number;
-  keepWeekly?: number;
-  keepMonthly?: number;
+  endpoint?: string | undefined;
+  bucket?: string | undefined;
+  accessKeyId?: string | undefined;
+  secretAccessKey?: string | undefined;
+  resticPassword?: string | undefined;
+  hasSecretKey?: boolean | undefined;
+  hasResticPassword?: boolean | undefined;
+  intervalSeconds?: number | undefined;
+  keepDaily?: number | undefined;
+  keepWeekly?: number | undefined;
+  keepMonthly?: number | undefined;
 }

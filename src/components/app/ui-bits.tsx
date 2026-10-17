@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import type { Status } from "@/lib/mock-data";
 
@@ -82,6 +82,10 @@ export function Meter({ value, className }: { value: number; className?: string 
   );
 }
 
-export function Panel({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("rounded-xl border bg-card", className)}>{children}</div>;
+export function Panel({ children, className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div className={cn("rounded-xl border bg-card", className)} {...props}>
+      {children}
+    </div>
+  );
 }

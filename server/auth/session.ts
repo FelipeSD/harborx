@@ -181,7 +181,11 @@ export function listUsers(): User[] {
 
 export function updateUser(
   id: string,
-  data: { role?: UserRole; disabled?: boolean; passwordHash?: string },
+  data: {
+    role?: UserRole | undefined;
+    disabled?: boolean | undefined;
+    passwordHash?: string | undefined;
+  },
 ): User | null {
   const user = getUserById(id);
   if (!user) return null;

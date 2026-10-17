@@ -90,7 +90,7 @@ function ImagesPage() {
   const [ref, setRef] = useState("");
   const [isPulling, setIsPulling] = useState(false);
   const [pullProgress, setPullProgress] = useState<
-    Record<string, { status: string; current?: number; total?: number }>
+    Record<string, { status: string; current?: number | undefined; total?: number | undefined }>
   >({});
   const [pullStatusText, setPullStatusText] = useState("");
 

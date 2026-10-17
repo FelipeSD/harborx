@@ -22,14 +22,17 @@ export const volumeRoutes: FastifyPluginAsync = async (fastify) => {
       ]);
 
       // Map volume name -> container names
-      const volumeUsers = new Map<string, Array<{ id: string; name: string }>>();
+      const volumeUsers = new Map<
+        string,
+        Array<{ id: string; name: string; state?: string | undefined }>
+      >();
       for (const c of containerList) {
         const rawName = (c.Names?.[0] || c.Id).replace(/^\//, "");
         if (Array.isArray(c.Mounts)) {
           for (const m of c.Mounts) {
             if (m.Type === "volume" && m.Name) {
               const current = volumeUsers.get(m.Name) || [];
-              current.push({ id: c.Id, name: rawName });
+              current.push({ id: c.Id, name: rawName, state: c.State });
               volumeUsers.set(m.Name, current);
             }
           }

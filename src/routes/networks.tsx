@@ -143,8 +143,15 @@ function NetworksPage() {
   });
 
   const connectMutation = useMutation({
-    mutationFn: ({ netId, container, ip }: { netId: string; container: string; ip?: string }) =>
-      api.networks.connect(netId, { container, ipv4Address: ip || undefined }),
+    mutationFn: ({
+      netId,
+      container,
+      ip,
+    }: {
+      netId: string;
+      container: string;
+      ip?: string | undefined;
+    }) => api.networks.connect(netId, { container, ipv4Address: ip || undefined }),
     onSuccess: () => {
       toast.success("Container conectado à rede com sucesso!");
       setConnectNetwork(null);

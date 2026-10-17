@@ -23,10 +23,10 @@ export interface StackRecord {
   status: "deployed" | "stopped" | "failed" | "deploying";
   composeYaml: string;
   env: StackEnvVar[];
-  gitRepo?: string;
-  gitBranch?: string;
-  gitPath?: string;
-  gitRegistryId?: string;
+  gitRepo?: string | undefined;
+  gitBranch?: string | undefined;
+  gitPath?: string | undefined;
+  gitRegistryId?: string | undefined;
   webhookToken: string;
   autoDeploy: boolean;
   createdAt: string;
@@ -42,15 +42,17 @@ export interface StackWithContainers extends StackRecord {
     state: string;
     status: string;
     image: string;
-    ports: Array<{ hostPort?: number; containerPort: number; protocol: string }>;
+    ports: Array<{ hostPort?: number | undefined; containerPort: number; protocol: string }>;
   }>;
-  recentDeployment?: {
-    id: string;
-    triggeredBy: string;
-    status: string;
-    outputLog: string;
-    createdAt: string;
-  };
+  recentDeployment?:
+    | {
+        id: string;
+        triggeredBy: string;
+        status: string;
+        outputLog: string;
+        createdAt: string;
+      }
+    | undefined;
 }
 
 function getStackDir(stackName: string): string {
@@ -345,13 +347,13 @@ export async function getStack(id: string): Promise<StackWithContainers | null> 
 export function createStackRecord(data: {
   name: string;
   type: "compose" | "git";
-  composeYaml?: string;
-  env?: StackEnvVar[];
-  gitRepo?: string;
-  gitBranch?: string;
-  gitPath?: string;
-  gitRegistryId?: string | null;
-  autoDeploy?: boolean;
+  composeYaml?: string | undefined;
+  env?: StackEnvVar[] | undefined;
+  gitRepo?: string | undefined;
+  gitBranch?: string | undefined;
+  gitPath?: string | undefined;
+  gitRegistryId?: string | null | undefined;
+  autoDeploy?: boolean | undefined;
 }): StackRecord {
   const id = crypto.randomUUID();
   const token = crypto.randomBytes(24).toString("hex");
@@ -734,15 +736,15 @@ export async function removeStack(stackId: string, removeVolumes = false): Promi
 export async function updateStackRecord(
   stackId: string,
   data: {
-    name?: string;
-    type?: "compose" | "git";
-    composeYaml?: string;
-    env?: StackEnvVar[];
-    gitRepo?: string;
-    gitBranch?: string;
-    gitPath?: string;
-    gitRegistryId?: string | null;
-    autoDeploy?: boolean;
+    name?: string | undefined;
+    type?: "compose" | "git" | undefined;
+    composeYaml?: string | undefined;
+    env?: StackEnvVar[] | undefined;
+    gitRepo?: string | undefined;
+    gitBranch?: string | undefined;
+    gitPath?: string | undefined;
+    gitRegistryId?: string | null | undefined;
+    autoDeploy?: boolean | undefined;
   },
 ): Promise<void> {
   const stack = await getStack(stackId);

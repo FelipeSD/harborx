@@ -184,10 +184,10 @@ export function createRegistry(
 export function updateRegistry(
   id: string,
   data: {
-    name?: string;
-    url?: string;
-    username?: string;
-    secret?: string;
+    name?: string | undefined;
+    url?: string | undefined;
+    username?: string | undefined;
+    secret?: string | undefined;
   },
 ): RegistryPublic {
   const row = db
@@ -390,7 +390,7 @@ export async function verifyRegistryCredentials(data: {
   url: string;
   username: string;
   secret: string;
-  repoUrl?: string;
+  repoUrl?: string | undefined;
 }): Promise<VerifyCredentialsResult> {
   const cleanUrl = data.url.toLowerCase().trim();
   const username = data.username.trim();

@@ -75,8 +75,8 @@ function checkCsrf(request: FastifyRequest, reply: FastifyReply): boolean {
     }
 
     // Suporte a desenvolvimento e proxy local (localhost <-> 127.0.0.1 em portas diferentes)
-    const requestHostname = requestHost ? requestHost.split(":")[0] : "";
-    const forwardedHostname = forwardedHost ? forwardedHost.split(":")[0] : "";
+    const requestHostname = (requestHost ? requestHost.split(":")[0] : "") || "";
+    const forwardedHostname = (forwardedHost ? forwardedHost.split(":")[0] : "") || "";
 
     const isOriginLoopback = isLoopback(originHostname);
     const isTargetLoopback =

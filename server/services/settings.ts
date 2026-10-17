@@ -8,12 +8,12 @@ interface StoredR2Settings {
   endpoint: string;
   bucket: string;
   accessKeyId: string;
-  encryptedSecretAccessKey?: string;
-  encryptedResticPassword?: string;
-  intervalSeconds?: number;
-  keepDaily?: number;
-  keepWeekly?: number;
-  keepMonthly?: number;
+  encryptedSecretAccessKey?: string | undefined;
+  encryptedResticPassword?: string | undefined;
+  intervalSeconds?: number | undefined;
+  keepDaily?: number | undefined;
+  keepWeekly?: number | undefined;
+  keepMonthly?: number | undefined;
 }
 
 export function getR2BackupSettings(decryptSecrets = false): R2BackupSettings | null {
@@ -67,12 +67,12 @@ export function saveR2BackupSettings(settings: {
   endpoint: string;
   bucket: string;
   accessKeyId: string;
-  secretAccessKey?: string;
-  resticPassword?: string;
-  intervalSeconds?: number;
-  keepDaily?: number;
-  keepWeekly?: number;
-  keepMonthly?: number;
+  secretAccessKey?: string | undefined;
+  resticPassword?: string | undefined;
+  intervalSeconds?: number | undefined;
+  keepDaily?: number | undefined;
+  keepWeekly?: number | undefined;
+  keepMonthly?: number | undefined;
 }): void {
   // Check if there are existing stored settings so we preserve encrypted secrets if not passed
   const existing = getR2BackupSettings(true);

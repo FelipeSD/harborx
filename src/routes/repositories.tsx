@@ -124,8 +124,8 @@ function RegistriesPage() {
   const [testResult, setTestResult] = useState<{
     success: boolean;
     message: string;
-    warning?: string;
-    scopes?: string[];
+    warning?: string | undefined;
+    scopes?: string[] | undefined;
   } | null>(null);
 
   const {
@@ -211,8 +211,8 @@ function RegistriesPage() {
   const [editTestResult, setEditTestResult] = useState<{
     success: boolean;
     message: string;
-    warning?: string;
-    scopes?: string[];
+    warning?: string | undefined;
+    scopes?: string[] | undefined;
   } | null>(null);
 
   const [isGuideOpen, setIsGuideOpen] = useState(false);

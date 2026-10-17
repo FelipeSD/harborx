@@ -126,8 +126,10 @@ export const imageRoutes: FastifyPluginAsync = async (fastify) => {
             docker.pull(
               ref,
               { authconfig },
-              (err: Error | null, pullStream: NodeJS.ReadableStream) => {
-                if (err) return reject(err);
+              (err: Error | null, pullStream?: NodeJS.ReadableStream) => {
+                if (err || !pullStream) {
+                  return reject(err || new Error("Stream de download não disponível"));
+                }
                 docker.modem.followProgress(pullStream, (finishErr) => {
                   if (finishErr) return reject(finishErr);
                   resolve();
@@ -157,9 +159,14 @@ export const imageRoutes: FastifyPluginAsync = async (fastify) => {
       reply.raw.setHeader("Connection", "keep-alive");
       reply.raw.flushHeaders?.();
 
-      docker.pull(ref, { authconfig }, (err: Error | null, pullStream: NodeJS.ReadableStream) => {
-        if (err) {
-          const errorMsg = err instanceof Error ? err.message : String(err);
+      docker.pull(ref, { authconfig }, (err: Error | null, pullStream?: NodeJS.ReadableStream) => {
+        if (err || !pullStream) {
+          const errorMsg =
+            err instanceof Error
+              ? err.message
+              : err
+                ? String(err)
+                : "Stream de download não disponível";
           reply.raw.write(`data: ${JSON.stringify({ error: errorMsg })}\n\n`);
           reply.raw.end();
           return;

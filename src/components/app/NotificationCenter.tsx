@@ -73,17 +73,17 @@ export function NotificationCenter() {
   useEffect(() => {
     if (!events || events.length === 0) return;
     const latest = events[0];
-    if (!latest || !latest.timeNano) return;
+    if (!latest || !latest.time) return;
 
-    const eventKey = `${latest.type}_${latest.action}_${latest.actorId}_${latest.timeNano}`;
+    const eventKey = `${latest.type}_${latest.action}_${latest.id}_${latest.time}`;
 
     setNotifications((prev) => {
       if (prev.some((n) => n.id === eventKey)) return prev;
 
       const actorName =
-        latest.actorAttributes?.["name"] ||
-        latest.actorAttributes?.["image"] ||
-        (latest.actorId ? latest.actorId.slice(0, 12) : "");
+        latest.attributes?.["name"] ||
+        latest.attributes?.["image"] ||
+        (latest.id ? latest.id.slice(0, 12) : "");
 
       let title = "Evento Docker";
       let desc = actorName || "Ação do daemon registrada";

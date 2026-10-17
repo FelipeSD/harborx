@@ -40,7 +40,7 @@ export const networkRoutes: FastifyPluginAsync = async (fastify) => {
       // Map network name/id -> containers
       const networkContainers = new Map<
         string,
-        Array<{ id: string; name: string; ipv4?: string }>
+        Array<{ id: string; name: string; ipv4?: string | undefined }>
       >();
       for (const c of containerList) {
         const cleanName = (c.Names?.[0] || c.Id.slice(0, 12)).replace(/^\//, "");

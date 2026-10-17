@@ -199,7 +199,7 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ name }),
       }),
-    recreate: (id: string, options?: { pullLatest?: boolean }) =>
+    recreate: (id: string, options?: { pullLatest?: boolean | undefined } | undefined) =>
       fetchApi<{ success: true; id: string; name: string }>(`/api/containers/${id}/recreate`, {
         method: "POST",
         body: JSON.stringify(options || {}),
@@ -208,12 +208,14 @@ export const api = {
       fetchApi<ContainerBackupInfo>(`/api/containers/${id}/backup-info`),
     remove: (
       id: string,
-      options?: {
-        force?: boolean;
-        volumes?: boolean;
-        runBackup?: boolean;
-        confirmName?: string;
-      },
+      options?:
+        | {
+            force?: boolean | undefined;
+            volumes?: boolean | undefined;
+            runBackup?: boolean | undefined;
+            confirmName?: string | undefined;
+          }
+        | undefined,
     ) => {
       const params = new URLSearchParams();
       if (options?.force) params.set("force", "true");
@@ -324,13 +326,17 @@ export const api = {
       }),
     connect: (
       id: string,
-      data: { container: string; ipv4Address?: string; ipv6Address?: string },
+      data: {
+        container: string;
+        ipv4Address?: string | undefined;
+        ipv6Address?: string | undefined;
+      },
     ) =>
       fetchApi<{ success: true }>(`/api/networks/${id}/connect`, {
         method: "POST",
         body: JSON.stringify(data),
       }),
-    disconnect: (id: string, data: { container: string; force?: boolean }) =>
+    disconnect: (id: string, data: { container: string; force?: boolean | undefined }) =>
       fetchApi<{ success: true }>(`/api/networks/${id}/disconnect`, {
         method: "POST",
         body: JSON.stringify(data),

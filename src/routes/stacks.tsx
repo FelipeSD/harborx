@@ -514,13 +514,13 @@ function StacksPage() {
   const [gitTestResult, setGitTestResult] = useState<{
     success: boolean;
     message: string;
-    warning?: string;
+    warning?: string | undefined;
   } | null>(null);
 
   const [editGitTestResult, setEditGitTestResult] = useState<{
     success: boolean;
     message: string;
-    warning?: string;
+    warning?: string | undefined;
   } | null>(null);
 
   const testGitMutation = useMutation({
@@ -890,6 +890,7 @@ function StacksPage() {
           {stacks.map((s) => {
             const total = s.containersCount;
             const running = s.runningContainersCount;
+            const isRunning = s.status === "deployed" || running > 0;
             const isDeploying =
               s.status === "deploying" ||
               (deployMutation.isPending &&

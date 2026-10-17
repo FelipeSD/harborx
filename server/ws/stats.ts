@@ -104,7 +104,7 @@ export const statsWsRoute: FastifyPluginAsync = async (fastify) => {
     try {
       const container = docker.getContainer(id);
       const raw = await container.stats({ stream: false });
-      return parseDockerStats(raw, id);
+      return parseDockerStats(raw as unknown as Record<string, unknown>, id);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       return reply.status(502).send({ error: `Falha ao obter métricas: ${msg}` });

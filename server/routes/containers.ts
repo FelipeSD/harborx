@@ -74,10 +74,10 @@ async function pullImage(imageName: string): Promise<void> {
 
     const pullOptions = authconfig ? { authconfig } : {};
 
-    docker.pull(imageName, pullOptions, (err: unknown, stream: NodeJS.ReadableStream) => {
-      if (err) {
+    docker.pull(imageName, pullOptions, (err: unknown, stream?: NodeJS.ReadableStream) => {
+      if (err || !stream) {
         clearTimeout(pullTimeout);
-        return reject(err);
+        return reject(err || new Error("Stream de download não disponível"));
       }
       docker.modem.followProgress(stream, (followErr: unknown) => {
         clearTimeout(pullTimeout);

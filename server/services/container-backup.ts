@@ -1,3 +1,4 @@
+import { PassThrough } from "node:stream";
 import { docker } from "../docker.js";
 
 export interface DatabaseDetectionResult {
@@ -32,7 +33,7 @@ export function detectDatabaseType(
 ): DatabaseDetectionResult {
   const img = imageName.toLowerCase();
   const name = containerName.toLowerCase();
-  const envKeys = envList.map((e) => e.split("=")[0].toUpperCase());
+  const envKeys = envList.map((e) => (e.split("=")[0] || "").toUpperCase());
 
   if (
     img.includes("postgres") ||
@@ -261,19 +262,11 @@ echo "HARBORX_BACKUP_SUCCESS"
   });
 
   const stream = await exec.start({ hijack: true, stdin: false });
-  docker.modem.demuxStream(
-    stream,
-    {
-      write: (chunk: Buffer) => {
-        logOutput += chunk.toString("utf8");
-      },
-    },
-    {
-      write: (chunk: Buffer) => {
-        logOutput += chunk.toString("utf8");
-      },
-    },
-  );
+  const outStream = new PassThrough();
+  outStream.on("data", (chunk: Buffer) => {
+    logOutput += chunk.toString("utf8");
+  });
+  docker.modem.demuxStream(stream, outStream, outStream);
 
   await new Promise<void>((resolve, reject) => {
     stream.on("end", resolve);
