@@ -122,10 +122,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Trigger HarborX Redeploy
-        if: ${{ secrets.HARBORX_REDEPLOY_URL != '' }}
         env:
           HARBORX_URL: ${{ secrets.HARBORX_REDEPLOY_URL }}
         run: |
+          if [ -z "$HARBORX_URL" ]; then
+            echo "Aviso: A secret HARBORX_REDEPLOY_URL não está configurada no repositório. Ignorando redeploy."
+            exit 0
+          fi
+
           echo "Disparando redeploy no HarborX após publicação da imagem..."
           curl -fsS -X POST \
             --retry 3 \
