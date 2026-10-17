@@ -59,6 +59,46 @@ function getStackDir(stackName: string): string {
   return dir;
 }
 
+export function resolveComposeFilePath(stackDir: string, requestedPath?: string | null): string {
+  if (requestedPath && requestedPath.trim()) {
+    const raw = requestedPath.trim();
+    if (fs.existsSync(path.join(stackDir, raw))) {
+      return raw;
+    }
+    // Check .yaml <-> .yml swap
+    if (raw.endsWith(".yaml")) {
+      const alt = raw.slice(0, -5) + ".yml";
+      if (fs.existsSync(path.join(stackDir, alt))) return alt;
+    } else if (raw.endsWith(".yml")) {
+      const alt = raw.slice(0, -4) + ".yaml";
+      if (fs.existsSync(path.join(stackDir, alt))) return alt;
+    }
+  }
+
+  const candidates = [
+    "docker-compose.yml",
+    "docker-compose.yaml",
+    "compose.yml",
+    "compose.yaml",
+    "deploy/docker-compose.yml",
+    "deploy/docker-compose.yaml",
+    "deploy/compose.yml",
+    "deploy/compose.yaml",
+    "docker/docker-compose.yml",
+    "docker/docker-compose.yaml",
+    "docker/compose.yml",
+    "docker/compose.yaml",
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(path.join(stackDir, candidate))) {
+      return candidate;
+    }
+  }
+
+  return requestedPath?.trim() || "docker-compose.yml";
+}
+
 export async function listStacks(): Promise<StackWithContainers[]> {
   const rows = db.prepare("SELECT * FROM stacks ORDER BY name ASC").all() as Array<{
     id: string;
@@ -373,6 +413,7 @@ export async function deployStack(
   let outputLog = "";
   let finalStatus: "deployed" | "failed" = "deployed";
   let activeGitAuthSecret: string | undefined;
+  let activeComposeFile = "compose.yaml";
 
   try {
     if (stack.type === "git" && stack.gitRepo) {
@@ -492,14 +533,32 @@ export async function deployStack(
         outputLog = outputLog.replaceAll(gitAuth.secret, "******");
       }
 
-      // Check if git compose file exists and sync composeYaml in DB
-      const targetComposeFile = path.join(stackDir, stack.gitPath || "compose.yaml");
+      // Resolve compose file in git repository (handles .yaml vs .yml and common directory conventions)
+      const resolvedFile = resolveComposeFilePath(stackDir, stack.gitPath);
+      activeComposeFile = resolvedFile;
+
+      const targetComposeFile = path.join(stackDir, resolvedFile);
       if (fs.existsSync(targetComposeFile)) {
         const content = fs.readFileSync(targetComposeFile, "utf8");
-        db.prepare("UPDATE stacks SET compose_yaml = ? WHERE id = ?").run(content, stack.id);
+        db.prepare("UPDATE stacks SET compose_yaml = ?, git_path = ? WHERE id = ?").run(
+          content,
+          resolvedFile,
+          stack.id,
+        );
+        if (resolvedFile !== stack.gitPath) {
+          outputLog += `[HarborX] Arquivo compose resolvido automaticamente: '${resolvedFile}'.\n`;
+        }
+      } else {
+        try {
+          const filesInRoot = fs.readdirSync(stackDir).filter((f) => !f.startsWith("."));
+          outputLog += `[HarborX Aviso] Arquivo compose '${resolvedFile}' não encontrado no repositório. Arquivos encontrados: ${filesInRoot.join(", ") || "(vazio)"}\n`;
+        } catch {
+          // ignore
+        }
       }
     } else {
       // Direct compose mode: write compose.yaml
+      activeComposeFile = "compose.yaml";
       const composePath = path.join(stackDir, "compose.yaml");
       fs.writeFileSync(composePath, stack.composeYaml, "utf8");
     }
@@ -511,7 +570,7 @@ export async function deployStack(
     }
 
     // Execute docker compose up
-    const composeFile = stack.type === "git" ? stack.gitPath || "compose.yaml" : "compose.yaml";
+    const composeFile = activeComposeFile;
     const dockerConfigDir = syncDockerAuthConfig();
     const dockerEnv = {
       ...process.env,

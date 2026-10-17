@@ -633,6 +633,8 @@ function StacksPage() {
   } = useQuery({
     queryKey: ["stacks"],
     queryFn: api.stacks.list,
+    refetchInterval: (query) =>
+      query.state.data?.some((s) => s.status === "deploying") ? 2000 : false,
   });
 
   const handleOpenEdit = (s: StackSummary) => {
@@ -654,7 +656,11 @@ function StacksPage() {
   const createMutation = useMutation({
     mutationFn: (data: CreateStackRequest) => api.stacks.create(data),
     onSuccess: (res) => {
-      toast.success(`Stack '${res.name}' criada com sucesso!`);
+      toast.success(
+        deployNow
+          ? `Stack '${res.name}' criada! Acompanhando deploy...`
+          : `Stack '${res.name}' criada com sucesso!`,
+      );
       setIsCreateOpen(false);
       setName("");
       setComposeYaml(TEMPLATES["custom"]!.yaml);
@@ -663,6 +669,9 @@ function StacksPage() {
       setGitRegistryId("auto");
       setGitTestResult(null);
       void queryClient.invalidateQueries({ queryKey: ["stacks"] });
+      if (deployNow) {
+        setLogStack(res);
+      }
     },
     onError: (err: Error) => {
       toast.error(`Falha ao criar stack: ${err.message}`);
@@ -683,6 +692,9 @@ function StacksPage() {
       setEditStack(null);
       void queryClient.invalidateQueries({ queryKey: ["stacks"] });
       void queryClient.invalidateQueries({ queryKey: ["containers"] });
+      if (editRedeploy) {
+        setLogStack(res);
+      }
     },
     onError: (err: Error) => {
       toast.error(`Falha ao atualizar stack: ${err.message}`);
@@ -1207,7 +1219,7 @@ function StacksPage() {
 
       {/* Create Stack Wizard */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+        <DialogContent className="sm:max-w-4xl md:max-w-5xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
           <DialogHeader className="p-6 pb-3 shrink-0 border-b">
             <DialogTitle>Criar nova stack Docker Compose</DialogTitle>
             <DialogDescription>
@@ -1479,7 +1491,7 @@ function StacksPage() {
 
       {/* Edit Stack Dialog */}
       <Dialog open={Boolean(editStack)} onOpenChange={(open) => !open && setEditStack(null)}>
-        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+        <DialogContent className="sm:max-w-4xl md:max-w-5xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
           <DialogHeader className="p-6 pb-3 shrink-0 border-b">
             <DialogTitle>Editar stack: {editStack?.name}</DialogTitle>
             <DialogDescription>
@@ -1804,66 +1816,108 @@ function StacksPage() {
 
       {/* Deployment Log Dialog */}
       <Dialog open={Boolean(logStack)} onOpenChange={(open) => !open && setLogStack(null)}>
-        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
-          <DialogHeader className="p-6 pb-3 shrink-0 border-b">
-            <div className="flex items-center justify-between gap-3">
-              <DialogTitle className="font-mono text-base flex items-center gap-2 min-w-0">
-                <Terminal className="size-4 text-primary shrink-0" />
-                <span className="truncate">Logs de Deploy: {logStack?.name}</span>
-              </DialogTitle>
-              {logStack && (
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "text-xs font-medium capitalize shrink-0",
-                    logStack.status === "failed" || logStack.recentDeployment?.status === "failed"
-                      ? "border-rose-500/40 text-rose-500 bg-rose-500/10"
-                      : "border-emerald-500/40 text-emerald-500 bg-emerald-500/10",
-                  )}
-                >
-                  {logStack.status === "failed" || logStack.recentDeployment?.status === "failed"
-                    ? "Falha no Deploy"
-                    : "Deploy Concluído"}
-                </Badge>
-              )}
-            </div>
-            <DialogDescription className="text-xs text-muted-foreground mt-1">
-              Disparado por{" "}
-              <strong className="text-foreground">
-                {logStack?.recentDeployment?.triggeredBy || "usuário"}
-              </strong>
-              {logStack?.recentDeployment?.createdAt && (
-                <> em {formatDate(logStack.recentDeployment.createdAt)}</>
-              )}
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="sm:max-w-4xl md:max-w-5xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+          {(() => {
+            const activeLogStack =
+              (logStack ? stacks.find((s) => s.id === logStack.id) : null) || logStack;
+            const isDeploying = activeLogStack?.status === "deploying";
+            const isFailed =
+              activeLogStack?.status === "failed" ||
+              activeLogStack?.recentDeployment?.status === "failed";
 
-          <div className="p-6 py-4 overflow-y-auto flex-1 min-w-0 bg-muted/20">
-            <pre className="rounded-lg border bg-zinc-950 p-4 font-mono text-xs leading-relaxed text-zinc-100 whitespace-pre-wrap break-all sm:break-normal select-all">
-              {logStack?.recentDeployment?.outputLog ||
-                "Nenhum log registrado para este deploy ou a saída ainda não foi gravada."}
-            </pre>
-          </div>
+            return (
+              <>
+                <DialogHeader className="p-6 pb-3 shrink-0 border-b">
+                  <div className="flex items-center justify-between gap-3">
+                    <DialogTitle className="font-mono text-base flex items-center gap-2 min-w-0">
+                      <Terminal className="size-4 text-primary shrink-0" />
+                      <span className="truncate">Logs de Deploy: {activeLogStack?.name}</span>
+                    </DialogTitle>
+                    {activeLogStack && (
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "text-xs font-medium shrink-0",
+                          isDeploying
+                            ? "border-amber-500/40 text-amber-500 bg-amber-500/10 flex items-center gap-1.5"
+                            : isFailed
+                              ? "border-rose-500/40 text-rose-500 bg-rose-500/10"
+                              : "border-emerald-500/40 text-emerald-500 bg-emerald-500/10",
+                        )}
+                      >
+                        {isDeploying ? (
+                          <>
+                            <Loader2 className="size-3 animate-spin" />
+                            Deploy em andamento
+                          </>
+                        ) : isFailed ? (
+                          "Falha no Deploy"
+                        ) : (
+                          "Deploy Concluído"
+                        )}
+                      </Badge>
+                    )}
+                  </div>
+                  <DialogDescription className="text-xs text-muted-foreground mt-1">
+                    Disparado por{" "}
+                    <strong className="text-foreground">
+                      {activeLogStack?.recentDeployment?.triggeredBy || "usuário"}
+                    </strong>
+                    {activeLogStack?.recentDeployment?.createdAt && (
+                      <> em {formatDate(activeLogStack.recentDeployment.createdAt)}</>
+                    )}
+                  </DialogDescription>
+                </DialogHeader>
 
-          <DialogFooter className="p-4 px-6 border-t shrink-0 flex items-center justify-between">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
-              disabled={!logStack?.recentDeployment?.outputLog}
-              onClick={() => {
-                if (logStack?.recentDeployment?.outputLog) {
-                  copyToClipboard(logStack.recentDeployment.outputLog, "Logs de Deploy");
-                }
-              }}
-            >
-              <Copy className="size-3.5" /> Copiar Saída do Terminal
-            </Button>
-            <Button type="button" variant="outline" size="sm" onClick={() => setLogStack(null)}>
-              Fechar
-            </Button>
-          </DialogFooter>
+                {isDeploying && (
+                  <div className="flex items-center gap-2 px-6 py-2.5 bg-primary/10 border-b text-xs text-primary font-medium animate-pulse">
+                    <Loader2 className="size-3.5 animate-spin shrink-0" />
+                    <span>
+                      Executando processo de deploy (git clone & docker compose)... A tela
+                      atualizará automaticamente em tempo real.
+                    </span>
+                  </div>
+                )}
+
+                <div className="p-6 py-4 overflow-y-auto flex-1 min-w-0 bg-muted/20">
+                  <pre className="rounded-lg border bg-zinc-950 p-4 font-mono text-xs leading-relaxed text-zinc-100 whitespace-pre-wrap break-all sm:break-normal select-all">
+                    {activeLogStack?.recentDeployment?.outputLog ||
+                      (isDeploying
+                        ? "Iniciando o processo de deploy e clonagem do repositório...\nAguarde alguns instantes enquanto os containers são orquestrados."
+                        : "Nenhum log registrado para este deploy ou a saída ainda não foi gravada.")}
+                  </pre>
+                </div>
+
+                <DialogFooter className="p-4 px-6 border-t shrink-0 flex items-center justify-between">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    disabled={!activeLogStack?.recentDeployment?.outputLog}
+                    onClick={() => {
+                      if (activeLogStack?.recentDeployment?.outputLog) {
+                        copyToClipboard(
+                          activeLogStack.recentDeployment.outputLog,
+                          "Logs de Deploy",
+                        );
+                      }
+                    }}
+                  >
+                    <Copy className="size-3.5" /> Copiar Saída do Terminal
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setLogStack(null)}
+                  >
+                    Fechar
+                  </Button>
+                </DialogFooter>
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 

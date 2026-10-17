@@ -134,17 +134,25 @@ export const stackRoutes: FastifyPluginAsync = async (fastify) => {
         });
 
         if (deployNow) {
-          // Trigger deploy
-          try {
-            await deployStack(stack.id, request.user?.username || "user");
-          } catch (deployErr: unknown) {
-            const msg = deployErr instanceof Error ? deployErr.message : String(deployErr);
-            request.log.warn(`Deploy inicial da stack ${name} falhou: ${msg}`);
-          }
+          // Immediately mark stack as deploying in DB and launch deployment in background
+          db.prepare("UPDATE stacks SET status = 'deploying', updated_at = ? WHERE id = ?").run(
+            new Date().toISOString(),
+            stack.id,
+          );
+          void deployStack(stack.id, request.user?.username || "user").catch(
+            (deployErr: unknown) => {
+              const msg = deployErr instanceof Error ? deployErr.message : String(deployErr);
+              request.log.warn(`Deploy inicial da stack ${name} falhou: ${msg}`);
+            },
+          );
         }
 
         const fresh = await getStack(stack.id);
-        return reply.status(201).send(fresh || stack);
+        const responseData = fresh || stack;
+        if (deployNow && responseData.status !== "deploying") {
+          responseData.status = "deploying";
+        }
+        return reply.status(201).send(responseData);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         return reply.status(400).send({ error: `Falha ao criar stack: ${msg}` });
@@ -201,13 +209,24 @@ export const stackRoutes: FastifyPluginAsync = async (fastify) => {
         });
 
         if (redeploy) {
-          await deployStack(request.params.id, request.user?.username || "user", {
+          db.prepare("UPDATE stacks SET status = 'deploying', updated_at = ? WHERE id = ?").run(
+            new Date().toISOString(),
+            request.params.id,
+          );
+          void deployStack(request.params.id, request.user?.username || "user", {
             pull: Boolean(pull),
+          }).catch((deployErr: unknown) => {
+            const msg = deployErr instanceof Error ? deployErr.message : String(deployErr);
+            request.log.warn(`Redeploy da stack ${name} falhou: ${msg}`);
           });
         }
 
         const fresh = await getStack(request.params.id);
-        return fresh;
+        const responseData = fresh;
+        if (responseData && redeploy && responseData.status !== "deploying") {
+          responseData.status = "deploying";
+        }
+        return responseData;
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         return reply.status(400).send({ error: `Falha ao atualizar stack: ${msg}` });

@@ -150,4 +150,31 @@ describe("Phase 7 & 8 - Stacks & GitOps Webhooks Tests", () => {
 
     expect(getRes.statusCode).toBe(404);
   }, 15000);
+
+  it("resolves compose files intelligently (.yaml <-> .yml and candidates)", async () => {
+    const { resolveComposeFilePath } = await import("../services/stacks.js");
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const os = await import("node:os");
+
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "harborx-compose-test-"));
+    try {
+      // 1. If docker-compose.yml exists, requesting docker-compose.yaml should resolve to docker-compose.yml
+      fs.writeFileSync(path.join(tempDir, "docker-compose.yml"), "services:\n");
+      expect(resolveComposeFilePath(tempDir, "docker-compose.yaml")).toBe("docker-compose.yml");
+      expect(resolveComposeFilePath(tempDir, "compose.yaml")).toBe("docker-compose.yml");
+      expect(resolveComposeFilePath(tempDir, null)).toBe("docker-compose.yml");
+
+      // 2. If deploy/docker-compose.yaml exists
+      fs.unlinkSync(path.join(tempDir, "docker-compose.yml"));
+      fs.mkdirSync(path.join(tempDir, "deploy"), { recursive: true });
+      fs.writeFileSync(path.join(tempDir, "deploy", "docker-compose.yaml"), "services:\n");
+      expect(resolveComposeFilePath(tempDir, "deploy/docker-compose.yml")).toBe(
+        "deploy/docker-compose.yaml",
+      );
+      expect(resolveComposeFilePath(tempDir, null)).toBe("deploy/docker-compose.yaml");
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
 });
