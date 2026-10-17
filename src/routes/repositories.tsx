@@ -547,7 +547,7 @@ function RegistriesPage() {
                   </div>
                 </div>
 
-                <div className="mt-5 border-t pt-3 flex items-center justify-between text-xs text-muted-foreground">
+                <div className="mt-5 border-t pt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                   <span>Conectado em {formatDate(r.createdAt)}</span>
                   {isOperator && (
                     <div className="flex items-center gap-1">
@@ -584,8 +584,8 @@ function RegistriesPage() {
           if (!open) setTestResult(null);
         }}
       >
-        <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0 overflow-hidden">
-          <DialogHeader className="p-6 pb-2 shrink-0 border-b">
+        <DialogContent className="max-w-lg max-h-[90vh] flex flex-col p-0 overflow-hidden">
+          <DialogHeader className="p-4 sm:p-6 pb-2 sm:pb-3 shrink-0 border-b">
             <DialogTitle>Conectar registro de containers</DialogTitle>
             <DialogDescription>
               As credenciais são armazenadas de forma segura com criptografia AES-256-GCM.
@@ -594,7 +594,7 @@ function RegistriesPage() {
 
           <form
             onSubmit={handleSubmit}
-            className="space-y-4 p-6 py-4 overflow-y-auto flex-1 min-w-0"
+            className="space-y-4 p-4 sm:p-6 py-3 sm:py-4 overflow-y-auto flex-1 min-w-0"
           >
             <div>
               <label className="text-xs font-medium text-muted-foreground block mb-1.5">
@@ -758,12 +758,12 @@ function RegistriesPage() {
               </div>
             )}
 
-            <DialogFooter className="p-4 px-6 border-t shrink-0 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2 -mx-6 -mb-4 mt-4 bg-background">
+            <DialogFooter className="p-3 sm:p-4 px-4 sm:px-6 border-t shrink-0 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2 -mx-4 sm:-mx-6 -mb-3 sm:-mb-4 mt-4 bg-background">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-9 gap-1.5"
+                className="h-9 gap-1.5 w-full sm:w-auto text-xs"
                 disabled={
                   testMutation.isPending || !url.trim() || !username.trim() || !secret.trim()
                 }
@@ -783,17 +783,18 @@ function RegistriesPage() {
                 ) : (
                   <>
                     <ShieldCheck className="size-3.5 text-primary" />
-                    Testar agora (Conexão e Permissões)
+                    <span className="hidden sm:inline">Testar agora (Conexão e Permissões)</span>
+                    <span className="sm:hidden">Testar Permissões</span>
                   </>
                 )}
               </Button>
 
-              <div className="flex gap-2 justify-end">
+              <div className="flex items-center gap-2 justify-end w-full sm:w-auto">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-9"
+                  className="h-9 flex-1 sm:flex-initial"
                   onClick={() => {
                     setIsAddOpen(false);
                     setTestResult(null);
@@ -801,7 +802,12 @@ function RegistriesPage() {
                 >
                   Cancelar
                 </Button>
-                <Button type="submit" size="sm" className="h-9" disabled={createMutation.isPending}>
+                <Button
+                  type="submit"
+                  size="sm"
+                  className="h-9 flex-1 sm:flex-initial"
+                  disabled={createMutation.isPending}
+                >
                   {createMutation.isPending ? (
                     <>
                       <Loader2 className="size-3.5 animate-spin" />
@@ -828,7 +834,7 @@ function RegistriesPage() {
         }}
       >
         <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0 overflow-hidden">
-          <DialogHeader className="p-6 pb-2 shrink-0 border-b">
+          <DialogHeader className="p-4 sm:p-6 pb-2 sm:pb-3 shrink-0 border-b">
             <DialogTitle>Editar registro de containers</DialogTitle>
             <DialogDescription>
               Atualize as informações de conexão ou rotacione o token de autenticação.
@@ -837,7 +843,7 @@ function RegistriesPage() {
 
           <form
             onSubmit={handleEditSubmit}
-            className="space-y-4 p-6 py-4 overflow-y-auto flex-1 min-w-0"
+            className="space-y-4 p-4 sm:p-6 py-3 sm:py-4 overflow-y-auto flex-1 min-w-0"
           >
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-foreground block">
@@ -950,12 +956,12 @@ function RegistriesPage() {
               </div>
             )}
 
-            <DialogFooter className="p-4 px-6 border-t shrink-0 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2 -mx-6 -mb-4 mt-4 bg-background">
+            <DialogFooter className="p-3 sm:p-4 px-4 sm:px-6 border-t shrink-0 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2 -mx-4 sm:-mx-6 -mb-3 sm:-mb-4 mt-4 bg-background">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-9 gap-1.5"
+                className="h-9 gap-1.5 w-full sm:w-auto text-xs"
                 disabled={editTestMutation.isPending || !editUrl.trim() || !editUsername.trim()}
                 onClick={() => {
                   if (!editTarget) return;
@@ -975,17 +981,18 @@ function RegistriesPage() {
                 ) : (
                   <>
                     <ShieldCheck className="size-3.5 text-primary" />
-                    Testar agora (Conexão e Permissões)
+                    <span className="hidden sm:inline">Testar agora (Conexão e Permissões)</span>
+                    <span className="sm:hidden">Testar Permissões</span>
                   </>
                 )}
               </Button>
 
-              <div className="flex gap-2 justify-end">
+              <div className="flex items-center gap-2 justify-end w-full sm:w-auto">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-9"
+                  className="h-9 flex-1 sm:flex-initial"
                   onClick={() => {
                     setEditTarget(null);
                     setEditTestResult(null);
@@ -993,7 +1000,12 @@ function RegistriesPage() {
                 >
                   Cancelar
                 </Button>
-                <Button type="submit" size="sm" className="h-9" disabled={updateMutation.isPending}>
+                <Button
+                  type="submit"
+                  size="sm"
+                  className="h-9 flex-1 sm:flex-initial"
+                  disabled={updateMutation.isPending}
+                >
                   {updateMutation.isPending ? (
                     <>
                       <Loader2 className="size-3.5 animate-spin" />

@@ -264,7 +264,7 @@ function ImagesPage() {
         title="Imagens"
         subtitle={`${images.length} imagens no host local`}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -272,7 +272,7 @@ function ImagesPage() {
               disabled={isFetching}
             >
               <RefreshCw className={cn("size-4", isFetching && "animate-spin")} />
-              Atualizar
+              <span className="hidden sm:inline">Atualizar</span>
             </Button>
             {isOperator && (
               <>
@@ -287,7 +287,7 @@ function ImagesPage() {
                   ) : (
                     <Scissors className="size-4" />
                   )}
-                  {pruneMutation.isPending ? "Podando imagens..." : "Podar imagens órfãs"}
+                  <span>Podar <span className="hidden sm:inline">imagens órfãs</span></span>
                 </Button>
                 <Button
                   variant="outline"
@@ -301,9 +301,7 @@ function ImagesPage() {
                   ) : (
                     <Sparkles className="size-4" />
                   )}
-                  {pruneBuildCacheMutation.isPending
-                    ? "Limpando cache..."
-                    : "Limpar cache de build"}
+                  <span>Limpar <span className="hidden sm:inline">cache de build</span></span>
                 </Button>
               </>
             )}

@@ -147,11 +147,11 @@ export function CreateContainerDialog({ open, onOpenChange }: CreateContainerDia
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <Tabs defaultValue="basic" className="w-full">
-            <TabsList className="grid grid-cols-4 w-full">
+            <TabsList className="grid grid-cols-2 sm:grid-cols-4 w-full h-auto p-1 gap-1">
               <TabsTrigger value="basic">Básico</TabsTrigger>
               <TabsTrigger value="ports">Portas</TabsTrigger>
               <TabsTrigger value="volumes">Volumes</TabsTrigger>
-              <TabsTrigger value="env">Variáveis & Recursos</TabsTrigger>
+              <TabsTrigger value="env" className="truncate">Variáveis & Recursos</TabsTrigger>
             </TabsList>
 
             {/* Aba 1: Básico */}
@@ -292,8 +292,11 @@ export function CreateContainerDialog({ open, onOpenChange }: CreateContainerDia
               ) : (
                 <div className="space-y-2">
                   {ports.map((p, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <div className="flex-1">
+                    <div
+                      key={idx}
+                      className="flex flex-wrap sm:flex-nowrap items-center gap-2 p-2 sm:p-0 rounded border sm:border-0 bg-surface/30 sm:bg-transparent"
+                    >
+                      <div className="flex-1 min-w-[120px]">
                         <Input
                           placeholder="Porta Host (ex: 8080)"
                           type="number"
@@ -306,8 +309,10 @@ export function CreateContainerDialog({ open, onOpenChange }: CreateContainerDia
                           className="text-xs font-mono"
                         />
                       </div>
-                      <span className="text-muted-foreground text-xs font-mono">→</span>
-                      <div className="flex-1">
+                      <span className="text-muted-foreground text-xs font-mono hidden sm:inline">
+                        →
+                      </span>
+                      <div className="flex-1 min-w-[120px]">
                         <Input
                           placeholder="Porta Container (ex: 80)"
                           type="number"
@@ -321,30 +326,32 @@ export function CreateContainerDialog({ open, onOpenChange }: CreateContainerDia
                           className="text-xs font-mono"
                         />
                       </div>
-                      <select
-                        value={p.protocol}
-                        onChange={(e) => {
-                          const copy = [...ports];
-                          copy[idx]!.protocol = e.target.value as "tcp" | "udp";
-                          setPorts(copy);
-                        }}
-                        className="h-9 rounded-md border border-input bg-transparent px-2 text-xs font-mono outline-none"
-                      >
-                        <option value="tcp" className="bg-popover text-popover-foreground">
-                          TCP
-                        </option>
-                        <option value="udp" className="bg-popover text-popover-foreground">
-                          UDP
-                        </option>
-                      </select>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setPorts(ports.filter((_, i) => i !== idx))}
-                      >
-                        <Trash2 className="size-4 text-destructive" />
-                      </Button>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <select
+                          value={p.protocol}
+                          onChange={(e) => {
+                            const copy = [...ports];
+                            copy[idx]!.protocol = e.target.value as "tcp" | "udp";
+                            setPorts(copy);
+                          }}
+                          className="h-9 rounded-md border border-input bg-transparent px-2 text-xs font-mono outline-none"
+                        >
+                          <option value="tcp" className="bg-popover text-popover-foreground">
+                            TCP
+                          </option>
+                          <option value="udp" className="bg-popover text-popover-foreground">
+                            UDP
+                          </option>
+                        </select>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setPorts(ports.filter((_, i) => i !== idx))}
+                        >
+                          <Trash2 className="size-4 text-destructive" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -374,8 +381,11 @@ export function CreateContainerDialog({ open, onOpenChange }: CreateContainerDia
               ) : (
                 <div className="space-y-2">
                   {volumes.map((v, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <div className="flex-1">
+                    <div
+                      key={idx}
+                      className="flex flex-wrap sm:flex-nowrap items-center gap-2 p-2 sm:p-0 rounded border sm:border-0 bg-surface/30 sm:bg-transparent"
+                    >
+                      <div className="flex-1 min-w-[120px]">
                         <Input
                           placeholder="Host (ex: /opt/app/data)"
                           value={v.source}
@@ -387,8 +397,10 @@ export function CreateContainerDialog({ open, onOpenChange }: CreateContainerDia
                           className="text-xs font-mono"
                         />
                       </div>
-                      <span className="text-muted-foreground text-xs font-mono">:</span>
-                      <div className="flex-1">
+                      <span className="text-muted-foreground text-xs font-mono hidden sm:inline">
+                        :
+                      </span>
+                      <div className="flex-1 min-w-[120px]">
                         <Input
                           placeholder="Container (ex: /var/lib/data)"
                           value={v.target}
@@ -400,30 +412,32 @@ export function CreateContainerDialog({ open, onOpenChange }: CreateContainerDia
                           className="text-xs font-mono"
                         />
                       </div>
-                      <select
-                        value={v.mode}
-                        onChange={(e) => {
-                          const copy = [...volumes];
-                          copy[idx]!.mode = e.target.value as "rw" | "ro";
-                          setVolumes(copy);
-                        }}
-                        className="h-9 rounded-md border border-input bg-transparent px-2 text-xs font-mono outline-none"
-                      >
-                        <option value="rw" className="bg-popover text-popover-foreground">
-                          rw (leitura/escrita)
-                        </option>
-                        <option value="ro" className="bg-popover text-popover-foreground">
-                          ro (somente leitura)
-                        </option>
-                      </select>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setVolumes(volumes.filter((_, i) => i !== idx))}
-                      >
-                        <Trash2 className="size-4 text-destructive" />
-                      </Button>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <select
+                          value={v.mode}
+                          onChange={(e) => {
+                            const copy = [...volumes];
+                            copy[idx]!.mode = e.target.value as "rw" | "ro";
+                            setVolumes(copy);
+                          }}
+                          className="h-9 rounded-md border border-input bg-transparent px-2 text-xs font-mono outline-none"
+                        >
+                          <option value="rw" className="bg-popover text-popover-foreground">
+                            rw (leitura/escrita)
+                          </option>
+                          <option value="ro" className="bg-popover text-popover-foreground">
+                            ro (somente leitura)
+                          </option>
+                        </select>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setVolumes(volumes.filter((_, i) => i !== idx))}
+                        >
+                          <Trash2 className="size-4 text-destructive" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -452,7 +466,10 @@ export function CreateContainerDialog({ open, onOpenChange }: CreateContainerDia
                 ) : (
                   <div className="space-y-2">
                     {env.map((item, idx) => (
-                      <div key={idx} className="flex items-center gap-2">
+                      <div
+                        key={idx}
+                        className="flex flex-wrap sm:flex-nowrap items-center gap-2 p-2 sm:p-0 rounded border sm:border-0 bg-surface/30 sm:bg-transparent"
+                      >
                         <Input
                           placeholder="NOME_DA_VARIAVEL"
                           value={item.key}
@@ -461,27 +478,31 @@ export function CreateContainerDialog({ open, onOpenChange }: CreateContainerDia
                             copy[idx]!.key = e.target.value;
                             setEnv(copy);
                           }}
-                          className="flex-1 text-xs font-mono"
+                          className="flex-1 min-w-[120px] text-xs font-mono"
                         />
-                        <span className="text-muted-foreground text-xs font-mono">=</span>
-                        <Input
-                          placeholder="valor"
-                          value={item.value}
-                          onChange={(e) => {
-                            const copy = [...env];
-                            copy[idx]!.value = e.target.value;
-                            setEnv(copy);
-                          }}
-                          className="flex-1 text-xs font-mono"
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setEnv(env.filter((_, i) => i !== idx))}
-                        >
-                          <Trash2 className="size-4 text-destructive" />
-                        </Button>
+                        <span className="text-muted-foreground text-xs font-mono hidden sm:inline">
+                          =
+                        </span>
+                        <div className="flex items-center gap-1.5 flex-1 min-w-[120px]">
+                          <Input
+                            placeholder="valor"
+                            value={item.value}
+                            onChange={(e) => {
+                              const copy = [...env];
+                              copy[idx]!.value = e.target.value;
+                              setEnv(copy);
+                            }}
+                            className="flex-1 text-xs font-mono"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setEnv(env.filter((_, i) => i !== idx))}
+                          >
+                            <Trash2 className="size-4 text-destructive" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -524,16 +545,17 @@ export function CreateContainerDialog({ open, onOpenChange }: CreateContainerDia
             </TabsContent>
           </Tabs>
 
-          <DialogFooter className="gap-2 sm:gap-0 pt-4 border-t">
+          <DialogFooter className="gap-2 sm:gap-2 pt-4 border-t flex flex-col-reverse sm:flex-row">
             <Button
               type="button"
               variant="outline"
+              className="w-full sm:w-auto"
               onClick={() => onOpenChange(false)}
               disabled={createMutation.isPending}
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={createMutation.isPending}>
+            <Button type="submit" className="w-full sm:w-auto" disabled={createMutation.isPending}>
               {createMutation.isPending ? (
                 <>
                   <Loader2 className="size-4 mr-2 animate-spin" />

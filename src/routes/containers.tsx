@@ -1444,8 +1444,9 @@ function ContainersPage() {
                   </div>
                 </div>
 
-                <AlertDialogFooter className="mt-2">
+                <AlertDialogFooter className="mt-2 flex flex-col-reverse sm:flex-row gap-2">
                   <AlertDialogCancel
+                    className="w-full sm:w-auto"
                     disabled={removeMutation.isPending}
                     onClick={() => {
                       setTypedConfirmName("");
@@ -1456,7 +1457,7 @@ function ContainersPage() {
                     Cancelar
                   </AlertDialogCancel>
                   <AlertDialogAction
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-1.5"
+                    className="w-full sm:w-auto bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-1.5"
                     disabled={!isNameMatching || removeMutation.isPending}
                     onClick={(e) => {
                       e.preventDefault();
@@ -1625,8 +1626,9 @@ function ContainersPage() {
                   </div>
                 </div>
 
-                <AlertDialogFooter className="mt-2">
+                <AlertDialogFooter className="mt-2 flex flex-col-reverse sm:flex-row gap-2">
                   <AlertDialogCancel
+                    className="w-full sm:w-auto"
                     disabled={batchMutation.isPending}
                     onClick={() => {
                       setBatchConfirmTyped("");
@@ -1636,7 +1638,7 @@ function ContainersPage() {
                     Cancelar
                   </AlertDialogCancel>
                   <AlertDialogAction
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-1.5"
+                    className="w-full sm:w-auto bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-1.5"
                     disabled={!isBatchConfirmed || batchMutation.isPending}
                     onClick={(e) => {
                       e.preventDefault();

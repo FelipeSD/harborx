@@ -546,11 +546,16 @@ function VolumesPage() {
               />
             </div>
 
-            <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
+            <DialogFooter className="pt-2 flex flex-col-reverse sm:flex-row gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={() => setIsCreateOpen(false)}
+              >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={createMutation.isPending}>
+              <Button type="submit" className="w-full sm:w-auto" disabled={createMutation.isPending}>
                 {createMutation.isPending ? "Criando..." : "Criar volume"}
               </Button>
             </DialogFooter>
@@ -622,10 +627,12 @@ function VolumesPage() {
               Forçar remoção (-f / force)
             </label>
           </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancelar</AlertDialogCancel>
+          <AlertDialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+            <AlertDialogCancel className="w-full sm:w-auto" disabled={deleteMutation.isPending}>
+              Cancelar
+            </AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="w-full sm:w-auto bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={deleteMutation.isPending}
               onClick={(e) => {
                 e.preventDefault();
@@ -657,10 +664,12 @@ function VolumesPage() {
               nenhum container ativo ou parado.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={pruneMutation.isPending}>Cancelar</AlertDialogCancel>
+          <AlertDialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+            <AlertDialogCancel className="w-full sm:w-auto" disabled={pruneMutation.isPending}>
+              Cancelar
+            </AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="w-full sm:w-auto bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={pruneMutation.isPending}
               onClick={(e) => {
                 e.preventDefault();

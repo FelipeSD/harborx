@@ -311,7 +311,7 @@ export function BackupToolkitInjectorDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
-        <DialogHeader className="p-6 pb-3 shrink-0 border-b">
+        <DialogHeader className="p-4 sm:p-6 pb-2 sm:pb-3 shrink-0 border-b">
           <div className="flex items-center gap-2">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <ShieldCheck className="size-4" />
@@ -328,7 +328,7 @@ export function BackupToolkitInjectorDialog({
           </div>
         </DialogHeader>
 
-        <div className="overflow-y-auto space-y-4 p-6 py-4 flex-1 min-w-0 text-xs">
+        <div className="overflow-y-auto space-y-4 p-4 sm:p-6 py-3 sm:py-4 flex-1 min-w-0 text-xs">
           {/* Target DB selection */}
           <div className="rounded-lg border bg-surface/40 p-3.5 space-y-3 min-w-0">
             <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -587,11 +587,20 @@ export function BackupToolkitInjectorDialog({
           </div>
         </div>
 
-        <DialogFooter className="p-4 px-6 border-t shrink-0 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+        <DialogFooter className="p-3 sm:p-4 px-4 sm:px-6 border-t shrink-0 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full sm:w-auto"
+            onClick={() => onOpenChange(false)}
+          >
             Cancelar
           </Button>
-          <Button type="button" onClick={handleInject} className="gap-1.5">
+          <Button
+            type="button"
+            onClick={handleInject}
+            className="gap-1.5 w-full sm:w-auto"
+          >
             <ShieldCheck className="size-4" /> Injetar no Compose e .env
           </Button>
         </DialogFooter>

@@ -663,11 +663,20 @@ function NetworksPage() {
               </label>
             </div>
 
-            <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
+            <DialogFooter className="pt-2 flex flex-col-reverse sm:flex-row gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={() => setIsCreateOpen(false)}
+              >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={createMutation.isPending || !newName.trim()}>
+              <Button
+                type="submit"
+                className="w-full sm:w-auto"
+                disabled={createMutation.isPending || !newName.trim()}
+              >
                 {createMutation.isPending ? "Criando..." : "Criar rede"}
               </Button>
             </DialogFooter>
@@ -717,11 +726,16 @@ function NetworksPage() {
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConnectNetwork(null)}>
+          <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={() => setConnectNetwork(null)}
+            >
               Cancelar
             </Button>
             <Button
+              className="w-full sm:w-auto"
               disabled={!selectedContainerId || connectMutation.isPending}
               onClick={() => {
                 if (connectNetwork && selectedContainerId) {
@@ -778,10 +792,12 @@ function NetworksPage() {
               será excluída. Containers conectados serão desvinculados.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancelar</AlertDialogCancel>
+          <AlertDialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+            <AlertDialogCancel className="w-full sm:w-auto" disabled={deleteMutation.isPending}>
+              Cancelar
+            </AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="w-full sm:w-auto bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={deleteMutation.isPending}
               onClick={(e) => {
                 e.preventDefault();

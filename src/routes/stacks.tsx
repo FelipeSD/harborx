@@ -386,50 +386,55 @@ function EnvEditor({
           </p>
         )}
         {env.map((e, i) => (
-          <div key={i} className="flex items-center gap-2 min-w-0">
+          <div
+            key={i}
+            className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 min-w-0 p-2 sm:p-0 rounded-lg sm:rounded-none border sm:border-0 bg-surface/40 sm:bg-transparent"
+          >
             <Input
               value={e.key}
               placeholder="CHAVE"
-              className="w-2/5 min-w-0 font-mono text-xs"
+              className="w-full sm:w-2/5 min-w-0 font-mono text-xs"
               onChange={(ev) =>
                 update(i, {
                   key: ev.target.value.toUpperCase().replace(/[^A-Z0-9_.]/g, "_"),
                 })
               }
             />
-            <Input
-              value={e.value}
-              placeholder="valor"
-              type={e.secret && !show[i] ? "password" : "text"}
-              className="flex-1 min-w-0 font-mono text-xs"
-              onChange={(ev) => update(i, { value: ev.target.value })}
-            />
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              className="size-8 shrink-0"
-              onClick={() => setShow((s) => ({ ...s, [i]: !s[i] }))}
-            >
-              {show[i] || !e.secret ? (
-                <Eye className="size-3.5" />
-              ) : (
-                <EyeOff className="size-3.5" />
-              )}
-            </Button>
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              className="size-8 shrink-0 text-destructive"
-              onClick={() => {
-                const next = env.filter((_, j) => j !== i);
-                onChange(next);
-                setText(toText(next));
-              }}
-            >
-              <Trash2 className="size-3.5" />
-            </Button>
+            <div className="flex items-center gap-1.5 flex-1 min-w-0">
+              <Input
+                value={e.value}
+                placeholder="valor"
+                type={e.secret && !show[i] ? "password" : "text"}
+                className="flex-1 min-w-0 font-mono text-xs"
+                onChange={(ev) => update(i, { value: ev.target.value })}
+              />
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="size-8 shrink-0"
+                onClick={() => setShow((s) => ({ ...s, [i]: !s[i] }))}
+              >
+                {show[i] || !e.secret ? (
+                  <Eye className="size-3.5" />
+                ) : (
+                  <EyeOff className="size-3.5" />
+                )}
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="size-8 shrink-0 text-destructive"
+                onClick={() => {
+                  const next = env.filter((_, j) => j !== i);
+                  onChange(next);
+                  setText(toText(next));
+                }}
+              >
+                <Trash2 className="size-3.5" />
+              </Button>
+            </div>
           </div>
         ))}
         <Button
@@ -1284,7 +1289,7 @@ function StacksPage() {
       {/* Create Stack Wizard */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent className="sm:max-w-4xl md:max-w-5xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
-          <DialogHeader className="p-6 pb-3 shrink-0 border-b">
+          <DialogHeader className="p-4 sm:p-6 pb-2 sm:pb-3 shrink-0 border-b">
             <DialogTitle>Criar nova stack Docker Compose</DialogTitle>
             <DialogDescription>
               Escreva diretamente um arquivo docker-compose.yml ou aponte para um repositório Git.
@@ -1293,7 +1298,7 @@ function StacksPage() {
 
           <form
             onSubmit={handleCreateSubmit}
-            className="space-y-4 overflow-y-auto flex-1 min-w-0 p-6 py-4 max-w-full"
+            className="space-y-4 overflow-y-auto flex-1 min-w-0 p-4 sm:p-6 py-3 sm:py-4 max-w-full"
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0">
               <div>
@@ -1541,11 +1546,20 @@ function StacksPage() {
               </label>
             </div>
 
-            <DialogFooter className="p-4 px-6 border-t shrink-0 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 -mx-6 -mb-4 mt-4 bg-background">
-              <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
+            <DialogFooter className="p-3 sm:p-4 px-4 sm:px-6 border-t shrink-0 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 -mx-4 sm:-mx-6 -mb-3 sm:-mb-4 mt-4 bg-background">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={() => setIsCreateOpen(false)}
+              >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={createMutation.isPending || !name.trim()}>
+              <Button
+                type="submit"
+                className="w-full sm:w-auto"
+                disabled={createMutation.isPending || !name.trim()}
+              >
                 {createMutation.isPending ? "Criando stack..." : "Salvar Stack"}
               </Button>
             </DialogFooter>
@@ -1556,7 +1570,7 @@ function StacksPage() {
       {/* Edit Stack Dialog */}
       <Dialog open={Boolean(editStack)} onOpenChange={(open) => !open && setEditStack(null)}>
         <DialogContent className="sm:max-w-4xl md:max-w-5xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
-          <DialogHeader className="p-6 pb-3 shrink-0 border-b">
+          <DialogHeader className="p-4 sm:p-6 pb-2 sm:pb-3 shrink-0 border-b">
             <DialogTitle>Editar stack: {editStack?.name}</DialogTitle>
             <DialogDescription>
               Altere qualquer configuração da stack, variáveis de ambiente ou repositório Git.
@@ -1565,7 +1579,7 @@ function StacksPage() {
 
           <form
             onSubmit={handleEditSubmit}
-            className="space-y-4 overflow-y-auto flex-1 min-w-0 p-6 py-4 max-w-full"
+            className="space-y-4 overflow-y-auto flex-1 min-w-0 p-4 sm:p-6 py-3 sm:py-4 max-w-full"
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0">
               <div>
@@ -1859,14 +1873,23 @@ function StacksPage() {
               )}
             </div>
 
-            <DialogFooter className="p-4 px-6 border-t shrink-0 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 -mx-6 -mb-4 mt-4 bg-background">
-              <Button type="button" variant="outline" onClick={() => setEditStack(null)}>
+            <DialogFooter className="p-3 sm:p-4 px-4 sm:px-6 border-t shrink-0 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 -mx-4 sm:-mx-6 -mb-3 sm:-mb-4 mt-4 bg-background">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={() => setEditStack(null)}
+              >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={updateMutation.isPending || !editName.trim()}>
+              <Button
+                type="submit"
+                className="w-full sm:w-auto"
+                disabled={updateMutation.isPending || !editName.trim()}
+              >
                 {updateMutation.isPending ? (
                   <>
-                    <Loader2 className="size-3.5 animate-spin" />
+                    <Loader2 className="size-3.5 animate-spin mr-1.5" />
                     Salvando alterações...
                   </>
                 ) : (

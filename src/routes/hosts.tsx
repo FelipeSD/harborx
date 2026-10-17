@@ -255,7 +255,7 @@ function HostsPage() {
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-surface border">
+        <TabsList className="bg-surface border w-full sm:w-auto flex justify-start sm:justify-center overflow-x-auto max-w-full">
           <TabsTrigger value="host">Host & Docker Engine</TabsTrigger>
           {isAdmin && <TabsTrigger value="users">Usuários & RBAC</TabsTrigger>}
           {isOperator && <TabsTrigger value="audit">Log de Auditoria</TabsTrigger>}
@@ -721,11 +721,16 @@ function HostsPage() {
               </Select>
             </div>
 
-            <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" onClick={() => setIsNewUserOpen(false)}>
+            <DialogFooter className="pt-2 flex flex-col-reverse sm:flex-row gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={() => setIsNewUserOpen(false)}
+              >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={createUserMutation.isPending}>
+              <Button type="submit" className="w-full sm:w-auto" disabled={createUserMutation.isPending}>
                 {createUserMutation.isPending ? "Criando..." : "Criar Usuário"}
               </Button>
             </DialogFooter>
@@ -746,10 +751,10 @@ function HostsPage() {
               perderá o acesso imediatamente e todas as suas sessões ativas serão invalidadas.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+            <AlertDialogCancel className="w-full sm:w-auto">Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="w-full sm:w-auto bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={deleteUserMutation.isPending}
               onClick={() => {
                 if (deleteUserTarget) {
@@ -773,10 +778,12 @@ function HostsPage() {
               montados. Containers em execução não serão afetados.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={pruneSystemMutation.isPending}>Cancelar</AlertDialogCancel>
+          <AlertDialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+            <AlertDialogCancel className="w-full sm:w-auto" disabled={pruneSystemMutation.isPending}>
+              Cancelar
+            </AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="w-full sm:w-auto bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={pruneSystemMutation.isPending}
               onClick={(e) => {
                 e.preventDefault();
