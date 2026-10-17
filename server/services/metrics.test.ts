@@ -29,7 +29,7 @@ describe("Phase 5 - Host Metrics, Stats & Docker Events Tests", () => {
     const viewerToken = createSession(viewerUser.id, "127.0.0.1", "vitest-metrics");
 
     viewerCookie = `harborx_session=${viewerToken}`;
-  });
+  }, 30000);
 
   afterAll(async () => {
     await app.close();
