@@ -22,6 +22,10 @@ import {
   Loader2,
   ShieldCheck,
   ChevronDown,
+  Zap,
+  Play,
+  CheckCircle2,
+  HelpCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -465,6 +469,7 @@ function StacksPage() {
   const [gitRepo, setGitRepo] = useState("");
   const [gitBranch, setGitBranch] = useState("main");
   const [gitPath, setGitPath] = useState("compose.yaml");
+  const [gitRegistryId, setGitRegistryId] = useState<string>("auto");
   const [autoDeploy, setAutoDeploy] = useState(false);
   const [deployNow, setDeployNow] = useState(true);
 
@@ -476,6 +481,7 @@ function StacksPage() {
   const [editGitRepo, setEditGitRepo] = useState("");
   const [editGitBranch, setEditGitBranch] = useState("main");
   const [editGitPath, setEditGitPath] = useState("compose.yaml");
+  const [editGitRegistryId, setEditGitRegistryId] = useState<string>("auto");
   const [editAutoDeploy, setEditAutoDeploy] = useState(false);
   const [editRedeploy, setEditRedeploy] = useState(true);
   const [editPull, setEditPull] = useState(false);
@@ -485,6 +491,37 @@ function StacksPage() {
   const [removeVolumes, setRemoveVolumes] = useState(false);
   const [isInjectorOpen, setIsInjectorOpen] = useState(false);
   const [injectorTarget, setInjectorTarget] = useState<"create" | "edit">("create");
+  const [isTestingHook, setIsTestingHook] = useState<string | null>(null);
+  const [webhookGuideStack, setWebhookGuideStack] = useState<StackSummary | null>(null);
+
+  const { data: registries = [] } = useQuery({
+    queryKey: ["registries"],
+    queryFn: api.registries.list,
+  });
+
+  const copyToClipboard = (text: string, label: string) => {
+    void navigator.clipboard.writeText(text);
+    toast.success(`${label} copiado!`);
+  };
+
+  const handleTestWebhook = async (stack: StackSummary) => {
+    setIsTestingHook(stack.id);
+    try {
+      const webhookUrl = `${window.location.origin}/api/public/hooks/${stack.webhookToken}`;
+      const res = await fetch(webhookUrl, { method: "POST" });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      toast.success(`Webhook disparado! O deploy da stack '${stack.name}' foi iniciado.`);
+      void refetch();
+      void queryClient.invalidateQueries({ queryKey: ["containers"] });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error(`Falha ao disparar webhook: ${msg}`);
+    } finally {
+      setIsTestingHook(null);
+    }
+  };
 
   const handleInjectBackup = (newYaml: string, newEnv: StackEnvVar[]) => {
     if (injectorTarget === "create") {
@@ -517,6 +554,7 @@ function StacksPage() {
     setEditGitRepo(s.gitRepo || "");
     setEditGitBranch(s.gitBranch || "main");
     setEditGitPath(s.gitPath || "compose.yaml");
+    setEditGitRegistryId(s.gitRegistryId || "auto");
     setEditAutoDeploy(Boolean(s.autoDeploy));
     setEditRedeploy(true);
     setEditPull(false);
@@ -531,6 +569,7 @@ function StacksPage() {
       setComposeYaml(TEMPLATES["custom"]!.yaml);
       setEnvVars([]);
       setGitRepo("");
+      setGitRegistryId("auto");
       void queryClient.invalidateQueries({ queryKey: ["stacks"] });
     },
     onError: (err: Error) => {
@@ -583,6 +622,12 @@ function StacksPage() {
         gitRepo: editMode === "git" ? editGitRepo.trim() : undefined,
         gitBranch: editMode === "git" ? editGitBranch.trim() : undefined,
         gitPath: editMode === "git" ? editGitPath.trim() : undefined,
+        gitRegistryId:
+          editMode === "git"
+            ? editGitRegistryId === "auto" || editGitRegistryId === "none"
+              ? null
+              : editGitRegistryId
+            : undefined,
         autoDeploy: editMode === "git" ? editAutoDeploy : false,
         env: editEnv.filter((v) => v.key.trim().length > 0),
         redeploy: editRedeploy,
@@ -662,6 +707,12 @@ function StacksPage() {
       gitRepo: createMode === "git" ? gitRepo.trim() : undefined,
       gitBranch: createMode === "git" ? gitBranch.trim() : undefined,
       gitPath: createMode === "git" ? gitPath.trim() : undefined,
+      gitRegistryId:
+        createMode === "git"
+          ? gitRegistryId === "auto" || gitRegistryId === "none"
+            ? null
+            : gitRegistryId
+          : undefined,
       env: envVars.filter((v) => v.key.trim().length > 0),
       autoDeploy,
       deployNow,
@@ -851,6 +902,79 @@ function StacksPage() {
                         ))}
                       </div>
                     )}
+                  </div>
+
+                  {/* Webhook GitOps Bar */}
+                  <div className="mt-3 rounded-lg border bg-surface/80 p-2.5 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="grid size-6 place-items-center rounded bg-primary/10 text-primary shrink-0">
+                        <Zap className="size-3.5" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-semibold text-foreground text-[11px]">
+                            Webhook GitOps
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-[9px] py-0 px-1.5 font-medium",
+                              s.autoDeploy
+                                ? "border-emerald-500/30 text-emerald-500 bg-emerald-500/5"
+                                : "text-muted-foreground",
+                            )}
+                          >
+                            {s.autoDeploy ? "Auto-deploy Ativo" : "Disponível"}
+                          </Badge>
+                        </div>
+                        <p className="font-mono text-[10px] text-muted-foreground truncate max-w-[240px] sm:max-w-xs md:max-w-sm">
+                          {typeof window !== "undefined"
+                            ? `${window.location.origin}/api/public/hooks/${s.webhookToken}`
+                            : `/api/public/hooks/${s.webhookToken}`}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0 self-end sm:self-auto">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-6 px-2 text-[10px] gap-1"
+                        onClick={() => {
+                          const url = `${window.location.origin}/api/public/hooks/${s.webhookToken}`;
+                          copyToClipboard(url, "URL do Webhook");
+                        }}
+                      >
+                        <Copy className="size-2.5" /> Copiar URL
+                      </Button>
+                      {isOperator && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-6 px-2 text-[10px] gap-1"
+                          disabled={isTestingHook === s.id}
+                          onClick={() => void handleTestWebhook(s)}
+                        >
+                          {isTestingHook === s.id ? (
+                            <Loader2 className="size-2.5 animate-spin" />
+                          ) : (
+                            <Play className="size-2.5 text-emerald-500" />
+                          )}
+                          Disparar
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-[10px] text-primary gap-1"
+                        onClick={() => setWebhookGuideStack(s)}
+                      >
+                        <ExternalLink className="size-2.5" /> CI/CD
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
@@ -1065,6 +1189,30 @@ function StacksPage() {
                   />
                 </div>
 
+                <div>
+                  <Label className="text-xs">Autenticação Git (para repositórios privados)</Label>
+                  <Select value={gitRegistryId} onValueChange={setGitRegistryId}>
+                    <SelectTrigger className="mt-1 text-xs">
+                      <SelectValue placeholder="Selecione a credencial..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto">
+                        Auto-detectar (usar token do GitHub/GitLab cadastrado em Registros)
+                      </SelectItem>
+                      <SelectItem value="none">Público (sem autenticação)</SelectItem>
+                      {registries.map((r) => (
+                        <SelectItem key={r.id} value={r.id}>
+                          {r.name} ({r.username} @ {r.url})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    O HarborX usará o token salvo com segurança para autenticar o{" "}
+                    <code>git clone</code>. Você não precisa colocar tokens na URL.
+                  </p>
+                </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label className="text-xs">Branch</Label>
@@ -1235,6 +1383,30 @@ function StacksPage() {
                   />
                 </div>
 
+                <div>
+                  <Label className="text-xs">Autenticação Git (para repositórios privados)</Label>
+                  <Select value={editGitRegistryId} onValueChange={setEditGitRegistryId}>
+                    <SelectTrigger className="mt-1 text-xs">
+                      <SelectValue placeholder="Selecione a credencial..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto">
+                        Auto-detectar (usar token do GitHub/GitLab cadastrado em Registros)
+                      </SelectItem>
+                      <SelectItem value="none">Público (sem autenticação)</SelectItem>
+                      {registries.map((r) => (
+                        <SelectItem key={r.id} value={r.id}>
+                          {r.name} ({r.username} @ {r.url})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    O HarborX usará o token salvo com segurança para autenticar o{" "}
+                    <code>git clone</code> / <code>pull</code>.
+                  </p>
+                </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label className="text-xs">Branch</Label>
@@ -1269,6 +1441,33 @@ function StacksPage() {
                     Ativar Webhook para auto-deploy no push do GitHub Actions
                   </label>
                 </div>
+
+                {editStack && (
+                  <div className="rounded-lg border bg-surface/50 p-2.5 text-xs space-y-1">
+                    <span className="text-[11px] font-semibold text-foreground flex items-center gap-1.5">
+                      <Zap className="size-3 text-primary" /> Webhook da Stack:
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <code className="text-[10px] font-mono bg-muted p-1 rounded flex-1 truncate select-all">
+                        {typeof window !== "undefined"
+                          ? `${window.location.origin}/api/public/hooks/${editStack.webhookToken}`
+                          : `/api/public/hooks/${editStack.webhookToken}`}
+                      </code>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-6 px-2 text-[10px] gap-1"
+                        onClick={() => {
+                          const url = `${window.location.origin}/api/public/hooks/${editStack.webhookToken}`;
+                          copyToClipboard(url, "URL do Webhook");
+                        }}
+                      >
+                        <Copy className="size-2.5" /> Copiar
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1412,6 +1611,144 @@ function StacksPage() {
         stackName={injectorTarget === "create" ? name || "app" : editName || "app"}
         onInject={handleInjectBackup}
       />
+
+      {/* CI/CD & Webhook Guide Dialog */}
+      <Dialog
+        open={Boolean(webhookGuideStack)}
+        onOpenChange={(open) => !open && setWebhookGuideStack(null)}
+      >
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Zap className="size-4 text-primary" />
+              Integração CI/CD & Webhook — {webhookGuideStack?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Dispare o redeploy automático desta stack sempre que seu pipeline de CI/CD ou push no
+              GitHub terminar.
+            </DialogDescription>
+          </DialogHeader>
+
+          {webhookGuideStack && (
+            <div className="space-y-4 py-2 text-xs">
+              <div className="rounded-lg border bg-surface p-3 space-y-1.5">
+                <span className="font-semibold text-foreground block">URL do Webhook</span>
+                <div className="flex items-center gap-2">
+                  <code className="font-mono text-[11px] bg-muted px-2 py-1.5 rounded flex-1 truncate select-all">
+                    {typeof window !== "undefined"
+                      ? `${window.location.origin}/api/public/hooks/${webhookGuideStack.webhookToken}`
+                      : `/api/public/hooks/${webhookGuideStack.webhookToken}`}
+                  </code>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-2 text-xs gap-1"
+                    onClick={() => {
+                      const url = `${window.location.origin}/api/public/hooks/${webhookGuideStack.webhookToken}`;
+                      copyToClipboard(url, "URL do Webhook");
+                    }}
+                  >
+                    <Copy className="size-3" /> Copiar
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-foreground">
+                    Exemplo no GitHub Actions (.github/workflows/deploy.yml)
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-1.5 text-[10px] gap-1"
+                    onClick={() => {
+                      const snippet = `# .github/workflows/deploy.yml (passo final)
+name: Deploy to HarborX
+on:
+  push:
+    branches: [ main ]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger HarborX Redeploy
+        run: |
+          curl -fsS -X POST "${window.location.origin}/api/public/hooks/${webhookGuideStack.webhookToken}"`;
+                      copyToClipboard(snippet, "Passo do GitHub Actions");
+                    }}
+                  >
+                    <Copy className="size-2.5" /> Copiar YAML
+                  </Button>
+                </div>
+                <pre className="rounded-lg border bg-muted/60 p-3 font-mono text-[11px] overflow-x-auto text-foreground">
+                  {`- name: Trigger HarborX Redeploy
+  run: |
+    curl -fsS -X POST "${typeof window !== "undefined" ? window.location.origin : ""}/api/public/hooks/${webhookGuideStack.webhookToken}"`}
+                </pre>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-foreground">
+                    Disparo manual via Terminal / cURL
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-1.5 text-[10px] gap-1"
+                    onClick={() => {
+                      const cmd = `curl -X POST "${window.location.origin}/api/public/hooks/${webhookGuideStack.webhookToken}"`;
+                      copyToClipboard(cmd, "Comando curl");
+                    }}
+                  >
+                    <Copy className="size-2.5" /> Copiar comando
+                  </Button>
+                </div>
+                <pre className="rounded-lg border bg-muted/60 p-2.5 font-mono text-[11px] overflow-x-auto text-foreground">
+                  {`curl -X POST "${typeof window !== "undefined" ? window.location.origin : ""}/api/public/hooks/${webhookGuideStack.webhookToken}"`}
+                </pre>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="flex items-center justify-between">
+            {webhookGuideStack && isOperator && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                disabled={isTestingHook === webhookGuideStack.id}
+                onClick={() => void handleTestWebhook(webhookGuideStack)}
+              >
+                {isTestingHook === webhookGuideStack.id ? (
+                  <>
+                    <Loader2 className="size-3.5 animate-spin" />
+                    Disparando...
+                  </>
+                ) : (
+                  <>
+                    <Play className="size-3.5 text-emerald-500" />
+                    Testar Disparo Agora
+                  </>
+                )}
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setWebhookGuideStack(null)}
+            >
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

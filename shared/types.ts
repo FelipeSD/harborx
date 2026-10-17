@@ -312,6 +312,7 @@ export interface StackSummary {
   gitRepo?: string;
   gitBranch?: string;
   gitPath?: string;
+  gitRegistryId?: string;
   webhookToken: string;
   autoDeploy: boolean;
   createdAt: string;
@@ -343,6 +344,7 @@ export interface CreateStackRequest {
   gitRepo?: string;
   gitBranch?: string;
   gitPath?: string;
+  gitRegistryId?: string | null;
   autoDeploy?: boolean;
   deployNow?: boolean;
 }
@@ -355,6 +357,7 @@ export interface UpdateStackRequest {
   gitRepo?: string;
   gitBranch?: string;
   gitPath?: string;
+  gitRegistryId?: string | null;
   autoDeploy?: boolean;
   redeploy?: boolean;
   pull?: boolean;

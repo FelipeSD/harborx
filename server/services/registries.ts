@@ -286,3 +286,60 @@ export function getRegistryAuthForImage(imageRef: string): RegistryAuth | undefi
     return undefined;
   }
 }
+
+export function findGitAuthForRepo(
+  repoUrl: string,
+  preferredRegistryId?: string | null,
+): { username: string; secret: string; registryName: string } | undefined {
+  try {
+    if (preferredRegistryId && preferredRegistryId !== "none" && preferredRegistryId !== "auto") {
+      const reg = getRegistry(preferredRegistryId);
+      const secret = getRegistrySecret(preferredRegistryId);
+      if (reg && secret) {
+        return { username: reg.username, secret, registryName: reg.name };
+      }
+    }
+
+    if (preferredRegistryId === "none") {
+      return undefined;
+    }
+
+    // Auto-detect based on repo URL
+    const cleanRepo = repoUrl.toLowerCase().trim();
+    const rows = db
+      .prepare("SELECT id, name, url, username, encrypted_secret FROM registries")
+      .all() as Array<{
+      id: string;
+      name: string;
+      url: string;
+      username: string;
+      encrypted_secret: string;
+    }>;
+
+    for (const r of rows) {
+      const regUrl = r.url.toLowerCase();
+      const isGitHubRepo = cleanRepo.includes("github.com");
+      const isGitHubReg = regUrl.includes("github.com") || regUrl.includes("ghcr.io");
+
+      const isGitLabRepo = cleanRepo.includes("gitlab.com");
+      const isGitLabReg = regUrl.includes("gitlab.com");
+
+      let matchesCustom = false;
+      try {
+        const repoHost = new URL(cleanRepo.startsWith("http") ? cleanRepo : `https://${cleanRepo}`)
+          .hostname;
+        matchesCustom = repoHost === regUrl || regUrl.includes(repoHost);
+      } catch {
+        // ignore
+      }
+
+      if ((isGitHubRepo && isGitHubReg) || (isGitLabRepo && isGitLabReg) || matchesCustom) {
+        const secret = decryptCredential(r.encrypted_secret);
+        return { username: r.username, secret, registryName: r.name };
+      }
+    }
+  } catch (err) {
+    console.error("Erro ao resolver credencial Git:", err);
+  }
+  return undefined;
+}

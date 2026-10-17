@@ -125,6 +125,16 @@ const migrations: Migration[] = [
       `);
     },
   },
+  {
+    name: "006_stacks_git_registry_id",
+    up: (db) => {
+      try {
+        db.exec("ALTER TABLE stacks ADD COLUMN git_registry_id TEXT;");
+      } catch {
+        // column may already exist
+      }
+    },
+  },
 ];
 
 export function runMigrations(db: Database.Database): void {

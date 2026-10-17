@@ -30,6 +30,7 @@ const createStackSchema = z.object({
   gitRepo: z.string().optional(),
   gitBranch: z.string().optional(),
   gitPath: z.string().optional(),
+  gitRegistryId: z.string().nullable().optional(),
   autoDeploy: z.boolean().default(false),
   deployNow: z.boolean().default(true),
 });
@@ -50,6 +51,7 @@ const updateStackSchema = z.object({
   gitRepo: z.string().optional(),
   gitBranch: z.string().optional(),
   gitPath: z.string().optional(),
+  gitRegistryId: z.string().nullable().optional(),
   autoDeploy: z.boolean().optional(),
   redeploy: z.boolean().default(true),
   pull: z.boolean().default(false).optional(),
@@ -83,8 +85,18 @@ export const stackRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      const { name, type, composeYaml, env, gitRepo, gitBranch, gitPath, autoDeploy, deployNow } =
-        parsed.data;
+      const {
+        name,
+        type,
+        composeYaml,
+        env,
+        gitRepo,
+        gitBranch,
+        gitPath,
+        gitRegistryId,
+        autoDeploy,
+        deployNow,
+      } = parsed.data;
 
       // Ensure composeYaml or gitRepo is provided
       if (type === "compose" && (!composeYaml || composeYaml.trim().length === 0)) {
@@ -103,6 +115,7 @@ export const stackRoutes: FastifyPluginAsync = async (fastify) => {
           gitRepo,
           gitBranch,
           gitPath,
+          gitRegistryId,
           autoDeploy,
         });
 
@@ -154,6 +167,7 @@ export const stackRoutes: FastifyPluginAsync = async (fastify) => {
         gitRepo,
         gitBranch,
         gitPath,
+        gitRegistryId,
         autoDeploy,
         redeploy,
         pull,
@@ -168,6 +182,7 @@ export const stackRoutes: FastifyPluginAsync = async (fastify) => {
           gitRepo,
           gitBranch,
           gitPath,
+          gitRegistryId,
           autoDeploy,
         });
 

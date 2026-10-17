@@ -6,7 +6,7 @@ import { promisify } from "node:util";
 import { config } from "../config.js";
 import { db } from "../db/index.js";
 import { docker } from "../docker.js";
-import { syncDockerAuthConfig } from "./registries.js";
+import { findGitAuthForRepo, syncDockerAuthConfig } from "./registries.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -26,6 +26,7 @@ export interface StackRecord {
   gitRepo?: string;
   gitBranch?: string;
   gitPath?: string;
+  gitRegistryId?: string;
   webhookToken: string;
   autoDeploy: boolean;
   createdAt: string;
@@ -132,6 +133,7 @@ export async function listStacks(): Promise<StackWithContainers[]> {
       gitRepo: r.git_repo || undefined,
       gitBranch: r.git_branch || undefined,
       gitPath: r.git_path || undefined,
+      gitRegistryId: (r as { git_registry_id?: string | null }).git_registry_id || undefined,
       webhookToken: r.webhook_token,
       autoDeploy: Boolean(r.auto_deploy),
       createdAt: r.created_at,
@@ -231,6 +233,7 @@ export async function getStack(id: string): Promise<StackWithContainers | null> 
     gitRepo: row.git_repo || undefined,
     gitBranch: row.git_branch || undefined,
     gitPath: row.git_path || undefined,
+    gitRegistryId: (row as { git_registry_id?: string | null }).git_registry_id || undefined,
     webhookToken: row.webhook_token,
     autoDeploy: Boolean(row.auto_deploy),
     createdAt: row.created_at,
@@ -258,6 +261,7 @@ export function createStackRecord(data: {
   gitRepo?: string;
   gitBranch?: string;
   gitPath?: string;
+  gitRegistryId?: string | null;
   autoDeploy?: boolean;
 }): StackRecord {
   const id = crypto.randomUUID();
@@ -267,8 +271,8 @@ export function createStackRecord(data: {
   const yaml = data.composeYaml || "";
 
   db.prepare(
-    `INSERT INTO stacks (id, name, type, status, compose_yaml, env_json, git_repo, git_branch, git_path, webhook_token, auto_deploy, created_at, updated_at)
-     VALUES (?, ?, ?, 'stopped', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO stacks (id, name, type, status, compose_yaml, env_json, git_repo, git_branch, git_path, git_registry_id, webhook_token, auto_deploy, created_at, updated_at)
+     VALUES (?, ?, ?, 'stopped', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     data.name.trim().toLowerCase(),
@@ -278,6 +282,7 @@ export function createStackRecord(data: {
     data.gitRepo || null,
     data.gitBranch || "main",
     data.gitPath || "compose.yaml",
+    data.gitRegistryId || null,
     token,
     data.autoDeploy ? 1 : 0,
     now,
@@ -294,6 +299,7 @@ export function createStackRecord(data: {
     gitRepo: data.gitRepo,
     gitBranch: data.gitBranch || "main",
     gitPath: data.gitPath || "compose.yaml",
+    gitRegistryId: data.gitRegistryId || undefined,
     webhookToken: token,
     autoDeploy: Boolean(data.autoDeploy),
     createdAt: now,
@@ -321,16 +327,32 @@ export async function deployStack(
   try {
     if (stack.type === "git" && stack.gitRepo) {
       const gitDir = path.join(stackDir, ".git");
+      const gitAuth = findGitAuthForRepo(stack.gitRepo, stack.gitRegistryId);
+
+      const gitExtraArgs: string[] = [];
+      if (gitAuth && !stack.gitRepo.includes("@")) {
+        const basicToken = Buffer.from(`${gitAuth.username}:${gitAuth.secret}`).toString("base64");
+        gitExtraArgs.push("-c", `http.extraheader=AUTHORIZATION: basic ${basicToken}`);
+        outputLog += `[HarborX GitAuth] Utilizando credencial registrada '${gitAuth.registryName}' (${gitAuth.username}) para autenticação segura no Git.\n`;
+      }
+
       if (fs.existsSync(gitDir)) {
-        const pullRes = await execFileAsync("git", ["pull"], { cwd: stackDir, timeout: 60000 });
+        const pullRes = await execFileAsync("git", [...gitExtraArgs, "pull"], {
+          cwd: stackDir,
+          timeout: 60000,
+        });
         outputLog += `[git pull]\n${pullRes.stdout}\n${pullRes.stderr}\n`;
       } else {
         const cloneRes = await execFileAsync(
           "git",
-          ["clone", "--branch", stack.gitBranch || "main", stack.gitRepo, "."],
+          [...gitExtraArgs, "clone", "--branch", stack.gitBranch || "main", stack.gitRepo, "."],
           { cwd: stackDir, timeout: 120000 },
         );
         outputLog += `[git clone]\n${cloneRes.stdout}\n${cloneRes.stderr}\n`;
+      }
+
+      if (gitAuth?.secret) {
+        outputLog = outputLog.replaceAll(gitAuth.secret, "******");
       }
 
       // Check if git compose file exists and sync composeYaml in DB
@@ -509,6 +531,7 @@ export async function updateStackRecord(
     gitRepo?: string;
     gitBranch?: string;
     gitPath?: string;
+    gitRegistryId?: string | null;
     autoDeploy?: boolean;
   },
 ): Promise<void> {
@@ -524,6 +547,8 @@ export async function updateStackRecord(
     data.gitBranch !== undefined ? data.gitBranch || "main" : stack.gitBranch || "main";
   const newGitPath =
     data.gitPath !== undefined ? data.gitPath || "compose.yaml" : stack.gitPath || "compose.yaml";
+  const newGitRegistryId =
+    data.gitRegistryId !== undefined ? data.gitRegistryId || null : stack.gitRegistryId || null;
   const newAutoDeploy =
     data.autoDeploy !== undefined ? (data.autoDeploy ? 1 : 0) : stack.autoDeploy ? 1 : 0;
   const now = new Date().toISOString();
@@ -544,7 +569,7 @@ export async function updateStackRecord(
   db.prepare(
     `
     UPDATE stacks
-    SET name = ?, type = ?, compose_yaml = ?, env_json = ?, git_repo = ?, git_branch = ?, git_path = ?, auto_deploy = ?, updated_at = ?
+    SET name = ?, type = ?, compose_yaml = ?, env_json = ?, git_repo = ?, git_branch = ?, git_path = ?, git_registry_id = ?, auto_deploy = ?, updated_at = ?
     WHERE id = ?
   `,
   ).run(
@@ -555,6 +580,7 @@ export async function updateStackRecord(
     newGitRepo,
     newGitBranch,
     newGitPath,
+    newGitRegistryId,
     newAutoDeploy,
     now,
     stack.id,
