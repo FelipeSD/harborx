@@ -3,7 +3,13 @@ import { z } from "zod";
 import { requireRole } from "../auth/middleware.js";
 import { docker } from "../docker.js";
 import { logAudit } from "../services/audit.js";
-import { createRegistry, deleteRegistry, listRegistries } from "../services/registries.js";
+import {
+  createRegistry,
+  deleteRegistry,
+  getRegistrySecret,
+  listRegistries,
+  updateRegistry,
+} from "../services/registries.js";
 
 function normalizeRegistryServerAddress(rawUrl: string): string {
   const trimmed = rawUrl.trim();
@@ -29,10 +35,18 @@ const createRegistrySchema = z.object({
   secret: z.string().min(1, "Senha ou Personal Access Token obrigatório"),
 });
 
+const updateRegistrySchema = z.object({
+  name: z.string().min(1, "Nome do registro obrigatório").optional(),
+  url: z.string().min(1, "URL ou domínio obrigatório (ex: docker.io, ghcr.io)").optional(),
+  username: z.string().min(1, "Usuário obrigatório").optional(),
+  secret: z.string().optional(),
+});
+
 const testRegistrySchema = z.object({
   url: z.string().min(1, "URL ou domínio obrigatório (ex: docker.io, ghcr.io)"),
   username: z.string().min(1, "Usuário obrigatório"),
-  secret: z.string().min(1, "Senha ou Personal Access Token obrigatório"),
+  secret: z.string().optional(),
+  registryId: z.string().optional(),
 });
 
 export const registryRoutes: FastifyPluginAsync = async (fastify) => {
@@ -55,13 +69,29 @@ export const registryRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      const { url, username, secret } = parsed.data;
+      const { url, username, secret, registryId } = parsed.data;
+      let effectiveSecret = secret?.trim();
+
+      if (!effectiveSecret && registryId) {
+        const storedSecret = getRegistrySecret(registryId);
+        if (storedSecret) {
+          effectiveSecret = storedSecret;
+        }
+      }
+
+      if (!effectiveSecret) {
+        return reply.status(400).send({
+          success: false,
+          error: "Senha ou Token não fornecido para teste de conexão.",
+        });
+      }
+
       const serveraddress = normalizeRegistryServerAddress(url);
 
       try {
         const res = await docker.checkAuth({
           username: username.trim(),
-          password: secret.trim(),
+          password: effectiveSecret,
           serveraddress,
         });
 
@@ -131,6 +161,46 @@ export const registryRoutes: FastifyPluginAsync = async (fastify) => {
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         return reply.status(400).send({ error: `Falha ao salvar registro: ${msg}` });
+      }
+    },
+  );
+
+  // PUT /api/registries/:id
+  fastify.put<{ Params: { id: string } }>(
+    "/registries/:id",
+    { preHandler: [requireRole("operator", "admin")] },
+    async (request, reply) => {
+      const parsed = updateRegistrySchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          error: "Dados de requisição inválidos",
+          issues: parsed.error.issues,
+        });
+      }
+
+      const { id } = request.params;
+      const { name, url, username, secret } = parsed.data;
+
+      try {
+        const item = updateRegistry(id, { name, url, username, secret });
+
+        logAudit({
+          userId: request.user?.id,
+          action: "registry.update",
+          target: id,
+          details: {
+            name: item.name,
+            url: item.url,
+            username: item.username,
+            secretUpdated: Boolean(secret && secret.trim().length > 0),
+          },
+          ip: request.ip,
+        });
+
+        return reply.send(item);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return reply.status(400).send({ error: `Falha ao atualizar registro: ${msg}` });
       }
     },
   );

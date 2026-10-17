@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import { config } from "../config.js";
 import { db } from "../db/index.js";
 import { docker } from "../docker.js";
+import { syncDockerAuthConfig } from "./registries.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -352,13 +353,18 @@ export async function deployStack(
 
     // Execute docker compose up
     const composeFile = stack.type === "git" ? stack.gitPath || "compose.yaml" : "compose.yaml";
+    const dockerConfigDir = syncDockerAuthConfig();
+    const dockerEnv = {
+      ...process.env,
+      DOCKER_CONFIG: dockerConfigDir,
+    };
 
     if (options?.pull) {
       try {
         const pullRes = await execFileAsync(
           "docker",
           ["compose", "-p", stack.name, "-f", composeFile, "pull"],
-          { cwd: stackDir, timeout: 300000 },
+          { cwd: stackDir, env: dockerEnv, timeout: 300000 },
         );
         outputLog += `[docker compose pull]\n${pullRes.stdout}\n${pullRes.stderr}\n`;
       } catch (pullErr: unknown) {
@@ -382,7 +388,11 @@ export async function deployStack(
       composeArgs.push("--pull", "always", "--force-recreate");
     }
 
-    const upRes = await execFileAsync("docker", composeArgs, { cwd: stackDir, timeout: 300000 });
+    const upRes = await execFileAsync("docker", composeArgs, {
+      cwd: stackDir,
+      env: dockerEnv,
+      timeout: 300000,
+    });
 
     outputLog += `[docker compose up]\n${upRes.stdout}\n${upRes.stderr}\n`;
     finalStatus = "deployed";

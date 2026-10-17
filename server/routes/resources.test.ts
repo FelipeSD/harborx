@@ -94,6 +94,48 @@ describe("Phase 6 - Images, Networks, Volumes & Registries Tests", () => {
       expect(auth?.password).toBe("ghp_superSecretToken12345");
     });
 
+    it("updates registry username and token without leaking secret", async () => {
+      const res = await app.inject({
+        method: "PUT",
+        url: `/api/registries/${registryId}`,
+        headers: { cookie: operatorCookie },
+        payload: {
+          name: "test_ghcr_updated",
+          username: "testuser_updated",
+          secret: "ghp_newRotatedToken999",
+        },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const json = res.json();
+      expect(json.name).toBe("test_ghcr_updated");
+      expect(json.username).toBe("testuser_updated");
+      expect(json.secret).toBeUndefined();
+
+      const auth = getRegistryAuthForImage("ghcr.io/myorg/myapp:v1");
+      expect(auth?.username).toBe("testuser_updated");
+      expect(auth?.password).toBe("ghp_newRotatedToken999");
+    });
+
+    it("updates registry name while preserving existing token if secret is omitted", async () => {
+      const res = await app.inject({
+        method: "PUT",
+        url: `/api/registries/${registryId}`,
+        headers: { cookie: operatorCookie },
+        payload: {
+          name: "test_ghcr_renamed",
+        },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const json = res.json();
+      expect(json.name).toBe("test_ghcr_renamed");
+
+      const auth = getRegistryAuthForImage("ghcr.io/myorg/myapp:v1");
+      expect(auth?.username).toBe("testuser_updated");
+      expect(auth?.password).toBe("ghp_newRotatedToken999");
+    });
+
     it("deletes registry", async () => {
       const res = await app.inject({
         method: "DELETE",

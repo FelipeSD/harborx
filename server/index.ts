@@ -26,9 +26,11 @@ import { execWsRoute } from "./ws/exec";
 import { eventsWsRoute } from "./ws/events";
 import { statsWsRoute } from "./ws/stats";
 import { startMetricsCollector, stopMetricsCollector } from "./services/metrics";
+import { syncDockerAuthConfig } from "./services/registries";
 
 export async function buildApp(opts?: { logger?: boolean }) {
   fs.mkdirSync(config.dataDir, { recursive: true });
+  syncDockerAuthConfig();
 
   const app = Fastify({
     logger:

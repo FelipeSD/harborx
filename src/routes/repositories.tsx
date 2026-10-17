@@ -13,6 +13,13 @@ import {
   ExternalLink,
   CheckCircle2,
   Loader2,
+  Pencil,
+  Copy,
+  Code,
+  HelpCircle,
+  ChevronDown,
+  ChevronUp,
+  Info,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -46,6 +53,7 @@ import type {
   CreateRegistryRequest,
   RegistrySummary,
   TestRegistryRequest,
+  UpdateRegistryRequest,
 } from "../../shared/types";
 
 export const Route = createFileRoute("/repositories")({
@@ -184,6 +192,85 @@ function RegistriesPage() {
     },
   });
 
+  const [editTarget, setEditTarget] = useState<RegistrySummary | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editUrl, setEditUrl] = useState("");
+  const [editUsername, setEditUsername] = useState("");
+  const [editSecret, setEditSecret] = useState("");
+  const [editTestResult, setEditTestResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
+
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
+
+  const handleOpenEdit = (r: RegistrySummary) => {
+    setEditTarget(r);
+    setEditName(r.name);
+    setEditUrl(r.url);
+    setEditUsername(r.username);
+    setEditSecret("");
+    setEditTestResult(null);
+  };
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateRegistryRequest }) =>
+      api.registries.update(id, data),
+    onSuccess: (item) => {
+      toast.success(`Registro '${item.name}' atualizado com sucesso!`);
+      setEditTarget(null);
+      setEditTestResult(null);
+      void queryClient.invalidateQueries({ queryKey: ["registries"] });
+    },
+    onError: (err: Error) => {
+      toast.error(`Falha ao atualizar registro: ${err.message}`);
+    },
+  });
+
+  const editTestMutation = useMutation({
+    mutationFn: (data: TestRegistryRequest) => api.registries.test(data),
+    onSuccess: (res) => {
+      if (res.success) {
+        toast.success(res.status || "Credenciais validadas com sucesso!");
+        setEditTestResult({
+          success: true,
+          message: res.status || "Autenticação bem-sucedida!",
+        });
+      } else {
+        toast.error(res.error || "Falha na validação das credenciais");
+        setEditTestResult({
+          success: false,
+          message: res.error || "Falha na validação das credenciais",
+        });
+      }
+    },
+    onError: (err: Error) => {
+      toast.error(`Erro ao testar credenciais: ${err.message}`);
+      setEditTestResult({
+        success: false,
+        message: err.message,
+      });
+    },
+  });
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editTarget) return;
+    if (!editName.trim() || !editUrl.trim() || !editUsername.trim()) {
+      toast.error("Preencha o nome, URL e usuário");
+      return;
+    }
+    updateMutation.mutate({
+      id: editTarget.id,
+      data: {
+        name: editName.trim(),
+        url: editUrl.trim(),
+        username: editUsername.trim(),
+        secret: editSecret.trim() ? editSecret.trim() : undefined,
+      },
+    });
+  };
+
   const applyPreset = (preset: (typeof REGISTRY_PRESETS)[number]) => {
     if (preset.domain) {
       setUrl(preset.domain);
@@ -212,6 +299,11 @@ function RegistriesPage() {
     });
   };
 
+  const copyToClipboard = (text: string, label: string) => {
+    void navigator.clipboard.writeText(text);
+    toast.success(`${label} copiado!`);
+  };
+
   return (
     <>
       <PageHeader
@@ -236,6 +328,96 @@ function RegistriesPage() {
           </div>
         }
       />
+
+      {/* Educational Guide Card */}
+      <Panel className="mb-6 border-primary/20 bg-primary/5 p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+              <HelpCircle className="size-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                Como funciona a integração com Stacks e Compose?
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Entenda como o HarborX autentica e como você referencia imagens privadas nos seus
+                arquivos compose.yaml.
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1 text-xs shrink-0"
+            onClick={() => setIsGuideOpen(!isGuideOpen)}
+          >
+            {isGuideOpen ? (
+              <>
+                Ocultar guia <ChevronUp className="size-3.5" />
+              </>
+            ) : (
+              <>
+                Ver guia prático <ChevronDown className="size-3.5" />
+              </>
+            )}
+          </Button>
+        </div>
+
+        {isGuideOpen && (
+          <div className="mt-4 pt-4 border-t border-primary/10 space-y-4 text-xs">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-lg border bg-surface/80 p-3 space-y-1">
+                <span className="font-semibold text-foreground flex items-center gap-1.5">
+                  <ShieldCheck className="size-3.5 text-primary" /> 1. Autenticação Global
+                </span>
+                <p className="text-muted-foreground leading-relaxed">
+                  Ao salvar um registro aqui, o HarborX sincroniza as credenciais seguras no{" "}
+                  <code>config.json</code> do Docker daemon.
+                </p>
+              </div>
+              <div className="rounded-lg border bg-surface/80 p-3 space-y-1">
+                <span className="font-semibold text-foreground flex items-center gap-1.5">
+                  <Layers className="size-3.5 text-primary" /> 2. Deploy Automático
+                </span>
+                <p className="text-muted-foreground leading-relaxed">
+                  Quando você sobe ou atualiza uma Stack no HarborX, o{" "}
+                  <code>docker compose pull</code> lê essas credenciais automaticamente.
+                </p>
+              </div>
+              <div className="rounded-lg border bg-surface/80 p-3 space-y-1">
+                <span className="font-semibold text-foreground flex items-center gap-1.5">
+                  <RefreshCw className="size-3.5 text-primary" /> 3. Atualizar Imagens
+                </span>
+                <p className="text-muted-foreground leading-relaxed">
+                  Se você atualizou a tag no GitHub/DockerHub, use a ação de{" "}
+                  <strong>Re-pull / Recriar</strong> na Stack para puxar a nova versão.
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-lg border bg-surface/80 p-3 space-y-2">
+              <span className="font-semibold text-foreground flex items-center gap-1.5">
+                <Code className="size-3.5 text-primary" /> Exemplos de sintaxe no compose.yaml:
+              </span>
+              <div className="grid gap-2 sm:grid-cols-2 font-mono text-[11px]">
+                <div className="rounded bg-muted/50 p-2 border">
+                  <span className="text-muted-foreground block text-[10px] uppercase font-sans font-medium">
+                    GitHub Container Registry (GHCR)
+                  </span>
+                  <code className="text-primary">image: ghcr.io/seu-usuario/app:latest</code>
+                </div>
+                <div className="rounded bg-muted/50 p-2 border">
+                  <span className="text-muted-foreground block text-[10px] uppercase font-sans font-medium">
+                    Docker Hub (Privado ou Pró)
+                  </span>
+                  <code className="text-primary">image: seu-usuario/app:latest</code>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </Panel>
 
       {isError && (
         <Alert variant="destructive" className="mb-6">
@@ -277,6 +459,12 @@ function RegistriesPage() {
           {registries.map((r) => {
             const isGhcr = r.url.includes("ghcr.io");
             const isDockerHub = r.url.includes("docker.io");
+            const cleanDomain = r.url.replace(/^https?:\/\//, "").replace(/\/$/, "");
+            const exampleImage = isGhcr
+              ? `ghcr.io/${r.username}/meu-projeto:latest`
+              : isDockerHub
+                ? `${r.username}/meu-projeto:latest`
+                : `${cleanDomain}/${r.username}/meu-projeto:latest`;
 
             return (
               <Panel
@@ -314,19 +502,51 @@ function RegistriesPage() {
                       <span>Criptografado (AES-256)</span>
                     </div>
                   </div>
+
+                  <div className="mt-3 rounded-lg border bg-muted/40 px-3 py-2 text-xs">
+                    <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1">
+                      <span className="flex items-center gap-1">
+                        <Code className="size-3" /> Exemplo no compose.yaml:
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 px-1.5 text-[10px] gap-1 hover:text-foreground"
+                        onClick={() =>
+                          copyToClipboard(`image: ${exampleImage}`, "Exemplo de compose")
+                        }
+                      >
+                        <Copy className="size-2.5" /> Copiar
+                      </Button>
+                    </div>
+                    <code className="font-mono text-[11px] text-foreground select-all">
+                      image: {exampleImage}
+                    </code>
+                  </div>
                 </div>
 
                 <div className="mt-5 border-t pt-3 flex items-center justify-between text-xs text-muted-foreground">
                   <span>Conectado em {formatDate(r.createdAt)}</span>
                   {isOperator && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      onClick={() => setDeleteTarget(r)}
-                    >
-                      <Trash2 className="size-3.5" /> Remover
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 text-xs text-foreground hover:bg-muted"
+                        onClick={() => handleOpenEdit(r)}
+                      >
+                        <Pencil className="size-3.5" /> Editar
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => setDeleteTarget(r)}
+                      >
+                        <Trash2 className="size-3.5" /> Remover
+                      </Button>
+                    </div>
                   )}
                 </div>
               </Panel>
@@ -531,6 +751,161 @@ function RegistriesPage() {
                     </>
                   ) : (
                     "Salvar Registro"
+                  )}
+                </Button>
+              </div>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Registry Dialog */}
+      <Dialog
+        open={Boolean(editTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditTarget(null);
+            setEditTestResult(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar registro de containers</DialogTitle>
+            <DialogDescription>
+              Atualize as informações de conexão ou rotacione o token de autenticação.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleEditSubmit} className="space-y-4 py-1">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-foreground block">
+                Nome de identificação
+              </label>
+              <Input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="Ex: GitHub Container Registry"
+                required
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-foreground block">
+                URL do Registro / Domínio
+              </label>
+              <Input
+                value={editUrl}
+                onChange={(e) => setEditUrl(e.target.value)}
+                placeholder="docker.io, ghcr.io ou registry.gitlab.com"
+                required
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-foreground block">
+                Usuário / Organização
+              </label>
+              <Input
+                value={editUsername}
+                onChange={(e) => setEditUsername(e.target.value)}
+                placeholder="Seu usuário no GitHub/DockerHub"
+                required
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-foreground block">
+                Nova Senha / Personal Access Token (PAT)
+              </label>
+              <Input
+                type="password"
+                value={editSecret}
+                onChange={(e) => setEditSecret(e.target.value)}
+                placeholder="Deixe em branco para manter a credencial atual"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Se desejar trocar ou rotacionar o token/senha, digite o novo valor aqui. Se deixar
+                em branco, a credencial salva continuará sendo utilizada.
+              </p>
+            </div>
+
+            {editTestResult && (
+              <div
+                className={cn(
+                  "p-3 rounded-lg border text-xs flex items-start gap-2",
+                  editTestResult.success
+                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400 dark:text-emerald-300"
+                    : "border-destructive/30 bg-destructive/10 text-destructive",
+                )}
+              >
+                {editTestResult.success ? (
+                  <CheckCircle2 className="size-4 shrink-0 text-emerald-500 mt-0.5" />
+                ) : (
+                  <AlertCircle className="size-4 shrink-0 text-destructive mt-0.5" />
+                )}
+                <div className="flex-1">
+                  <p className="font-semibold">
+                    {editTestResult.success
+                      ? "Conexão e autenticação bem-sucedidas!"
+                      : "Falha na conexão / autenticação"}
+                  </p>
+                  <p className="text-[11px] opacity-90 mt-0.5">{editTestResult.message}</p>
+                </div>
+              </div>
+            )}
+
+            <DialogFooter className="pt-2 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9 gap-1.5"
+                disabled={editTestMutation.isPending || !editUrl.trim() || !editUsername.trim()}
+                onClick={() => {
+                  if (!editTarget) return;
+                  editTestMutation.mutate({
+                    registryId: editTarget.id,
+                    url: editUrl.trim(),
+                    username: editUsername.trim(),
+                    secret: editSecret.trim() ? editSecret.trim() : undefined,
+                  });
+                }}
+              >
+                {editTestMutation.isPending ? (
+                  <>
+                    <Loader2 className="size-3.5 animate-spin" />
+                    Testando conexão...
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="size-3.5 text-primary" />
+                    Testar Conexão
+                  </>
+                )}
+              </Button>
+
+              <div className="flex gap-2 justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9"
+                  onClick={() => {
+                    setEditTarget(null);
+                    setEditTestResult(null);
+                  }}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" size="sm" className="h-9" disabled={updateMutation.isPending}>
+                  {updateMutation.isPending ? (
+                    <>
+                      <Loader2 className="size-3.5 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : (
+                    "Salvar Alterações"
                   )}
                 </Button>
               </div>

@@ -137,10 +137,18 @@ export interface CreateRegistryRequest {
   secret: string;
 }
 
+export interface UpdateRegistryRequest {
+  name?: string;
+  url?: string;
+  username?: string;
+  secret?: string;
+}
+
 export interface TestRegistryRequest {
   url: string;
   username: string;
-  secret: string;
+  secret?: string;
+  registryId?: string;
 }
 
 export interface TestRegistryResponse {
