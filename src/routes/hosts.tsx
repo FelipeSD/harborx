@@ -255,7 +255,7 @@ function HostsPage() {
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-surface border w-full sm:w-auto flex justify-start sm:justify-center overflow-x-auto max-w-full">
+        <TabsList className="bg-surface border w-full sm:w-auto flex justify-start sm:justify-center overflow-x-auto overscroll-x-contain max-w-full">
           <TabsTrigger value="host">Host & Docker Engine</TabsTrigger>
           {isAdmin && <TabsTrigger value="users">Usuários & RBAC</TabsTrigger>}
           {isOperator && <TabsTrigger value="audit">Log de Auditoria</TabsTrigger>}
@@ -285,11 +285,11 @@ function HostsPage() {
 
               <div className="mt-6 space-y-4">
                 <div>
-                  <div className="flex justify-between text-xs mb-1.5">
-                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                  <div className="flex flex-wrap items-center justify-between text-xs gap-1 mb-1.5">
+                    <span className="flex items-center gap-1.5 text-muted-foreground shrink-0">
                       <Cpu className="size-3.5" /> Processador
                     </span>
-                    <span className="font-mono text-xs font-medium">
+                    <span className="font-mono text-xs font-medium truncate max-w-full sm:max-w-xs text-right">
                       {hostInfo?.cpusCount} núcleos ({hostInfo?.cpuModel})
                     </span>
                   </div>
@@ -350,8 +350,8 @@ function HostsPage() {
                   conectado com Docker em 1 comando:
                 </p>
 
-                <div className="relative rounded-lg border bg-surface p-3 font-mono text-[11px] leading-relaxed text-foreground">
-                  <pre className="whitespace-pre overflow-x-auto">{vmInstallCmd}</pre>
+                <div className="relative rounded-lg border bg-surface p-3 font-mono text-[11px] leading-relaxed text-foreground min-w-0">
+                  <pre className="whitespace-pre overflow-x-auto overscroll-x-contain pr-8">{vmInstallCmd}</pre>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -377,7 +377,7 @@ function HostsPage() {
         {/* Tab 2: Users & RBAC */}
         {isAdmin && (
           <TabsContent value="users" className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <h3 className="text-sm font-semibold text-foreground">
                   Controle de Acesso Baseado em Papéis (RBAC)
@@ -387,133 +387,240 @@ function HostsPage() {
                   recursos.
                 </p>
               </div>
-              <Button size="sm" onClick={() => setIsNewUserOpen(true)}>
+              <Button size="sm" onClick={() => setIsNewUserOpen(true)} className="self-start sm:self-auto">
                 <Plus className="size-4" /> Novo Usuário
               </Button>
             </div>
 
-            <Panel className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="border-b text-left text-xs uppercase tracking-wider text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">Usuário</th>
-                    <th className="px-4 py-3 font-medium">Papel (Role)</th>
-                    <th className="px-4 py-3 font-medium">Status</th>
-                    <th className="px-4 py-3 font-medium">Criado em</th>
-                    <th className="px-4 py-3 font-medium text-right">Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {usersLoading
-                    ? Array.from({ length: 3 }).map((_, i) => (
-                        <tr key={i} className="border-b last:border-0">
-                          <td className="px-4 py-3">
-                            <Skeleton className="h-4 w-28" />
-                          </td>
-                          <td className="px-4 py-3">
-                            <Skeleton className="h-4 w-20" />
-                          </td>
-                          <td className="px-4 py-3">
-                            <Skeleton className="h-4 w-16" />
-                          </td>
-                          <td className="px-4 py-3">
-                            <Skeleton className="h-4 w-24" />
-                          </td>
-                          <td className="px-4 py-3">
-                            <Skeleton className="h-4 w-12" />
-                          </td>
-                        </tr>
-                      ))
-                    : users.map((u) => {
-                        const isSelf = user?.id === u.id;
-
-                        return (
-                          <tr
-                            key={u.id}
-                            className="border-b last:border-0 hover:bg-accent/40 transition-colors"
-                          >
-                            <td className="px-4 py-3 font-mono text-xs font-semibold text-foreground">
-                              {u.username}{" "}
-                              {isSelf && <span className="text-[10px] text-primary">(você)</span>}
-                            </td>
-                            <td className="px-4 py-3">
-                              <Select
-                                value={u.role}
-                                disabled={isSelf}
-                                onValueChange={(newR) =>
-                                  updateUserMutation.mutate({
-                                    id: u.id,
-                                    patch: { role: newR as UserRole },
-                                  })
-                                }
+            <Panel className="overflow-hidden">
+              {/* Mobile Card View (< 768px) */}
+              <div className="block md:hidden p-3 space-y-3">
+                {usersLoading
+                  ? Array.from({ length: 3 }).map((_, i) => (
+                      <div key={i} className="rounded-lg border bg-card p-3 space-y-2">
+                        <Skeleton className="h-4 w-28" />
+                        <Skeleton className="h-4 w-20" />
+                        <Skeleton className="h-3 w-32" />
+                      </div>
+                    ))
+                  : users.map((u) => {
+                      const isSelf = user?.id === u.id;
+                      return (
+                        <div
+                          key={u.id}
+                          className="rounded-lg border bg-card/60 p-3 text-xs space-y-2.5 transition-colors"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="font-mono text-xs font-semibold text-foreground flex items-center gap-1.5">
+                              <span>{u.username}</span>
+                              {isSelf && (
+                                <Badge variant="secondary" className="text-[10px] py-0 px-1 font-sans">
+                                  você
+                                </Badge>
+                              )}
+                            </div>
+                            {u.disabled ? (
+                              <Badge
+                                variant="outline"
+                                className="border-rose-500/30 text-rose-500 bg-rose-500/5 text-[10px]"
                               >
-                                <SelectTrigger className="w-32 h-7 text-xs">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="admin">Administrador</SelectItem>
-                                  <SelectItem value="operator">Operador</SelectItem>
-                                  <SelectItem value="viewer">Visualizador</SelectItem>
-                                </SelectContent>
-                              </Select>
+                                Desativado
+                              </Badge>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className="border-emerald-500/30 text-emerald-500 bg-emerald-500/5 text-[10px]"
+                              >
+                                Ativo
+                              </Badge>
+                            )}
+                          </div>
+
+                          <div className="flex items-center justify-between gap-2 text-xs">
+                            <span className="text-muted-foreground">Papel (Role):</span>
+                            <Select
+                              value={u.role}
+                              disabled={isSelf}
+                              onValueChange={(newR) =>
+                                updateUserMutation.mutate({
+                                  id: u.id,
+                                  patch: { role: newR as UserRole },
+                                })
+                              }
+                            >
+                              <SelectTrigger className="w-32 h-7 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="admin">Administrador</SelectItem>
+                                <SelectItem value="operator">Operador</SelectItem>
+                                <SelectItem value="viewer">Visualizador</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground pt-1 border-t">
+                            <span>Criado em {formatDate(u.createdAt)}</span>
+                            {!isSelf && (
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs"
+                                  onClick={() =>
+                                    updateUserMutation.mutate({
+                                      id: u.id,
+                                      patch: { disabled: !u.disabled },
+                                    })
+                                  }
+                                >
+                                  {u.disabled ? (
+                                    <UserCheck className="size-3 text-emerald-500 mr-1" />
+                                  ) : (
+                                    <UserX className="size-3 text-amber-500 mr-1" />
+                                  )}
+                                  {u.disabled ? "Ativar" : "Desativar"}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="size-7 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                  onClick={() => setDeleteUserTarget(u)}
+                                >
+                                  <Trash2 className="size-3.5" />
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+              </div>
+
+              {/* Desktop Multi-column Table (>= 768px) */}
+              <div className="hidden md:block overflow-x-auto overscroll-x-contain">
+                <table className="w-full text-sm">
+                  <thead className="border-b text-left text-xs uppercase tracking-wider text-muted-foreground">
+                    <tr>
+                      <th className="px-4 py-3 font-medium">Usuário</th>
+                      <th className="px-4 py-3 font-medium">Papel (Role)</th>
+                      <th className="px-4 py-3 font-medium">Status</th>
+                      <th className="px-4 py-3 font-medium">Criado em</th>
+                      <th className="px-4 py-3 font-medium text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {usersLoading
+                      ? Array.from({ length: 3 }).map((_, i) => (
+                          <tr key={i} className="border-b last:border-0">
+                            <td className="px-4 py-3">
+                              <Skeleton className="h-4 w-28" />
                             </td>
                             <td className="px-4 py-3">
-                              {u.disabled ? (
-                                <Badge
-                                  variant="outline"
-                                  className="border-rose-500/30 text-rose-500 bg-rose-500/5 text-[10px]"
-                                >
-                                  Desativado
-                                </Badge>
-                              ) : (
-                                <Badge
-                                  variant="outline"
-                                  className="border-emerald-500/30 text-emerald-500 bg-emerald-500/5 text-[10px]"
-                                >
-                                  Ativo
-                                </Badge>
-                              )}
+                              <Skeleton className="h-4 w-20" />
                             </td>
-                            <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                              {formatDate(u.createdAt)}
+                            <td className="px-4 py-3">
+                              <Skeleton className="h-4 w-16" />
                             </td>
-                            <td className="px-4 py-3 text-right">
-                              {!isSelf && (
-                                <div className="flex items-center justify-end gap-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 text-xs"
-                                    onClick={() =>
-                                      updateUserMutation.mutate({
-                                        id: u.id,
-                                        patch: { disabled: !u.disabled },
-                                      })
-                                    }
-                                  >
-                                    {u.disabled ? (
-                                      <UserCheck className="size-3 text-emerald-500" />
-                                    ) : (
-                                      <UserX className="size-3 text-amber-500" />
-                                    )}
-                                    {u.disabled ? "Ativar" : "Desativar"}
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="size-7 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                    onClick={() => setDeleteUserTarget(u)}
-                                  >
-                                    <Trash2 className="size-3.5" />
-                                  </Button>
-                                </div>
-                              )}
+                            <td className="px-4 py-3">
+                              <Skeleton className="h-4 w-24" />
+                            </td>
+                            <td className="px-4 py-3">
+                              <Skeleton className="h-4 w-12" />
                             </td>
                           </tr>
-                        );
-                      })}
-                </tbody>
-              </table>
+                        ))
+                      : users.map((u) => {
+                          const isSelf = user?.id === u.id;
+
+                          return (
+                            <tr
+                              key={u.id}
+                              className="border-b last:border-0 hover:bg-accent/40 transition-colors"
+                            >
+                              <td className="px-4 py-3 font-mono text-xs font-semibold text-foreground">
+                                {u.username}{" "}
+                                {isSelf && <span className="text-[10px] text-primary">(você)</span>}
+                              </td>
+                              <td className="px-4 py-3">
+                                <Select
+                                  value={u.role}
+                                  disabled={isSelf}
+                                  onValueChange={(newR) =>
+                                    updateUserMutation.mutate({
+                                      id: u.id,
+                                      patch: { role: newR as UserRole },
+                                    })
+                                  }
+                                >
+                                  <SelectTrigger className="w-32 h-7 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="admin">Administrador</SelectItem>
+                                    <SelectItem value="operator">Operador</SelectItem>
+                                    <SelectItem value="viewer">Visualizador</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </td>
+                              <td className="px-4 py-3">
+                                {u.disabled ? (
+                                  <Badge
+                                    variant="outline"
+                                    className="border-rose-500/30 text-rose-500 bg-rose-500/5 text-[10px]"
+                                  >
+                                    Desativado
+                                  </Badge>
+                                ) : (
+                                  <Badge
+                                    variant="outline"
+                                    className="border-emerald-500/30 text-emerald-500 bg-emerald-500/5 text-[10px]"
+                                  >
+                                    Ativo
+                                  </Badge>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                                {formatDate(u.createdAt)}
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                {!isSelf && (
+                                  <div className="flex items-center justify-end gap-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 text-xs"
+                                      onClick={() =>
+                                        updateUserMutation.mutate({
+                                          id: u.id,
+                                          patch: { disabled: !u.disabled },
+                                        })
+                                      }
+                                    >
+                                      {u.disabled ? (
+                                        <UserCheck className="size-3 text-emerald-500" />
+                                      ) : (
+                                        <UserX className="size-3 text-amber-500" />
+                                      )}
+                                      {u.disabled ? "Ativar" : "Desativar"}
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="size-7 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                      onClick={() => setDeleteUserTarget(u)}
+                                    >
+                                      <Trash2 className="size-3.5" />
+                                    </Button>
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                  </tbody>
+                </table>
+              </div>
             </Panel>
           </TabsContent>
         )}
@@ -531,16 +638,16 @@ function HostsPage() {
               </p>
             </div>
 
-            <Panel className="overflow-x-auto">
+            <Panel className="overflow-x-auto overscroll-x-contain">
               <table className="w-full text-xs font-mono">
                 <thead className="border-b text-left uppercase tracking-wider text-muted-foreground text-[11px] font-sans">
                   <tr>
-                    <th className="px-4 py-3 font-medium">Data / Hora</th>
-                    <th className="px-4 py-3 font-medium">Ação</th>
-                    <th className="px-4 py-3 font-medium">Usuário</th>
-                    <th className="px-4 py-3 font-medium">Alvo</th>
-                    <th className="px-4 py-3 font-medium">IP</th>
-                    <th className="px-4 py-3 font-medium">Detalhes</th>
+                    <th className="px-4 py-3 font-medium whitespace-nowrap">Data / Hora</th>
+                    <th className="px-4 py-3 font-medium whitespace-nowrap">Ação</th>
+                    <th className="px-4 py-3 font-medium whitespace-nowrap">Usuário</th>
+                    <th className="px-4 py-3 font-medium whitespace-nowrap">Alvo</th>
+                    <th className="px-4 py-3 font-medium whitespace-nowrap">IP</th>
+                    <th className="px-4 py-3 font-medium whitespace-nowrap">Detalhes</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -576,18 +683,21 @@ function HostsPage() {
                   ) : (
                     auditData?.items.map((log) => (
                       <tr key={log.id} className="border-b last:border-0 hover:bg-accent/40">
-                        <td className="px-4 py-2.5 text-muted-foreground">{formatDate(log.ts)}</td>
-                        <td className="px-4 py-2.5">
+                        <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">{formatDate(log.ts)}</td>
+                        <td className="px-4 py-2.5 whitespace-nowrap">
                           <span className="rounded bg-muted px-1.5 py-0.5 text-foreground font-semibold">
                             {log.action}
                           </span>
                         </td>
-                        <td className="px-4 py-2.5 text-foreground font-medium">
+                        <td className="px-4 py-2.5 text-foreground font-medium whitespace-nowrap">
                           {log.username || "sistema"}
                         </td>
-                        <td className="px-4 py-2.5 truncate max-w-xs">{log.target || "—"}</td>
-                        <td className="px-4 py-2.5 text-muted-foreground">{log.ip || "—"}</td>
-                        <td className="px-4 py-2.5 text-muted-foreground truncate max-w-sm">
+                        <td className="px-4 py-2.5 truncate max-w-[140px] sm:max-w-xs">{log.target || "—"}</td>
+                        <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">{log.ip || "—"}</td>
+                        <td
+                          className="px-4 py-2.5 text-muted-foreground truncate max-w-[180px] sm:max-w-sm"
+                          title={log.details ? JSON.stringify(log.details) : undefined}
+                        >
                           {log.details ? JSON.stringify(log.details) : "—"}
                         </td>
                       </tr>

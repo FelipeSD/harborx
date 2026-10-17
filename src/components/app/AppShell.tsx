@@ -247,7 +247,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <main className="flex-1 p-3.5 sm:p-6 lg:p-8">{children}</main>
+        <main className="flex-1 min-w-0 max-w-full p-3.5 sm:p-6 lg:p-8">{children}</main>
       </div>
 
       <GlobalSearchCommand open={isSearchOpen} onOpenChange={setIsSearchOpen} />

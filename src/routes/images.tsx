@@ -702,7 +702,7 @@ function ImagesPage() {
               Carregando metadados da imagem...
             </div>
           ) : (
-            <div className="space-y-4 overflow-y-auto pr-1">
+            <div className="space-y-4 overflow-y-auto overscroll-contain pr-1 min-w-0">
               {inspectHistory && inspectHistory.length > 0 && (
                 <div>
                   <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">
@@ -712,10 +712,10 @@ function ImagesPage() {
                     {inspectHistory.map((h, idx) => (
                       <div
                         key={idx}
-                        className="flex items-start justify-between gap-4 border-b pb-1.5 last:border-0 last:pb-0"
+                        className="flex items-start justify-between gap-2 border-b pb-1.5 last:border-0 last:pb-0 min-w-0"
                       >
                         <div
-                          className="truncate text-muted-foreground"
+                          className="truncate text-muted-foreground min-w-0 flex-1"
                           title={String(h["CreatedBy"] || "")}
                         >
                           {String(h["CreatedBy"] || "").replace(/^\/bin\/sh -c #(nop) /, "")}
@@ -735,7 +735,7 @@ function ImagesPage() {
                 <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">
                   JSON de Inspeção
                 </h4>
-                <pre className="max-h-72 overflow-auto rounded-lg border bg-surface p-3 font-mono text-[11px]">
+                <pre className="max-h-72 overflow-auto overscroll-contain rounded-lg border bg-surface p-3 font-mono text-[11px] whitespace-pre-wrap break-all sm:break-normal">
                   {JSON.stringify(inspectData, null, 2)}
                 </pre>
               </div>

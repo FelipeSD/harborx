@@ -983,7 +983,7 @@ function StacksPage() {
               >
                 <div>
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex min-w-0 items-center gap-3 flex-1">
                       <div
                         className={cn(
                           "grid size-9 shrink-0 place-items-center rounded-lg transition-colors",
@@ -992,17 +992,19 @@ function StacksPage() {
                       >
                         <FileStack className="size-4" />
                       </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold text-base text-foreground">{s.name}</p>
-                          <Badge variant="outline" className="font-mono text-[10px] py-0 uppercase">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <p className="font-semibold text-base text-foreground truncate max-w-[170px] sm:max-w-none">
+                            {s.name}
+                          </p>
+                          <Badge variant="outline" className="font-mono text-[10px] py-0 uppercase shrink-0">
                             {s.type}
                           </Badge>
                         </div>
                         {s.type === "git" ? (
                           <p className="truncate font-mono text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                             <GitBranch className="size-3 shrink-0" />
-                            {s.gitRepo} ({s.gitBranch})
+                            <span className="truncate">{s.gitRepo} ({s.gitBranch})</span>
                           </p>
                         ) : (
                           <p className="font-mono text-xs text-muted-foreground mt-0.5">
@@ -1105,19 +1107,19 @@ function StacksPage() {
 
                   {/* Webhook GitOps Bar */}
                   <div className="mt-3 rounded-lg border bg-surface/80 p-2.5 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
                       <div className="grid size-6 place-items-center rounded bg-primary/10 text-primary shrink-0">
                         <Zap className="size-3.5" />
                       </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="font-semibold text-foreground text-[11px]">
                             Webhook GitOps
                           </span>
                           <Badge
                             variant="outline"
                             className={cn(
-                              "text-[9px] py-0 px-1.5 font-medium",
+                              "text-[9px] py-0 px-1.5 font-medium shrink-0",
                               s.autoDeploy
                                 ? "border-emerald-500/30 text-emerald-500 bg-emerald-500/5"
                                 : "text-muted-foreground",
@@ -1126,7 +1128,7 @@ function StacksPage() {
                             {s.autoDeploy ? "Auto-deploy Ativo" : "Disponível"}
                           </Badge>
                         </div>
-                        <p className="font-mono text-[10px] text-muted-foreground truncate max-w-[240px] sm:max-w-xs md:max-w-sm">
+                        <p className="font-mono text-[10px] text-muted-foreground truncate break-all max-w-full">
                           {typeof window !== "undefined"
                             ? `${window.location.origin}/api/public/hooks/${s.webhookToken}`
                             : `/api/public/hooks/${s.webhookToken}`}
@@ -1134,7 +1136,7 @@ function StacksPage() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1 shrink-0 self-end sm:self-auto">
+                    <div className="flex items-center gap-1 shrink-0 self-start sm:self-auto flex-wrap">
                       <Button
                         type="button"
                         variant="outline"
@@ -1178,7 +1180,7 @@ function StacksPage() {
                 </div>
 
                 <div className="mt-5 border-t pt-3 flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     {isOperator && (
                       <div className="inline-flex rounded-md shadow-xs">
                         <Button
@@ -1967,8 +1969,8 @@ function StacksPage() {
                   </div>
                 )}
 
-                <div className="p-6 py-4 overflow-y-auto flex-1 min-w-0 bg-muted/20">
-                  <pre className="rounded-lg border bg-zinc-950 p-4 font-mono text-xs leading-relaxed text-zinc-100 whitespace-pre-wrap break-all sm:break-normal select-all">
+                <div className="p-4 sm:p-6 py-3 sm:py-4 overflow-y-auto overscroll-contain flex-1 min-w-0 bg-muted/20">
+                  <pre className="rounded-lg border bg-zinc-950 p-3 sm:p-4 font-mono text-xs leading-relaxed text-zinc-100 whitespace-pre-wrap break-all sm:break-normal select-all">
                     {isDeploying
                       ? "Iniciando o processo de deploy e orquestração dos containers...\nOs logs antigos foram limpos.\nAguarde a conclusão da execução para visualizar o relatório completo."
                       : activeLogStack?.recentDeployment?.outputLog ||
@@ -1976,12 +1978,12 @@ function StacksPage() {
                   </pre>
                 </div>
 
-                <DialogFooter className="p-4 px-6 border-t shrink-0 flex items-center justify-between">
+                <DialogFooter className="p-3 sm:p-4 px-4 sm:px-6 border-t shrink-0 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2">
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="gap-1.5"
+                    className="gap-1.5 w-full sm:w-auto"
                     disabled={!activeLogStack?.recentDeployment?.outputLog || isDeploying}
                     onClick={() => {
                       if (activeLogStack?.recentDeployment?.outputLog) {
@@ -1998,6 +2000,7 @@ function StacksPage() {
                     type="button"
                     variant="outline"
                     size="sm"
+                    className="w-full sm:w-auto"
                     onClick={() => setLogStack(null)}
                   >
                     Fechar

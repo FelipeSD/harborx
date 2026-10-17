@@ -128,7 +128,7 @@ export function ContainerStatsViewer({
   const memUsedMb = currentStats ? Math.round(currentStats.memUsedBytes / (1024 * 1024)) : 0;
 
   return (
-    <div className={`space-y-4 ${className}`}>
+    <div className={`space-y-4 min-w-0 ${className}`}>
       {/* Status Bar */}
       <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
         <div className="flex items-center gap-2">
@@ -223,13 +223,13 @@ export function ContainerStatsViewer({
       </div>
 
       {/* Real-time Charts */}
-      <div className="space-y-4">
+      <div className="space-y-4 min-w-0">
         {/* CPU Chart */}
-        <div className="rounded-lg border bg-card p-3 space-y-2">
+        <div className="rounded-lg border bg-card p-3 space-y-2 min-w-0">
           <span className="text-xs font-semibold text-zinc-300">
             Histórico de CPU (%) — Últimos 30 segundos
           </span>
-          <div className="h-40 w-full">
+          <div className="h-40 w-full min-w-0">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={history} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                 <defs>
@@ -264,9 +264,9 @@ export function ContainerStatsViewer({
         </div>
 
         {/* Memory Chart */}
-        <div className="rounded-lg border bg-card p-3 space-y-2">
+        <div className="rounded-lg border bg-card p-3 space-y-2 min-w-0">
           <span className="text-xs font-semibold text-zinc-300">Histórico de Memória RAM (MB)</span>
-          <div className="h-40 w-full">
+          <div className="h-40 w-full min-w-0">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={history} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
                 <defs>

@@ -692,7 +692,7 @@ function ContainersPage() {
         )
       ) : (
         /* Tabela de Containers */
-        <Panel className="overflow-x-auto">
+        <Panel className="overflow-x-auto overscroll-x-contain">
           <table className="w-full text-sm">
             <thead className="border-b text-left text-xs uppercase tracking-wider text-muted-foreground">
               <tr>
@@ -978,7 +978,7 @@ function ContainersPage() {
 
       {/* Drawer de Detalhes com Abas */}
       <Sheet open={!!selectedContainer} onOpenChange={(o) => !o && setSelectedContainer(null)}>
-        <SheetContent className="w-full sm:max-w-4xl lg:max-w-5xl overflow-y-auto">
+        <SheetContent className="w-full sm:max-w-4xl lg:max-w-5xl overflow-y-auto overscroll-contain">
           {selectedContainer && (
             <>
               <SheetHeader>
@@ -1032,9 +1032,9 @@ function ContainersPage() {
 
                   <div>
                     <p className="text-xs font-medium mb-1.5 text-muted-foreground">
-                      Comando de execução
+                       Comando de execução
                     </p>
-                    <pre className="overflow-auto rounded-lg border bg-background p-3 font-mono text-xs leading-relaxed text-muted-foreground">
+                    <pre className="overflow-auto overscroll-contain rounded-lg border bg-background p-3 font-mono text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap break-all sm:break-normal">
                       {selectedContainer.command || "Nenhum comando explícito"}
                     </pre>
                   </div>
@@ -1197,7 +1197,7 @@ function ContainersPage() {
                       Carregando inspect do container…
                     </div>
                   ) : (
-                    <pre className="max-h-[500px] overflow-auto rounded-lg border bg-background p-3 font-mono text-[11px] leading-relaxed text-muted-foreground">
+                    <pre className="max-h-[500px] overflow-auto overscroll-contain rounded-lg border bg-background p-3 font-mono text-[11px] leading-relaxed text-muted-foreground whitespace-pre-wrap break-all sm:break-normal">
                       {inspectData ? JSON.stringify(inspectData, null, 2) : "Nenhum dado retornado"}
                     </pre>
                   )}
@@ -1208,7 +1208,7 @@ function ContainersPage() {
                   <LogViewer
                     containerId={selectedContainer.id}
                     containerName={selectedContainer.name}
-                    className="h-[620px]"
+                    className="min-h-[350px] h-[55dvh] sm:h-[620px]"
                   />
                 </TabsContent>
 

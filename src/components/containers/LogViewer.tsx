@@ -345,9 +345,9 @@ export function LogViewer({ containerId, containerName, className = "" }: LogVie
         </div>
 
         {/* Right side search & utilities */}
-        <div className="flex items-center gap-1.5 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap w-full sm:w-auto">
           {/* Search bar */}
-          <div className="relative flex items-center">
+          <div className="relative flex-1 sm:flex-initial flex items-center min-w-[140px]">
             <Search className="size-3.5 absolute left-2 text-zinc-500 pointer-events-none" />
             <Input
               value={searchQuery}
@@ -356,7 +356,7 @@ export function LogViewer({ containerId, containerName, className = "" }: LogVie
                 setCurrentMatchIndex(0);
               }}
               placeholder="Buscar nos logs..."
-              className="h-7 w-44 pl-7 pr-16 bg-zinc-950 border-zinc-800 text-xs text-zinc-200 focus-visible:ring-1 focus-visible:ring-cyan-500"
+              className="h-7 w-full sm:w-44 pl-7 pr-16 bg-zinc-950 border-zinc-800 text-xs text-zinc-200 focus-visible:ring-1 focus-visible:ring-cyan-500"
             />
             {searchQuery && (
               <div className="absolute right-1.5 flex items-center gap-1 text-[10px] text-zinc-400">
@@ -444,7 +444,7 @@ export function LogViewer({ containerId, containerName, className = "" }: LogVie
       <div
         ref={parentRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto p-2 font-mono text-[12px] leading-5 select-text"
+        className="flex-1 overflow-y-auto overscroll-contain p-2 font-mono text-[12px] leading-5 select-text"
       >
         {filteredLines.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-zinc-500 space-y-2 py-12">
@@ -547,13 +547,13 @@ export function LogViewer({ containerId, containerName, className = "" }: LogVie
       )}
 
       {/* Footer bar */}
-      <div className="flex items-center justify-between px-3 py-1 bg-zinc-900/80 border-t border-zinc-800 text-[11px] text-zinc-500 font-sans select-none">
+      <div className="flex flex-wrap items-center justify-between gap-1 px-3 py-1 bg-zinc-900/80 border-t border-zinc-800 text-[11px] text-zinc-500 font-sans select-none">
         <div>
           Total de linhas: {filteredLines.length.toLocaleString()}{" "}
           {filteredLines.length !== lines.length &&
             `(filtradas de ${lines.length.toLocaleString()})`}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="hidden sm:flex items-center gap-3">
           {isPaused && (
             <span className="text-amber-400 font-medium animate-pulse">
               [PAUSADO - novas linhas sendo acumuladas]

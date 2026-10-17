@@ -177,15 +177,15 @@ function Overview() {
       {/* Charts & Live Events */}
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         {/* Real Historical Chart */}
-        <Panel className="p-5 lg:col-span-2">
-          <div className="mb-4 flex items-center justify-between">
+        <Panel className="p-4 sm:p-5 lg:col-span-2">
+          <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h2 className="font-medium">Utilização do Host (Últimas 24h)</h2>
               <p className="text-xs text-muted-foreground">
                 Consumo real de CPU e memória RAM amostrados a cada minuto
               </p>
             </div>
-            <div className="flex gap-4 text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs text-muted-foreground">
               <span className="flex items-center gap-1.5">
                 <span className="size-2 rounded-full bg-cyan-500" />
                 CPU (%)
@@ -341,15 +341,15 @@ function Overview() {
             {containers.slice(0, 5).map((c) => (
               <div
                 key={c.id}
-                className="flex items-center justify-between rounded-lg border bg-surface px-3 py-2 text-sm"
+                className="flex items-center justify-between gap-3 rounded-lg border bg-surface px-3 py-2 text-sm"
               >
-                <div>
-                  <p className="font-medium">{c.name}</p>
-                  <p className="font-mono text-xs text-muted-foreground truncate max-w-[200px]">
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium truncate">{c.name}</p>
+                  <p className="font-mono text-xs text-muted-foreground truncate" title={c.image}>
                     {c.image}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                   <span
                     className={cn(
                       "size-2 rounded-full",
@@ -368,14 +368,14 @@ function Overview() {
           </div>
         </Panel>
 
-        <Panel className="p-5">
+        <Panel className="p-4 sm:p-5">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="font-medium">Informações da Máquina Host</h2>
             <Link to="/hosts" className="text-xs text-primary hover:underline">
               Detalhes
             </Link>
           </div>
-          <dl className="grid grid-cols-2 gap-3 text-xs">
+          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
             <div className="rounded-lg border bg-surface p-3">
               <dt className="text-muted-foreground">Nome do Host</dt>
               <dd className="mt-1 font-mono font-medium truncate">
@@ -384,7 +384,7 @@ function Overview() {
             </div>
             <div className="rounded-lg border bg-surface p-3">
               <dt className="text-muted-foreground">Versão do Docker</dt>
-              <dd className="mt-1 font-mono font-medium">{system?.serverVersion || "—"}</dd>
+              <dd className="mt-1 font-mono font-medium truncate">{system?.serverVersion || "—"}</dd>
             </div>
             <div className="rounded-lg border bg-surface p-3">
               <dt className="text-muted-foreground">Sistema Operacional</dt>

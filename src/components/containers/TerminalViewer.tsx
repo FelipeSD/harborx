@@ -247,7 +247,7 @@ export function TerminalViewer({
     <div
       ref={containerRef}
       className={`flex flex-col bg-zinc-950 text-zinc-100 rounded-lg border border-zinc-800 overflow-hidden ${
-        isFullscreen ? "fixed inset-0 z-50 rounded-none border-none" : "h-[620px]"
+        isFullscreen ? "fixed inset-0 z-50 rounded-none border-none" : "min-h-[350px] h-[55dvh] sm:h-[620px]"
       } ${className}`}
     >
       {/* Terminal Settings & Control Toolbar */}
@@ -368,11 +368,11 @@ export function TerminalViewer({
       </div>
 
       {/* Terminal Viewport */}
-      <div className="relative flex-1 bg-zinc-950 p-2 overflow-hidden">
+      <div className="relative flex-1 bg-zinc-950 p-2 overflow-hidden overscroll-contain">
         {!isConnected && !isConnecting && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-950/80 z-10 space-y-3">
             <TerminalIcon className="size-8 text-zinc-600" />
-            <p className="text-zinc-400 text-xs font-sans text-center max-w-sm">
+            <p className="text-zinc-400 text-xs font-sans text-center max-w-sm px-4">
               Console interativo dentro do container <strong>{containerName || containerId}</strong>
               . Clique em <strong>Conectar</strong> para abrir uma sessão shell.
             </p>
@@ -391,12 +391,12 @@ export function TerminalViewer({
       </div>
 
       {/* Footer info bar */}
-      <div className="flex items-center justify-between px-3 py-1 bg-zinc-900 border-t border-zinc-800 text-[11px] text-zinc-500 font-sans select-none">
-        <div>
+      <div className="flex flex-wrap items-center justify-between gap-1 px-3 py-1 bg-zinc-900 border-t border-zinc-800 text-[11px] text-zinc-500 font-sans select-none">
+        <div className="truncate">
           Shell: <code className="text-zinc-400">{shell}</code> | Usuário:{" "}
           <code className="text-zinc-400">{execUser || "padrão"}</code>
         </div>
-        <div>
+        <div className="hidden sm:block">
           <span>xterm.js + PTY Stream via Docker Exec</span>
         </div>
       </div>

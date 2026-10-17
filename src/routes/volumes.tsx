@@ -372,147 +372,275 @@ function VolumesPage() {
         </Alert>
       )}
 
-      <Panel className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="border-b text-left text-xs uppercase tracking-wider text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3 font-medium">Nome do Volume</th>
-              <th className="px-4 py-3 font-medium">Driver / Escopo</th>
-              <th className="px-4 py-3 font-medium">Containers em Uso</th>
-              <th className="px-4 py-3 font-medium">Ponto de Montagem (Host)</th>
-              <th className="px-4 py-3 font-medium">Criado em</th>
-              <th className="px-4 py-3 font-medium text-right">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              Array.from({ length: 4 }).map((_, i) => (
-                <tr key={i} className="border-b last:border-0">
-                  <td className="px-4 py-3">
-                    <Skeleton className="h-4 w-40" />
-                  </td>
-                  <td className="px-4 py-3">
-                    <Skeleton className="h-4 w-16" />
-                  </td>
-                  <td className="px-4 py-3">
-                    <Skeleton className="h-4 w-28" />
-                  </td>
-                  <td className="px-4 py-3">
-                    <Skeleton className="h-4 w-64" />
-                  </td>
-                  <td className="px-4 py-3">
-                    <Skeleton className="h-4 w-20" />
-                  </td>
-                  <td className="px-4 py-3">
-                    <Skeleton className="h-4 w-12" />
+      <Panel className="overflow-hidden">
+        {/* Visualização em Cartões para Telas Pequenas (Mobile) */}
+        <div className="block md:hidden p-3 space-y-3">
+          {isLoading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="rounded-lg border bg-surface/50 p-3 space-y-2">
+                <Skeleton className="h-4 w-32 mb-1" />
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-8 w-full mt-2" />
+              </div>
+            ))
+          ) : filteredVolumes.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground text-xs">
+              <HardDrive className="mx-auto size-8 mb-2 opacity-40" />
+              Nenhum volume persistente encontrado.
+            </div>
+          ) : (
+            filteredVolumes.map((v) => {
+              const inUse = v.inUseBy && v.inUseBy.length > 0;
+
+              return (
+                <div
+                  key={`mobile-${v.name}`}
+                  className="rounded-lg border border-border/60 bg-surface/40 p-3 space-y-2.5 transition-colors hover:bg-surface/60"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-semibold font-mono text-xs text-foreground truncate" title={v.name}>
+                          {v.name}
+                        </span>
+                        <span className="rounded border px-1.5 py-0.5 font-mono text-[9px] uppercase">
+                          {v.driver}
+                        </span>
+                      </div>
+                      <p className="font-mono text-[10px] text-muted-foreground mt-0.5">
+                        Criado em {formatDate(v.createdAt)}
+                      </p>
+                    </div>
+
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-[10px] font-mono shrink-0",
+                        inUse
+                          ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10"
+                          : "border-amber-500/40 text-amber-400 bg-amber-500/10",
+                      )}
+                    >
+                      {inUse ? `${v.inUseBy!.length} em uso` : "Órfão"}
+                    </Badge>
+                  </div>
+
+                  {inUse ? (
+                    <div className="space-y-1 pt-1">
+                      <span className="text-[10px] uppercase font-semibold text-muted-foreground">
+                        Containers em uso:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+                        {v.inUseBy!.map((c) => (
+                          <span
+                            key={c.id}
+                            className="inline-flex items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-400"
+                          >
+                            <span
+                              className={cn(
+                                "size-1.5 rounded-full shrink-0",
+                                c.state === "running" ? "bg-emerald-400" : "bg-slate-400",
+                              )}
+                            />
+                            <span className="font-medium text-foreground truncate max-w-[140px]">
+                              {c.name}
+                            </span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div className="rounded border bg-background/60 p-2 font-mono text-[11px] text-muted-foreground">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-[10px] uppercase font-semibold">Montagem:</span>
+                      <span className="text-foreground truncate flex-1 text-right ml-2" title={v.mountpoint}>
+                        {v.mountpoint}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-border/40">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs flex-1"
+                      onClick={() => handleOpenInspect(v)}
+                    >
+                      <Eye className="size-3.5 mr-1" /> Inspecionar
+                    </Button>
+                    {isOperator && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 px-2 text-destructive hover:bg-destructive/10"
+                        title="Remover volume"
+                        disabled={
+                          deleteMutation.isPending && deleteMutation.variables?.name === v.name
+                        }
+                        onClick={() => {
+                          setDeleteTarget(v);
+                          setForceDelete(false);
+                        }}
+                      >
+                        {deleteMutation.isPending &&
+                        deleteMutation.variables?.name === v.name ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="size-3.5" />
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Tabela para Desktop */}
+        <div className="hidden md:block overflow-x-auto overscroll-x-contain">
+          <table className="w-full text-sm">
+            <thead className="border-b text-left text-xs uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="px-4 py-3 font-medium">Nome do Volume</th>
+                <th className="px-4 py-3 font-medium">Driver / Escopo</th>
+                <th className="px-4 py-3 font-medium">Containers em Uso</th>
+                <th className="px-4 py-3 font-medium">Ponto de Montagem (Host)</th>
+                <th className="px-4 py-3 font-medium">Criado em</th>
+                <th className="px-4 py-3 font-medium text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <tr key={i} className="border-b last:border-0">
+                    <td className="px-4 py-3">
+                      <Skeleton className="h-4 w-40" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <Skeleton className="h-4 w-16" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <Skeleton className="h-4 w-28" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <Skeleton className="h-4 w-64" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <Skeleton className="h-4 w-20" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <Skeleton className="h-4 w-12" />
+                    </td>
+                  </tr>
+                ))
+              ) : filteredVolumes.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
+                    <HardDrive className="mx-auto size-8 mb-2 opacity-40" />
+                    Nenhum volume persistente encontrado.
+                    {search || filterUsage !== "all" ? (
+                      <p className="text-xs mt-1">Tente ajustar os filtros ou a busca acima.</p>
+                    ) : null}
                   </td>
                 </tr>
-              ))
-            ) : filteredVolumes.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
-                  <HardDrive className="mx-auto size-8 mb-2 opacity-40" />
-                  Nenhum volume persistente encontrado.
-                  {search || filterUsage !== "all" ? (
-                    <p className="text-xs mt-1">Tente ajustar os filtros ou a busca acima.</p>
-                  ) : null}
-                </td>
-              </tr>
-            ) : (
-              filteredVolumes.map((v) => {
-                const inUse = v.inUseBy && v.inUseBy.length > 0;
+              ) : (
+                filteredVolumes.map((v) => {
+                  const inUse = v.inUseBy && v.inUseBy.length > 0;
 
-                return (
-                  <tr
-                    key={v.name}
-                    className="border-b last:border-0 hover:bg-accent/40 transition-colors"
-                  >
-                    <td className="px-4 py-3 font-mono text-xs font-medium">
-                      <span className="text-foreground">{v.name}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase">
-                        {v.driver}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {inUse ? (
-                        <div className="flex flex-wrap gap-1.5">
-                          {v.inUseBy!.map((c) => (
-                            <span
-                              key={c.id}
-                              className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[11px] text-emerald-400"
-                              title={`Container: ${c.name} (${c.state || "ativo"})`}
-                            >
-                              <span
-                                className={cn(
-                                  "size-1.5 rounded-full shrink-0",
-                                  c.state === "running" ? "bg-emerald-400" : "bg-slate-400",
-                                )}
-                              />
-                              <span>{c.name}</span>
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <Badge
-                          variant="outline"
-                          className="border-amber-500/40 bg-amber-500/10 text-amber-400 text-[10px] font-mono"
-                        >
-                          Não utilizado (órfão)
-                        </Badge>
-                      )}
-                    </td>
-                    <td
-                      className="max-w-xs truncate px-4 py-3 font-mono text-xs text-muted-foreground"
-                      title={v.mountpoint}
+                  return (
+                    <tr
+                      key={v.name}
+                      className="border-b last:border-0 hover:bg-accent/40 transition-colors"
                     >
-                      {v.mountpoint}
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                      {formatDate(v.createdAt)}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-8"
-                          title="Inspecionar"
-                          onClick={() => handleOpenInspect(v)}
-                        >
-                          <Eye className="size-3.5" />
-                        </Button>
-                        {isOperator && (
+                      <td className="px-4 py-3 font-mono text-xs font-medium">
+                        <span className="text-foreground">{v.name}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase">
+                          {v.driver}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {inUse ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {v.inUseBy!.map((c) => (
+                              <span
+                                key={c.id}
+                                className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[11px] text-emerald-400"
+                                title={`Container: ${c.name} (${c.state || "ativo"})`}
+                              >
+                                <span
+                                  className={cn(
+                                    "size-1.5 rounded-full shrink-0",
+                                    c.state === "running" ? "bg-emerald-400" : "bg-slate-400",
+                                  )}
+                                />
+                                <span>{c.name}</span>
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <Badge
+                            variant="outline"
+                            className="border-amber-500/40 bg-amber-500/10 text-amber-400 text-[10px] font-mono"
+                          >
+                            Não utilizado (órfão)
+                          </Badge>
+                        )}
+                      </td>
+                      <td
+                        className="max-w-xs truncate px-4 py-3 font-mono text-xs text-muted-foreground"
+                        title={v.mountpoint}
+                      >
+                        {v.mountpoint}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                        {formatDate(v.createdAt)}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="size-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                            title="Remover volume"
-                            disabled={
-                              deleteMutation.isPending && deleteMutation.variables?.name === v.name
-                            }
-                            onClick={() => {
-                              setDeleteTarget(v);
-                              setForceDelete(false);
-                            }}
+                            className="size-8"
+                            title="Inspecionar"
+                            onClick={() => handleOpenInspect(v)}
                           >
-                            {deleteMutation.isPending &&
-                            deleteMutation.variables?.name === v.name ? (
-                              <Loader2 className="size-3.5 animate-spin" />
-                            ) : (
-                              <Trash2 className="size-3.5" />
-                            )}
+                            <Eye className="size-3.5" />
                           </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                          {isOperator && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                              title="Remover volume"
+                              disabled={
+                                deleteMutation.isPending && deleteMutation.variables?.name === v.name
+                              }
+                              onClick={() => {
+                                setDeleteTarget(v);
+                                setForceDelete(false);
+                              }}
+                            >
+                              {deleteMutation.isPending &&
+                              deleteMutation.variables?.name === v.name ? (
+                                <Loader2 className="size-3.5 animate-spin" />
+                              ) : (
+                                <Trash2 className="size-3.5" />
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </Panel>
 
       {/* Create Volume Dialog */}

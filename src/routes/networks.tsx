@@ -389,86 +389,50 @@ function NetworksPage() {
         </Alert>
       )}
 
-      <Panel className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="border-b text-left text-xs uppercase tracking-wider text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3 font-medium">Nome / ID</th>
-              <th className="px-4 py-3 font-medium">Driver</th>
-              <th className="px-4 py-3 font-medium">Escopo</th>
-              <th className="px-4 py-3 font-medium">Subnet / Gateway</th>
-              <th className="px-4 py-3 font-medium">Containers Conectados</th>
-              <th className="px-4 py-3 font-medium text-right">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              Array.from({ length: 4 }).map((_, i) => (
-                <tr key={i} className="border-b last:border-0">
-                  <td className="px-4 py-3">
-                    <Skeleton className="h-4 w-28 mb-1" />
-                    <Skeleton className="h-3 w-16" />
-                  </td>
-                  <td className="px-4 py-3">
-                    <Skeleton className="h-4 w-16" />
-                  </td>
-                  <td className="px-4 py-3">
-                    <Skeleton className="h-4 w-14" />
-                  </td>
-                  <td className="px-4 py-3">
-                    <Skeleton className="h-4 w-24" />
-                  </td>
-                  <td className="px-4 py-3">
-                    <Skeleton className="h-4 w-24" />
-                  </td>
-                  <td className="px-4 py-3">
-                    <Skeleton className="h-4 w-12" />
-                  </td>
-                </tr>
-              ))
-            ) : filteredNetworks.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
-                  <NetworkIcon className="mx-auto size-8 mb-2 opacity-40" />
-                  Nenhuma rede Docker encontrada.
-                  {search || filterUsage !== "all" ? (
-                    <p className="text-xs mt-1">Tente ajustar os filtros ou a busca acima.</p>
-                  ) : null}
-                </td>
-              </tr>
-            ) : (
-              filteredNetworks.map((n) => {
-                const isBuiltin = BUILTIN_NETWORKS.includes(n.name.toLowerCase());
-                const subnets =
-                  n.ipam?.config
-                    ?.map((c) => c.subnet)
-                    .filter(Boolean)
-                    .join(", ") || "—";
-                const gateways =
-                  n.ipam?.config
-                    ?.map((c) => c.gateway)
-                    .filter(Boolean)
-                    .join(", ") || "—";
+      <Panel className="overflow-hidden">
+        {/* Visualização em Cartões para Telas Pequenas (Mobile) */}
+        <div className="block md:hidden p-3 space-y-3">
+          {isLoading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="rounded-lg border bg-surface/50 p-3 space-y-2">
+                <Skeleton className="h-4 w-32 mb-1" />
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-8 w-full mt-2" />
+              </div>
+            ))
+          ) : filteredNetworks.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground text-xs">
+              <NetworkIcon className="mx-auto size-8 mb-2 opacity-40" />
+              Nenhuma rede Docker encontrada.
+            </div>
+          ) : (
+            filteredNetworks.map((n) => {
+              const isBuiltin = BUILTIN_NETWORKS.includes(n.name.toLowerCase());
+              const subnets =
+                n.ipam?.config?.map((c) => c.subnet).filter(Boolean).join(", ") || "—";
+              const gateways =
+                n.ipam?.config?.map((c) => c.gateway).filter(Boolean).join(", ") || "—";
 
-                const inUseItems =
-                  n.inUseBy && n.inUseBy.length > 0
-                    ? n.inUseBy.map((c) => ({ id: c.id, name: c.name, ipv4: c.ipv4 }))
-                    : n.containers
-                      ? Object.entries(n.containers).map(([cid, info]) => ({
-                          id: cid,
-                          name: info.name,
-                          ipv4: info.ipv4Address ? info.ipv4Address.split("/")[0] : undefined,
-                        }))
-                      : [];
+              const inUseItems =
+                n.inUseBy && n.inUseBy.length > 0
+                  ? n.inUseBy.map((c) => ({ id: c.id, name: c.name, ipv4: c.ipv4 }))
+                  : n.containers
+                    ? Object.entries(n.containers).map(([cid, info]) => ({
+                        id: cid,
+                        name: info.name,
+                        ipv4: info.ipv4Address ? info.ipv4Address.split("/")[0] : undefined,
+                      }))
+                    : [];
 
-                return (
-                  <tr
-                    key={n.id}
-                    className="border-b last:border-0 hover:bg-accent/40 transition-colors"
-                  >
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2 font-medium text-foreground">
-                        <span>{n.name}</span>
+              return (
+                <div
+                  key={`mobile-${n.id}`}
+                  className="rounded-lg border border-border/60 bg-surface/40 p-3 space-y-2.5 transition-colors hover:bg-surface/60"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-semibold text-sm text-foreground truncate">{n.name}</span>
                         {n.internal && (
                           <span title="Rede interna isolada">
                             <Lock className="size-3 text-muted-foreground" />
@@ -479,110 +443,316 @@ function NetworksPage() {
                             padrão
                           </Badge>
                         )}
+                        <span className="rounded border px-1.5 py-0.5 font-mono text-[9px] uppercase">
+                          {n.driver}
+                        </span>
                       </div>
-                      <p className="font-mono text-[11px] text-muted-foreground">
-                        {n.id.slice(0, 12)}
+                      <p className="font-mono text-[10px] text-muted-foreground mt-0.5">
+                        {n.id.slice(0, 12)} • escopo: {n.scope}
                       </p>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-[10px] font-mono shrink-0",
+                        inUseItems.length > 0
+                          ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10"
+                          : "border-amber-500/40 text-amber-400 bg-amber-500/10",
+                      )}
+                    >
+                      {inUseItems.length} container(s)
+                    </Badge>
+                  </div>
+
+                  <div className="rounded border bg-background/60 p-2 font-mono text-xs space-y-1">
+                    <div className="flex items-center justify-between text-muted-foreground text-[11px]">
+                      <span>Subnet:</span>
+                      <span className="text-foreground">{subnets}</span>
+                    </div>
+                    {gateways !== "—" && (
+                      <div className="flex items-center justify-between text-muted-foreground text-[11px]">
+                        <span>Gateway:</span>
+                        <span className="text-foreground">{gateways}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {inUseItems.length > 0 && (
+                    <div className="space-y-1 pt-1">
+                      <span className="text-[10px] uppercase font-semibold text-muted-foreground">
+                        Containers conectados:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+                        {inUseItems.map((item) => (
+                          <span
+                            key={item.id}
+                            className="inline-flex items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-400"
+                          >
+                            <span className="size-1.5 rounded-full bg-emerald-400 shrink-0" />
+                            <span className="font-medium text-foreground truncate max-w-[120px]">
+                              {item.name}
+                            </span>
+                            {item.ipv4 && (
+                              <span className="text-[10px] font-mono text-muted-foreground">
+                                ({item.ipv4})
+                              </span>
+                            )}
+                            {isOperator && !isBuiltin && (
+                              <button
+                                type="button"
+                                title="Desconectar da rede"
+                                className="text-destructive hover:text-destructive/80 ml-0.5"
+                                onClick={() =>
+                                  disconnectMutation.mutate({ netId: n.id, container: item.id })
+                                }
+                              >
+                                <Unlink className="size-2.5" />
+                              </button>
+                            )}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-border/40">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs flex-1"
+                      onClick={() => handleOpenInspect(n)}
+                    >
+                      <Eye className="size-3.5 mr-1" /> Inspecionar
+                    </Button>
+                    {isOperator && !isBuiltin && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs flex-1"
+                        onClick={() => {
+                          setConnectNetwork(n);
+                          setSelectedContainerId("");
+                          setCustomIp("");
+                        }}
+                      >
+                        <LinkIcon className="size-3.5 mr-1 text-primary" /> Conectar
+                      </Button>
+                    )}
+                    {isOperator && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={isBuiltin}
+                        className="h-8 px-2 text-destructive hover:bg-destructive/10 disabled:opacity-30"
+                        onClick={() => setDeleteTarget(n)}
+                        title={isBuiltin ? "Rede padrão" : "Remover rede"}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Tabela para Desktop */}
+        <div className="hidden md:block overflow-x-auto overscroll-x-contain">
+          <table className="w-full text-sm">
+            <thead className="border-b text-left text-xs uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="px-4 py-3 font-medium">Nome / ID</th>
+                <th className="px-4 py-3 font-medium">Driver</th>
+                <th className="px-4 py-3 font-medium">Escopo</th>
+                <th className="px-4 py-3 font-medium">Subnet / Gateway</th>
+                <th className="px-4 py-3 font-medium">Containers Conectados</th>
+                <th className="px-4 py-3 font-medium text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <tr key={i} className="border-b last:border-0">
+                    <td className="px-4 py-3">
+                      <Skeleton className="h-4 w-28 mb-1" />
+                      <Skeleton className="h-3 w-16" />
                     </td>
                     <td className="px-4 py-3">
-                      <span className="rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase">
-                        {n.driver}
-                      </span>
+                      <Skeleton className="h-4 w-16" />
                     </td>
-                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{n.scope}</td>
-                    <td className="px-4 py-3 font-mono text-xs">
-                      <div>{subnets}</div>
-                      {gateways !== "—" && (
-                        <div className="text-[11px] text-muted-foreground">GW: {gateways}</div>
-                      )}
+                    <td className="px-4 py-3">
+                      <Skeleton className="h-4 w-14" />
                     </td>
-                    <td className="px-4 py-3 font-mono text-xs">
-                      {inUseItems.length === 0 ? (
-                        <Badge
-                          variant="outline"
-                          className="border-amber-500/40 bg-amber-500/10 text-amber-400 text-[10px] font-mono"
-                        >
-                          Vazia (0 containers)
-                        </Badge>
-                      ) : (
-                        <div className="flex flex-wrap gap-1.5 max-w-sm">
-                          {inUseItems.map((item) => (
-                            <span
-                              key={item.id}
-                              className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-400 group"
-                            >
-                              <span className="size-1.5 rounded-full bg-emerald-400 shrink-0" />
-                              <span className="font-medium text-foreground">{item.name}</span>
-                              {item.ipv4 && (
-                                <span className="text-[10px] font-mono text-muted-foreground">
-                                  ({item.ipv4})
-                                </span>
-                              )}
-                              {isOperator && !isBuiltin && (
-                                <button
-                                  type="button"
-                                  title="Desconectar da rede"
-                                  className="text-destructive/60 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity ml-0.5"
-                                  onClick={() =>
-                                    disconnectMutation.mutate({ netId: n.id, container: item.id })
-                                  }
-                                >
-                                  <Unlink className="size-2.5" />
-                                </button>
-                              )}
+                    <td className="px-4 py-3">
+                      <Skeleton className="h-4 w-24" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <Skeleton className="h-4 w-24" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <Skeleton className="h-4 w-12" />
+                    </td>
+                  </tr>
+                ))
+              ) : filteredNetworks.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
+                    <NetworkIcon className="mx-auto size-8 mb-2 opacity-40" />
+                    Nenhuma rede Docker encontrada.
+                    {search || filterUsage !== "all" ? (
+                      <p className="text-xs mt-1">Tente ajustar os filtros ou a busca acima.</p>
+                    ) : null}
+                  </td>
+                </tr>
+              ) : (
+                filteredNetworks.map((n) => {
+                  const isBuiltin = BUILTIN_NETWORKS.includes(n.name.toLowerCase());
+                  const subnets =
+                    n.ipam?.config
+                      ?.map((c) => c.subnet)
+                      .filter(Boolean)
+                      .join(", ") || "—";
+                  const gateways =
+                    n.ipam?.config
+                      ?.map((c) => c.gateway)
+                      .filter(Boolean)
+                      .join(", ") || "—";
+
+                  const inUseItems =
+                    n.inUseBy && n.inUseBy.length > 0
+                      ? n.inUseBy.map((c) => ({ id: c.id, name: c.name, ipv4: c.ipv4 }))
+                      : n.containers
+                        ? Object.entries(n.containers).map(([cid, info]) => ({
+                            id: cid,
+                            name: info.name,
+                            ipv4: info.ipv4Address ? info.ipv4Address.split("/")[0] : undefined,
+                          }))
+                        : [];
+
+                  return (
+                    <tr
+                      key={n.id}
+                      className="border-b last:border-0 hover:bg-accent/40 transition-colors"
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2 font-medium text-foreground">
+                          <span>{n.name}</span>
+                          {n.internal && (
+                            <span title="Rede interna isolada">
+                              <Lock className="size-3 text-muted-foreground" />
                             </span>
-                          ))}
+                          )}
+                          {isBuiltin && (
+                            <Badge variant="secondary" className="text-[10px] py-0 font-normal">
+                              padrão
+                            </Badge>
+                          )}
                         </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        {isOperator && !isBuiltin && (
+                        <p className="font-mono text-[11px] text-muted-foreground">
+                          {n.id.slice(0, 12)}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase">
+                          {n.driver}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{n.scope}</td>
+                      <td className="px-4 py-3 font-mono text-xs">
+                        <div>{subnets}</div>
+                        {gateways !== "—" && (
+                          <div className="text-[11px] text-muted-foreground">GW: {gateways}</div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs">
+                        {inUseItems.length === 0 ? (
+                          <Badge
+                            variant="outline"
+                            className="border-amber-500/40 bg-amber-500/10 text-amber-400 text-[10px] font-mono"
+                          >
+                            Vazia (0 containers)
+                          </Badge>
+                        ) : (
+                          <div className="flex flex-wrap gap-1.5 max-w-sm">
+                            {inUseItems.map((item) => (
+                              <span
+                                key={item.id}
+                                className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-400 group"
+                              >
+                                <span className="size-1.5 rounded-full bg-emerald-400 shrink-0" />
+                                <span className="font-medium text-foreground">{item.name}</span>
+                                {item.ipv4 && (
+                                  <span className="text-[10px] font-mono text-muted-foreground">
+                                    ({item.ipv4})
+                                  </span>
+                                )}
+                                {isOperator && !isBuiltin && (
+                                  <button
+                                    type="button"
+                                    title="Desconectar da rede"
+                                    className="text-destructive/60 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity ml-0.5"
+                                    onClick={() =>
+                                      disconnectMutation.mutate({ netId: n.id, container: item.id })
+                                    }
+                                  >
+                                    <Unlink className="size-2.5" />
+                                  </button>
+                                )}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {isOperator && !isBuiltin && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-8"
+                              title="Conectar Container"
+                              onClick={() => {
+                                setConnectNetwork(n);
+                                setSelectedContainerId("");
+                                setCustomIp("");
+                              }}
+                            >
+                              <LinkIcon className="size-3.5" />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="icon"
                             className="size-8"
-                            title="Conectar Container"
-                            onClick={() => {
-                              setConnectNetwork(n);
-                              setSelectedContainerId("");
-                              setCustomIp("");
-                            }}
+                            title="Inspecionar"
+                            onClick={() => handleOpenInspect(n)}
                           >
-                            <LinkIcon className="size-3.5" />
+                            <Eye className="size-3.5" />
                           </Button>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-8"
-                          title="Inspecionar"
-                          onClick={() => handleOpenInspect(n)}
-                        >
-                          <Eye className="size-3.5" />
-                        </Button>
-                        {isOperator && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            disabled={isBuiltin}
-                            title={
-                              isBuiltin ? "Redes padrão não podem ser removidas" : "Remover rede"
-                            }
-                            className="size-8 text-destructive hover:bg-destructive/10 hover:text-destructive disabled:opacity-30"
-                            onClick={() => setDeleteTarget(n)}
-                          >
-                            <Trash2 className="size-3.5" />
-                          </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                          {isOperator && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              disabled={isBuiltin}
+                              title={
+                                isBuiltin ? "Redes padrão não podem ser removidas" : "Remover rede"
+                              }
+                              className="size-8 text-destructive hover:bg-destructive/10 hover:text-destructive disabled:opacity-30"
+                              onClick={() => setDeleteTarget(n)}
+                            >
+                              <Trash2 className="size-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </Panel>
 
       {/* Create Network Dialog */}

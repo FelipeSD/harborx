@@ -161,19 +161,19 @@ jobs:
                   )}
                   onClick={() => setSelectedId(w.id)}
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="grid size-9 place-items-center rounded-lg bg-secondary text-secondary-foreground">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="grid size-9 place-items-center rounded-lg bg-secondary text-secondary-foreground shrink-0">
                         <FileStack className="size-4" />
                       </div>
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <p className="font-semibold text-sm text-foreground">{w.stackName}</p>
-                          <Badge variant="outline" className="font-mono text-[10px] py-0 uppercase">
+                          <p className="font-semibold text-sm text-foreground truncate">{w.stackName}</p>
+                          <Badge variant="outline" className="font-mono text-[10px] py-0 uppercase shrink-0">
                             {w.stackType}
                           </Badge>
                         </div>
-                        <p className="font-mono text-xs text-muted-foreground mt-0.5 truncate max-w-sm">
+                        <p className="font-mono text-xs text-muted-foreground mt-0.5 truncate" title={w.webhookUrl}>
                           {w.webhookUrl}
                         </p>
                       </div>
@@ -182,7 +182,7 @@ jobs:
                     <Badge
                       variant="outline"
                       className={cn(
-                        "text-[10px] font-mono",
+                        "text-[10px] font-mono shrink-0",
                         w.status === "deployed"
                           ? "border-emerald-500/30 text-emerald-500 bg-emerald-500/5"
                           : "border-muted-foreground/30 text-muted-foreground",
@@ -268,7 +268,7 @@ jobs:
                   Adicione este step ao final do seu pipeline no GitHub para fazer deploy automático
                   no HarborX sempre que uma nova tag ou commit for enviado:
                 </p>
-                <pre className="rounded-lg border bg-surface p-3 font-mono text-[11px] leading-relaxed overflow-x-auto text-foreground whitespace-pre">
+                <pre className="rounded-lg border bg-surface p-3 font-mono text-[11px] leading-relaxed overflow-x-auto overscroll-x-contain text-foreground whitespace-pre">
                   {githubSnippet}
                 </pre>
               </div>

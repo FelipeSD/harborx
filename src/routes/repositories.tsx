@@ -352,12 +352,12 @@ function RegistriesPage() {
 
       {/* Educational Guide Card */}
       <Panel className="mb-6 border-primary/20 bg-primary/5 p-4">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+          <div className="flex items-start gap-3 min-w-0 flex-1">
             <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
               <HelpCircle className="size-4" />
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
                 Como funciona a integração com Stacks e Compose?
               </h3>
@@ -370,7 +370,7 @@ function RegistriesPage() {
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 gap-1 text-xs shrink-0"
+            className="h-8 gap-1 text-xs shrink-0 self-start sm:self-auto"
             onClick={() => setIsGuideOpen(!isGuideOpen)}
           >
             {isGuideOpen ? (
@@ -493,47 +493,51 @@ function RegistriesPage() {
                 className="p-5 flex flex-col justify-between hover:border-foreground/20 transition-colors"
               >
                 <div>
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="grid size-9 place-items-center rounded-lg bg-secondary text-secondary-foreground">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-secondary text-secondary-foreground">
                         <Server className="size-4" />
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold text-sm text-foreground">{r.name}</p>
-                          <Badge variant="outline" className="font-mono text-[10px] py-0">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <p className="font-semibold text-sm text-foreground truncate max-w-[180px] sm:max-w-none">
+                            {r.name}
+                          </p>
+                          <Badge variant="outline" className="font-mono text-[10px] py-0 shrink-0">
                             {isGhcr ? "GHCR" : isDockerHub ? "Docker Hub" : "Privado"}
                           </Badge>
                         </div>
-                        <p className="font-mono text-xs text-muted-foreground mt-0.5">{r.url}</p>
+                        <p className="font-mono text-xs text-muted-foreground mt-0.5 truncate break-all">
+                          {r.url}
+                        </p>
                       </div>
                     </div>
-                    <span className="flex items-center gap-1.5 text-xs text-emerald-500 font-medium">
+                    <span className="flex items-center gap-1.5 text-xs text-emerald-500 font-medium shrink-0">
                       <ShieldCheck className="size-4" /> Ativo
                     </span>
                   </div>
 
-                  <div className="mt-4 rounded-lg border bg-surface px-3 py-2 text-xs flex items-center justify-between font-mono">
-                    <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground">Usuário:</span>
-                      <span className="font-semibold text-foreground">{r.username}</span>
+                  <div className="mt-4 rounded-lg border bg-surface px-3 py-2 text-xs flex flex-wrap items-center justify-between gap-2 font-mono">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-muted-foreground shrink-0">Usuário:</span>
+                      <span className="font-semibold text-foreground truncate">{r.username}</span>
                     </div>
-                    <div className="flex items-center gap-1 text-muted-foreground">
+                    <div className="flex items-center gap-1 text-muted-foreground text-[11px] shrink-0">
                       <Lock className="size-3" />
                       <span>Criptografado (AES-256)</span>
                     </div>
                   </div>
 
                   <div className="mt-3 rounded-lg border bg-muted/40 px-3 py-2 text-xs">
-                    <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1">
-                      <span className="flex items-center gap-1">
-                        <Code className="size-3" /> Exemplo no compose.yaml:
+                    <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1 gap-2">
+                      <span className="flex items-center gap-1 truncate">
+                        <Code className="size-3 shrink-0" /> Exemplo no compose.yaml:
                       </span>
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="h-5 px-1.5 text-[10px] gap-1 hover:text-foreground"
+                        className="h-5 px-1.5 text-[10px] gap-1 hover:text-foreground shrink-0"
                         onClick={() =>
                           copyToClipboard(`image: ${exampleImage}`, "Exemplo de compose")
                         }
@@ -541,7 +545,7 @@ function RegistriesPage() {
                         <Copy className="size-2.5" /> Copiar
                       </Button>
                     </div>
-                    <code className="font-mono text-[11px] text-foreground select-all">
+                    <code className="font-mono text-[11px] text-foreground select-all break-all block">
                       image: {exampleImage}
                     </code>
                   </div>
