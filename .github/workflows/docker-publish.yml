@@ -114,3 +114,22 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy:
+    name: Trigger HarborX Continuous Deployment
+    needs: build-and-push
+    if: success() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger HarborX Redeploy
+        if: ${{ secrets.HARBORX_REDEPLOY_URL != '' }}
+        env:
+          HARBORX_URL: ${{ secrets.HARBORX_REDEPLOY_URL }}
+        run: |
+          echo "Disparando redeploy no HarborX após publicação da imagem..."
+          curl -fsS -X POST \
+            --retry 3 \
+            --retry-connrefused \
+            --max-time 30 \
+            "$HARBORX_URL"
+          echo "Redeploy solicitado com sucesso ao HarborX!"
