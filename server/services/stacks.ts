@@ -93,6 +93,52 @@ export async function listStacks(): Promise<StackWithContainers[]> {
     allContainers = [];
   }
 
+  let recentDeployments: Array<{
+    id: string;
+    stack_id: string;
+    triggered_by: string;
+    status: string;
+    output_log: string;
+    created_at: string;
+  }> = [];
+
+  try {
+    recentDeployments = db
+      .prepare(
+        `SELECT d1.id, d1.stack_id, d1.triggered_by, d1.status, d1.output_log, d1.created_at
+         FROM stack_deployments d1
+         INNER JOIN (
+           SELECT stack_id, MAX(created_at) AS max_created
+           FROM stack_deployments
+           GROUP BY stack_id
+         ) d2 ON d1.stack_id = d2.stack_id AND d1.created_at = d2.max_created`,
+      )
+      .all() as typeof recentDeployments;
+  } catch {
+    recentDeployments = [];
+  }
+
+  const depMap = new Map<
+    string,
+    {
+      id: string;
+      triggeredBy: string;
+      status: string;
+      outputLog: string;
+      createdAt: string;
+    }
+  >();
+
+  for (const dep of recentDeployments) {
+    depMap.set(dep.stack_id, {
+      id: dep.id,
+      triggeredBy: dep.triggered_by,
+      status: dep.status,
+      outputLog: dep.output_log,
+      createdAt: dep.created_at,
+    });
+  }
+
   return rows.map((r) => {
     let env: StackEnvVar[] = [];
     try {
@@ -123,6 +169,8 @@ export async function listStacks(): Promise<StackWithContainers[]> {
       })),
     }));
 
+    const recentDep = depMap.get(r.id);
+
     return {
       id: r.id,
       name: r.name,
@@ -141,6 +189,7 @@ export async function listStacks(): Promise<StackWithContainers[]> {
       containersCount: stackContainers.length,
       runningContainersCount: running,
       containers,
+      recentDeployment: recentDep,
     };
   });
 }
@@ -323,32 +372,120 @@ export async function deployStack(
   const stackDir = getStackDir(stack.name);
   let outputLog = "";
   let finalStatus: "deployed" | "failed" = "deployed";
+  let activeGitAuthSecret: string | undefined;
 
   try {
     if (stack.type === "git" && stack.gitRepo) {
       const gitDir = path.join(stackDir, ".git");
-      const gitAuth = findGitAuthForRepo(stack.gitRepo, stack.gitRegistryId);
 
-      const gitExtraArgs: string[] = [];
-      if (gitAuth && !stack.gitRepo.includes("@")) {
-        const basicToken = Buffer.from(`${gitAuth.username}:${gitAuth.secret}`).toString("base64");
-        gitExtraArgs.push("-c", `http.extraheader=AUTHORIZATION: basic ${basicToken}`);
-        outputLog += `[HarborX GitAuth] Utilizando credencial registrada '${gitAuth.registryName}' (${gitAuth.username}) para autenticação segura no Git.\n`;
+      // Normalize git@ SSH URLs to https://
+      let cleanRepo = stack.gitRepo.trim();
+      if (cleanRepo.startsWith("git@")) {
+        cleanRepo = cleanRepo.replace(/^git@([^:]+):/, "https://$1/");
       }
 
+      const gitAuth = findGitAuthForRepo(cleanRepo, stack.gitRegistryId);
+      if (gitAuth?.secret) {
+        activeGitAuthSecret = gitAuth.secret;
+      }
+
+      const isGitHub = cleanRepo.includes("github.com");
+      const authUsername = isGitHub
+        ? "x-access-token"
+        : gitAuth?.username.replace(/^@+/, "").trim() || "oauth2";
+
+      const gitExtraArgs: string[] = ["-c", "credential.helper=", "-c", "core.askPass="];
+
+      if (gitAuth && !cleanRepo.includes("@")) {
+        const basicToken = Buffer.from(`${authUsername}:${gitAuth.secret}`).toString("base64");
+        gitExtraArgs.push("-c", `http.extraheader=Authorization: Basic ${basicToken}`);
+        outputLog += `[HarborX GitAuth] Utilizando credencial registrada '${gitAuth.registryName}' (${authUsername}) para autenticação segura no Git.\n`;
+      }
+
+      const gitEnv = {
+        ...process.env,
+        GIT_TERMINAL_PROMPT: "0",
+        GIT_ASKPASS: "",
+      };
+
       if (fs.existsSync(gitDir)) {
-        const pullRes = await execFileAsync("git", [...gitExtraArgs, "pull"], {
-          cwd: stackDir,
-          timeout: 60000,
-        });
-        outputLog += `[git pull]\n${pullRes.stdout}\n${pullRes.stderr}\n`;
+        try {
+          const pullRes = await execFileAsync("git", [...gitExtraArgs, "pull"], {
+            cwd: stackDir,
+            timeout: 60000,
+            env: gitEnv,
+          });
+          outputLog += `[git pull]\n${pullRes.stdout}\n${pullRes.stderr}\n`;
+        } catch (pullErr) {
+          if (gitAuth) {
+            try {
+              const u = new URL(cleanRepo.startsWith("http") ? cleanRepo : `https://${cleanRepo}`);
+              u.username = authUsername;
+              u.password = gitAuth.secret;
+              const directAuthUrl = u.toString();
+
+              const fallbackPull = await execFileAsync(
+                "git",
+                ["-c", "credential.helper=", "-c", "core.askPass=", "pull", directAuthUrl],
+                { cwd: stackDir, timeout: 60000, env: gitEnv },
+              );
+              outputLog += `[git pull]\n${fallbackPull.stdout}\n${fallbackPull.stderr}\n`;
+            } catch {
+              throw pullErr;
+            }
+          } else {
+            throw pullErr;
+          }
+        }
       } else {
-        const cloneRes = await execFileAsync(
-          "git",
-          [...gitExtraArgs, "clone", "--branch", stack.gitBranch || "main", stack.gitRepo, "."],
-          { cwd: stackDir, timeout: 120000 },
-        );
-        outputLog += `[git clone]\n${cloneRes.stdout}\n${cloneRes.stderr}\n`;
+        try {
+          const cloneRes = await execFileAsync(
+            "git",
+            [...gitExtraArgs, "clone", "--branch", stack.gitBranch || "main", cleanRepo, "."],
+            { cwd: stackDir, timeout: 120000, env: gitEnv },
+          );
+          outputLog += `[git clone]\n${cloneRes.stdout}\n${cloneRes.stderr}\n`;
+        } catch (cloneErr) {
+          if (gitAuth) {
+            try {
+              const u = new URL(cleanRepo.startsWith("http") ? cleanRepo : `https://${cleanRepo}`);
+              u.username = authUsername;
+              u.password = gitAuth.secret;
+              const directAuthUrl = u.toString();
+
+              const fallbackClone = await execFileAsync(
+                "git",
+                [
+                  "-c",
+                  "credential.helper=",
+                  "-c",
+                  "core.askPass=",
+                  "clone",
+                  "--branch",
+                  stack.gitBranch || "main",
+                  directAuthUrl,
+                  ".",
+                ],
+                { cwd: stackDir, timeout: 120000, env: gitEnv },
+              );
+              outputLog += `[git clone]\n${fallbackClone.stdout}\n${fallbackClone.stderr}\n`;
+
+              // Sanitize remote URL on disk so credentials are never stored in .git/config
+              try {
+                await execFileAsync("git", ["remote", "set-url", "origin", cleanRepo], {
+                  cwd: stackDir,
+                  timeout: 10000,
+                });
+              } catch {
+                // ignore
+              }
+            } catch {
+              throw cloneErr;
+            }
+          } else {
+            throw cloneErr;
+          }
+        }
       }
 
       if (gitAuth?.secret) {
@@ -420,8 +557,20 @@ export async function deployStack(
     finalStatus = "deployed";
   } catch (err: unknown) {
     finalStatus = "failed";
-    const msg = err instanceof Error ? err.message : String(err);
+    let msg = err instanceof Error ? err.message : String(err);
+    if (activeGitAuthSecret) {
+      msg = msg.replaceAll(activeGitAuthSecret, "******");
+    }
     outputLog += `\n[ERRO]\n${msg}\n`;
+
+    if (
+      msg.includes("403") ||
+      msg.includes("Repository not found") ||
+      msg.includes("access denied") ||
+      msg.includes("not found")
+    ) {
+      outputLog += `\n[DIAGNÓSTICO HARBORX - ACESSO AO REPOSITÓRIO GIT]\nAcesso negado (403) ou Repositório não encontrado.\nPossíveis causas no GitHub:\n1. Token Fine-Grained (github_pat_...): No GitHub (Settings > Developer Settings > Personal access tokens > Fine-grained tokens), verifique o campo "Repository access". Se estiver configurado como "Only select repositories", adicione este repositório à lista e certifique-se de que a permissão "Contents: Read-only" está concedida.\n2. Organizações: Se o repositório pertence a uma Organização, o proprietário da organização precisa aprovar o acesso do token.\n3. Token Clássico (ghp_...): Para repositórios privados, marque o escopo "repo".\n`;
+    }
   }
 
   const now = new Date().toISOString();

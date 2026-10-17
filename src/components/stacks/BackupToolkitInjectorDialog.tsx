@@ -310,14 +310,14 @@ export function BackupToolkitInjectorDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+        <DialogHeader className="p-6 pb-3 shrink-0 border-b">
           <div className="flex items-center gap-2">
-            <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <ShieldCheck className="size-4" />
             </div>
-            <div>
-              <DialogTitle className="text-base font-semibold">
+            <div className="min-w-0">
+              <DialogTitle className="text-base font-semibold truncate">
                 Anexar Backup Toolkit (Cloudflare R2)
               </DialogTitle>
               <DialogDescription className="text-xs">
@@ -328,19 +328,19 @@ export function BackupToolkitInjectorDialog({
           </div>
         </DialogHeader>
 
-        <div className="overflow-y-auto space-y-4 pr-1 py-1 text-xs">
+        <div className="overflow-y-auto space-y-4 p-6 py-4 flex-1 min-w-0 text-xs">
           {/* Target DB selection */}
-          <div className="rounded-lg border bg-surface/40 p-3.5 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-foreground flex items-center gap-1.5">
-                <Sparkles className="size-3.5 text-primary" /> Banco de Dados Alvo
+          <div className="rounded-lg border bg-surface/40 p-3.5 space-y-3 min-w-0">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="font-semibold text-foreground flex items-center gap-1.5 truncate">
+                <Sparkles className="size-3.5 text-primary shrink-0" /> Banco de Dados Alvo
               </span>
-              <span className="text-[11px] text-muted-foreground font-mono">
+              <span className="text-[11px] text-muted-foreground font-mono truncate">
                 felipesdam496/backup-toolkit:latest-{dbType}
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0">
               <div>
                 <Label className="text-[11px] text-muted-foreground">Motor do Banco</Label>
                 <Select
@@ -399,12 +399,14 @@ export function BackupToolkitInjectorDialog({
           </div>
 
           {/* Cloudflare R2 Credentials */}
-          <div className="rounded-lg border bg-surface/40 p-3.5 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-foreground flex items-center gap-1.5">
-                <Cloud className="size-3.5 text-sky-400" /> Credenciais Cloudflare R2
+          <div className="rounded-lg border bg-surface/40 p-3.5 space-y-3 min-w-0">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="font-semibold text-foreground flex items-center gap-1.5 truncate">
+                <Cloud className="size-3.5 text-sky-400 shrink-0" /> Credenciais Cloudflare R2
               </span>
-              <span className="text-[11px] text-muted-foreground">Criptografia Restic AES-256</span>
+              <span className="text-[11px] text-muted-foreground shrink-0">
+                Criptografia Restic AES-256
+              </span>
             </div>
 
             <div>
@@ -420,7 +422,7 @@ export function BackupToolkitInjectorDialog({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0">
               <div>
                 <Label className="text-[11px] text-muted-foreground">Nome do Bucket R2 *</Label>
                 <Input
@@ -444,7 +446,7 @@ export function BackupToolkitInjectorDialog({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0">
               <div>
                 <div className="flex items-center justify-between">
                   <Label className="text-[11px] text-muted-foreground">
@@ -522,12 +524,12 @@ export function BackupToolkitInjectorDialog({
           </div>
 
           {/* Schedule & Retention */}
-          <div className="rounded-lg border bg-surface/40 p-3.5 space-y-3">
+          <div className="rounded-lg border bg-surface/40 p-3.5 space-y-3 min-w-0">
             <span className="font-semibold text-foreground flex items-center gap-1.5">
               <Clock className="size-3.5 text-amber-400" /> Agendamento & Política de Retenção
             </span>
 
-            <div className="grid grid-cols-4 gap-2.5">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 min-w-0">
               <div>
                 <Label className="text-[10px] text-muted-foreground">Intervalo</Label>
                 <Select
@@ -585,7 +587,7 @@ export function BackupToolkitInjectorDialog({
           </div>
         </div>
 
-        <DialogFooter className="pt-2">
+        <DialogFooter className="p-4 px-6 border-t shrink-0 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>

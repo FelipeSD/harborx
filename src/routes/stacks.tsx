@@ -14,6 +14,7 @@ import {
   RotateCw,
   RefreshCw,
   AlertCircle,
+  AlertTriangle,
   Boxes,
   Terminal,
   ExternalLink,
@@ -78,8 +79,23 @@ import type {
   CreateStackRequest,
   StackEnvVar,
   StackSummary,
+  TestGitRepoRequest,
   UpdateStackRequest,
 } from "../../shared/types";
+
+function formatDate(isoString: string): string {
+  try {
+    return new Date(isoString).toLocaleString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return isoString;
+  }
+}
 
 export const Route = createFileRoute("/stacks")({
   head: () => ({
@@ -370,11 +386,11 @@ function EnvEditor({
           </p>
         )}
         {env.map((e, i) => (
-          <div key={i} className="flex items-center gap-2">
+          <div key={i} className="flex items-center gap-2 min-w-0">
             <Input
               value={e.key}
               placeholder="CHAVE"
-              className="w-2/5 font-mono text-xs"
+              className="w-2/5 min-w-0 font-mono text-xs"
               onChange={(ev) =>
                 update(i, {
                   key: ev.target.value.toUpperCase().replace(/[^A-Z0-9_.]/g, "_"),
@@ -385,14 +401,14 @@ function EnvEditor({
               value={e.value}
               placeholder="valor"
               type={e.secret && !show[i] ? "password" : "text"}
-              className="flex-1 font-mono text-xs"
+              className="flex-1 min-w-0 font-mono text-xs"
               onChange={(ev) => update(i, { value: ev.target.value })}
             />
             <Button
               type="button"
               size="icon"
               variant="ghost"
-              className="size-8"
+              className="size-8 shrink-0"
               onClick={() => setShow((s) => ({ ...s, [i]: !s[i] }))}
             >
               {show[i] || !e.secret ? (
@@ -405,7 +421,7 @@ function EnvEditor({
               type="button"
               size="icon"
               variant="ghost"
-              className="size-8 text-destructive"
+              className="size-8 shrink-0 text-destructive"
               onClick={() => {
                 const next = env.filter((_, j) => j !== i);
                 onChange(next);
@@ -494,6 +510,80 @@ function StacksPage() {
   const [isTestingHook, setIsTestingHook] = useState<string | null>(null);
   const [webhookGuideStack, setWebhookGuideStack] = useState<StackSummary | null>(null);
 
+  const [gitTestResult, setGitTestResult] = useState<{
+    success: boolean;
+    message: string;
+    warning?: string;
+  } | null>(null);
+
+  const [editGitTestResult, setEditGitTestResult] = useState<{
+    success: boolean;
+    message: string;
+    warning?: string;
+  } | null>(null);
+
+  const testGitMutation = useMutation({
+    mutationFn: (data: TestGitRepoRequest) => api.stacks.testGit(data),
+    onSuccess: (res) => {
+      if (res.success) {
+        if (res.warning) {
+          toast.warning(res.warning);
+        } else {
+          toast.success(res.status || "Conexão com Git validada com sucesso!");
+        }
+        setGitTestResult({
+          success: true,
+          message: res.status || "Conexão com repositório Git bem-sucedida!",
+          warning: res.warning,
+        });
+      } else {
+        toast.error(res.error || "Falha ao validar repositório Git");
+        setGitTestResult({
+          success: false,
+          message: res.error || "Falha ao validar repositório Git",
+        });
+      }
+    },
+    onError: (err: Error) => {
+      toast.error(`Erro ao testar Git: ${err.message}`);
+      setGitTestResult({
+        success: false,
+        message: err.message,
+      });
+    },
+  });
+
+  const editTestGitMutation = useMutation({
+    mutationFn: (data: TestGitRepoRequest) => api.stacks.testGit(data),
+    onSuccess: (res) => {
+      if (res.success) {
+        if (res.warning) {
+          toast.warning(res.warning);
+        } else {
+          toast.success(res.status || "Conexão com Git validada com sucesso!");
+        }
+        setEditGitTestResult({
+          success: true,
+          message: res.status || "Conexão com repositório Git bem-sucedida!",
+          warning: res.warning,
+        });
+      } else {
+        toast.error(res.error || "Falha ao validar repositório Git");
+        setEditGitTestResult({
+          success: false,
+          message: res.error || "Falha ao validar repositório Git",
+        });
+      }
+    },
+    onError: (err: Error) => {
+      toast.error(`Erro ao testar Git: ${err.message}`);
+      setEditGitTestResult({
+        success: false,
+        message: err.message,
+      });
+    },
+  });
+
   const { data: registries = [] } = useQuery({
     queryKey: ["registries"],
     queryFn: api.registries.list,
@@ -558,6 +648,7 @@ function StacksPage() {
     setEditAutoDeploy(Boolean(s.autoDeploy));
     setEditRedeploy(true);
     setEditPull(false);
+    setEditGitTestResult(null);
   };
 
   const createMutation = useMutation({
@@ -570,6 +661,7 @@ function StacksPage() {
       setEnvVars([]);
       setGitRepo("");
       setGitRegistryId("auto");
+      setGitTestResult(null);
       void queryClient.invalidateQueries({ queryKey: ["stacks"] });
     },
     onError: (err: Error) => {
@@ -823,7 +915,7 @@ function StacksPage() {
                     <Badge
                       variant="outline"
                       className={cn(
-                        "font-medium text-xs capitalize",
+                        "font-medium text-xs capitalize shrink-0",
                         isRunning
                           ? "border-emerald-500/30 text-emerald-500 bg-emerald-500/5"
                           : s.status === "deploying"
@@ -843,6 +935,32 @@ function StacksPage() {
                     </Badge>
                   </div>
 
+                  {s.status === "failed" && (
+                    <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-500">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <AlertTriangle className="size-4 shrink-0 text-rose-500" />
+                        <div className="min-w-0">
+                          <span className="font-semibold block truncate">
+                            Falha no deploy da stack
+                          </span>
+                          <span className="text-[11px] text-rose-400/90 truncate block">
+                            O último deploy falhou. Inspecione a saída do terminal para identificar
+                            o problema.
+                          </span>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs border-rose-500/40 text-rose-500 hover:bg-rose-500/15 shrink-0 gap-1 bg-background"
+                        onClick={() => setLogStack(s)}
+                      >
+                        <Terminal className="size-3" /> Ver erro
+                      </Button>
+                    </div>
+                  )}
+
                   {/* Containers list in stack */}
                   <div className="mt-4 rounded-lg border bg-surface p-3 text-xs font-mono">
                     <div className="flex items-center justify-between text-muted-foreground mb-2">
@@ -853,10 +971,11 @@ function StacksPage() {
                       {s.recentDeployment && (
                         <button
                           type="button"
-                          className="text-[11px] text-primary hover:underline flex items-center gap-1"
+                          className="text-[11px] hover:underline flex items-center gap-1 font-sans text-primary"
                           onClick={() => setLogStack(s)}
                         >
-                          <Terminal className="size-3" /> Logs de deploy
+                          <Terminal className="size-3" />
+                          Logs de deploy
                         </button>
                       )}
                     </div>
@@ -1088,16 +1207,19 @@ function StacksPage() {
 
       {/* Create Stack Wizard */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
-          <DialogHeader>
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+          <DialogHeader className="p-6 pb-3 shrink-0 border-b">
             <DialogTitle>Criar nova stack Docker Compose</DialogTitle>
             <DialogDescription>
               Escreva diretamente um arquivo docker-compose.yml ou aponte para um repositório Git.
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleCreateSubmit} className="space-y-4 overflow-y-auto pr-1">
-            <div className="grid grid-cols-2 gap-3">
+          <form
+            onSubmit={handleCreateSubmit}
+            className="space-y-4 overflow-y-auto flex-1 min-w-0 p-6 py-4 max-w-full"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0">
               <div>
                 <Label className="text-xs">Nome da Stack *</Label>
                 <Input
@@ -1213,7 +1335,7 @@ function StacksPage() {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0">
                   <div>
                     <Label className="text-xs">Branch</Label>
                     <Input
@@ -1247,6 +1369,78 @@ function StacksPage() {
                     Ativar Webhook para auto-deploy no push do GitHub Actions
                   </label>
                 </div>
+
+                <div className="pt-2 border-t space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">
+                      Validar permissões e branch antes de salvar:
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs gap-1.5"
+                      disabled={testGitMutation.isPending || !gitRepo.trim()}
+                      onClick={() => {
+                        testGitMutation.mutate({
+                          gitRepo: gitRepo.trim(),
+                          gitBranch: gitBranch.trim() || "main",
+                          gitRegistryId: gitRegistryId === "auto" ? null : gitRegistryId,
+                        });
+                      }}
+                    >
+                      {testGitMutation.isPending ? (
+                        <>
+                          <Loader2 className="size-3 animate-spin" />
+                          Testando Git...
+                        </>
+                      ) : (
+                        <>
+                          <ShieldCheck className="size-3.5 text-primary" />
+                          Testar Acesso Git
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  {gitTestResult && (
+                    <div
+                      className={cn(
+                        "flex items-start gap-2 rounded-lg border p-2.5 text-xs leading-relaxed",
+                        gitTestResult.success && !gitTestResult.warning
+                          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400 dark:text-emerald-300"
+                          : gitTestResult.warning
+                            ? "border-amber-500/30 bg-amber-500/10 text-amber-500 dark:text-amber-400"
+                            : "border-destructive/30 bg-destructive/10 text-destructive",
+                      )}
+                    >
+                      {gitTestResult.success && !gitTestResult.warning ? (
+                        <CheckCircle2 className="size-4 shrink-0 text-emerald-500 mt-0.5" />
+                      ) : gitTestResult.warning ? (
+                        <AlertTriangle className="size-4 shrink-0 text-amber-500 mt-0.5" />
+                      ) : (
+                        <AlertCircle className="size-4 shrink-0 text-destructive mt-0.5" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold">
+                          {gitTestResult.success && !gitTestResult.warning
+                            ? "Repositório acessível!"
+                            : gitTestResult.warning
+                              ? "Aviso de branch"
+                              : "Falha de acesso ao repositório"}
+                        </p>
+                        <p className="text-[11px] opacity-90 mt-0.5 whitespace-pre-wrap break-words">
+                          {gitTestResult.message}
+                        </p>
+                        {gitTestResult.warning && (
+                          <p className="text-[11px] text-amber-500 font-medium mt-1">
+                            {gitTestResult.warning}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -1271,7 +1465,7 @@ function StacksPage() {
               </label>
             </div>
 
-            <DialogFooter className="pt-2">
+            <DialogFooter className="p-4 px-6 border-t shrink-0 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 -mx-6 -mb-4 mt-4 bg-background">
               <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
                 Cancelar
               </Button>
@@ -1285,16 +1479,19 @@ function StacksPage() {
 
       {/* Edit Stack Dialog */}
       <Dialog open={Boolean(editStack)} onOpenChange={(open) => !open && setEditStack(null)}>
-        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
-          <DialogHeader>
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+          <DialogHeader className="p-6 pb-3 shrink-0 border-b">
             <DialogTitle>Editar stack: {editStack?.name}</DialogTitle>
             <DialogDescription>
               Altere qualquer configuração da stack, variáveis de ambiente ou repositório Git.
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleEditSubmit} className="space-y-4 overflow-y-auto pr-1">
-            <div className="grid grid-cols-2 gap-3">
+          <form
+            onSubmit={handleEditSubmit}
+            className="space-y-4 overflow-y-auto flex-1 min-w-0 p-6 py-4 max-w-full"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0">
               <div>
                 <Label className="text-xs">Nome da Stack *</Label>
                 <Input
@@ -1407,7 +1604,7 @@ function StacksPage() {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0">
                   <div>
                     <Label className="text-xs">Branch</Label>
                     <Input
@@ -1440,6 +1637,78 @@ function StacksPage() {
                   >
                     Ativar Webhook para auto-deploy no push do GitHub Actions
                   </label>
+                </div>
+
+                <div className="pt-2 border-t space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">
+                      Validar permissões e branch antes de atualizar:
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs gap-1.5"
+                      disabled={editTestGitMutation.isPending || !editGitRepo.trim()}
+                      onClick={() => {
+                        editTestGitMutation.mutate({
+                          gitRepo: editGitRepo.trim(),
+                          gitBranch: editGitBranch.trim() || "main",
+                          gitRegistryId: editGitRegistryId === "auto" ? null : editGitRegistryId,
+                        });
+                      }}
+                    >
+                      {editTestGitMutation.isPending ? (
+                        <>
+                          <Loader2 className="size-3 animate-spin" />
+                          Testando Git...
+                        </>
+                      ) : (
+                        <>
+                          <ShieldCheck className="size-3.5 text-primary" />
+                          Testar Acesso Git
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  {editGitTestResult && (
+                    <div
+                      className={cn(
+                        "flex items-start gap-2 rounded-lg border p-2.5 text-xs leading-relaxed",
+                        editGitTestResult.success && !editGitTestResult.warning
+                          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400 dark:text-emerald-300"
+                          : editGitTestResult.warning
+                            ? "border-amber-500/30 bg-amber-500/10 text-amber-500 dark:text-amber-400"
+                            : "border-destructive/30 bg-destructive/10 text-destructive",
+                      )}
+                    >
+                      {editGitTestResult.success && !editGitTestResult.warning ? (
+                        <CheckCircle2 className="size-4 shrink-0 text-emerald-500 mt-0.5" />
+                      ) : editGitTestResult.warning ? (
+                        <AlertTriangle className="size-4 shrink-0 text-amber-500 mt-0.5" />
+                      ) : (
+                        <AlertCircle className="size-4 shrink-0 text-destructive mt-0.5" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold">
+                          {editGitTestResult.success && !editGitTestResult.warning
+                            ? "Repositório acessível!"
+                            : editGitTestResult.warning
+                              ? "Aviso de branch"
+                              : "Falha de acesso ao repositório"}
+                        </p>
+                        <p className="text-[11px] opacity-90 mt-0.5 whitespace-pre-wrap break-words">
+                          {editGitTestResult.message}
+                        </p>
+                        {editGitTestResult.warning && (
+                          <p className="text-[11px] text-amber-500 font-medium mt-1">
+                            {editGitTestResult.warning}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {editStack && (
@@ -1514,7 +1783,7 @@ function StacksPage() {
               )}
             </div>
 
-            <DialogFooter className="pt-2">
+            <DialogFooter className="p-4 px-6 border-t shrink-0 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 -mx-6 -mb-4 mt-4 bg-background">
               <Button type="button" variant="outline" onClick={() => setEditStack(null)}>
                 Cancelar
               </Button>
@@ -1535,19 +1804,66 @@ function StacksPage() {
 
       {/* Deployment Log Dialog */}
       <Dialog open={Boolean(logStack)} onOpenChange={(open) => !open && setLogStack(null)}>
-        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="font-mono text-base">
-              Logs de Deploy: {logStack?.name}
-            </DialogTitle>
-            <DialogDescription>
-              Saída do terminal durante o último deploy ({logStack?.recentDeployment?.triggeredBy})
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+          <DialogHeader className="p-6 pb-3 shrink-0 border-b">
+            <div className="flex items-center justify-between gap-3">
+              <DialogTitle className="font-mono text-base flex items-center gap-2 min-w-0">
+                <Terminal className="size-4 text-primary shrink-0" />
+                <span className="truncate">Logs de Deploy: {logStack?.name}</span>
+              </DialogTitle>
+              {logStack && (
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "text-xs font-medium capitalize shrink-0",
+                    logStack.status === "failed" || logStack.recentDeployment?.status === "failed"
+                      ? "border-rose-500/40 text-rose-500 bg-rose-500/10"
+                      : "border-emerald-500/40 text-emerald-500 bg-emerald-500/10",
+                  )}
+                >
+                  {logStack.status === "failed" || logStack.recentDeployment?.status === "failed"
+                    ? "Falha no Deploy"
+                    : "Deploy Concluído"}
+                </Badge>
+              )}
+            </div>
+            <DialogDescription className="text-xs text-muted-foreground mt-1">
+              Disparado por{" "}
+              <strong className="text-foreground">
+                {logStack?.recentDeployment?.triggeredBy || "usuário"}
+              </strong>
+              {logStack?.recentDeployment?.createdAt && (
+                <> em {formatDate(logStack.recentDeployment.createdAt)}</>
+              )}
             </DialogDescription>
           </DialogHeader>
 
-          <pre className="max-h-[60vh] overflow-auto rounded-lg border bg-surface p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap">
-            {logStack?.recentDeployment?.outputLog || "Nenhum log registrado para este deploy."}
-          </pre>
+          <div className="p-6 py-4 overflow-y-auto flex-1 min-w-0 bg-muted/20">
+            <pre className="rounded-lg border bg-zinc-950 p-4 font-mono text-xs leading-relaxed text-zinc-100 whitespace-pre-wrap break-all sm:break-normal select-all">
+              {logStack?.recentDeployment?.outputLog ||
+                "Nenhum log registrado para este deploy ou a saída ainda não foi gravada."}
+            </pre>
+          </div>
+
+          <DialogFooter className="p-4 px-6 border-t shrink-0 flex items-center justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              disabled={!logStack?.recentDeployment?.outputLog}
+              onClick={() => {
+                if (logStack?.recentDeployment?.outputLog) {
+                  copyToClipboard(logStack.recentDeployment.outputLog, "Logs de Deploy");
+                }
+              }}
+            >
+              <Copy className="size-3.5" /> Copiar Saída do Terminal
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => setLogStack(null)}>
+              Fechar
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -1617,24 +1933,26 @@ function StacksPage() {
         open={Boolean(webhookGuideStack)}
         onOpenChange={(open) => !open && setWebhookGuideStack(null)}
       >
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base">
-              <Zap className="size-4 text-primary" />
-              Integração CI/CD & Webhook — {webhookGuideStack?.name}
+        <DialogContent className="max-w-xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+          <DialogHeader className="p-6 pb-2 shrink-0 border-b">
+            <DialogTitle className="flex items-center gap-2 text-base min-w-0">
+              <Zap className="size-4 text-primary shrink-0" />
+              <span className="truncate">
+                Integração CI/CD & Webhook — {webhookGuideStack?.name}
+              </span>
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-xs text-muted-foreground">
               Dispare o redeploy automático desta stack sempre que seu pipeline de CI/CD ou push no
               GitHub terminar.
             </DialogDescription>
           </DialogHeader>
 
           {webhookGuideStack && (
-            <div className="space-y-4 py-2 text-xs">
-              <div className="rounded-lg border bg-surface p-3 space-y-1.5">
+            <div className="space-y-4 p-6 py-4 text-xs overflow-y-auto flex-1 min-w-0">
+              <div className="rounded-lg border bg-surface p-3 space-y-1.5 min-w-0">
                 <span className="font-semibold text-foreground block">URL do Webhook</span>
-                <div className="flex items-center gap-2">
-                  <code className="font-mono text-[11px] bg-muted px-2 py-1.5 rounded flex-1 truncate select-all">
+                <div className="flex items-center gap-2 min-w-0">
+                  <code className="font-mono text-[11px] bg-muted px-2 py-1.5 rounded flex-1 min-w-0 truncate select-all">
                     {typeof window !== "undefined"
                       ? `${window.location.origin}/api/public/hooks/${webhookGuideStack.webhookToken}`
                       : `/api/public/hooks/${webhookGuideStack.webhookToken}`}
@@ -1643,7 +1961,7 @@ function StacksPage() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-8 px-2 text-xs gap-1"
+                    className="h-8 px-2 text-xs gap-1 shrink-0"
                     onClick={() => {
                       const url = `${window.location.origin}/api/public/hooks/${webhookGuideStack.webhookToken}`;
                       copyToClipboard(url, "URL do Webhook");
@@ -1654,16 +1972,16 @@ function StacksPage() {
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-foreground">
+              <div className="space-y-1.5 min-w-0">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <span className="font-semibold text-foreground truncate">
                     Exemplo no GitHub Actions (.github/workflows/deploy.yml)
                   </span>
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="h-6 px-1.5 text-[10px] gap-1"
+                    className="h-6 px-1.5 text-[10px] gap-1 shrink-0"
                     onClick={() => {
                       const snippet = `# .github/workflows/deploy.yml (passo final)
 name: Deploy to HarborX
@@ -1683,23 +2001,23 @@ jobs:
                     <Copy className="size-2.5" /> Copiar YAML
                   </Button>
                 </div>
-                <pre className="rounded-lg border bg-muted/60 p-3 font-mono text-[11px] overflow-x-auto text-foreground">
+                <pre className="rounded-lg border bg-muted/60 p-3 font-mono text-[11px] overflow-x-auto text-foreground whitespace-pre-wrap break-all sm:break-normal sm:whitespace-pre max-w-full">
                   {`- name: Trigger HarborX Redeploy
   run: |
     curl -fsS -X POST "${typeof window !== "undefined" ? window.location.origin : ""}/api/public/hooks/${webhookGuideStack.webhookToken}"`}
                 </pre>
               </div>
 
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-foreground">
+              <div className="space-y-1.5 min-w-0">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <span className="font-semibold text-foreground truncate">
                     Disparo manual via Terminal / cURL
                   </span>
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="h-6 px-1.5 text-[10px] gap-1"
+                    className="h-6 px-1.5 text-[10px] gap-1 shrink-0"
                     onClick={() => {
                       const cmd = `curl -X POST "${window.location.origin}/api/public/hooks/${webhookGuideStack.webhookToken}"`;
                       copyToClipboard(cmd, "Comando curl");
@@ -1708,14 +2026,14 @@ jobs:
                     <Copy className="size-2.5" /> Copiar comando
                   </Button>
                 </div>
-                <pre className="rounded-lg border bg-muted/60 p-2.5 font-mono text-[11px] overflow-x-auto text-foreground">
+                <pre className="rounded-lg border bg-muted/60 p-2.5 font-mono text-[11px] overflow-x-auto text-foreground whitespace-pre-wrap break-all sm:break-normal sm:whitespace-pre max-w-full">
                   {`curl -X POST "${typeof window !== "undefined" ? window.location.origin : ""}/api/public/hooks/${webhookGuideStack.webhookToken}"`}
                 </pre>
               </div>
             </div>
           )}
 
-          <DialogFooter className="flex items-center justify-between">
+          <DialogFooter className="p-4 px-6 border-t shrink-0 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2">
             {webhookGuideStack && isOperator && (
               <Button
                 type="button"

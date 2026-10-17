@@ -149,12 +149,34 @@ export interface TestRegistryRequest {
   username: string;
   secret?: string;
   registryId?: string;
+  repoUrl?: string;
 }
 
 export interface TestRegistryResponse {
   success: boolean;
   status?: string;
   error?: string;
+  warning?: string;
+  scopes?: string[];
+  permissions?: {
+    canCloneRepos: boolean;
+    canPullImages: boolean;
+    provider?: string;
+    account?: string;
+  };
+}
+
+export interface TestGitRepoRequest {
+  gitRepo: string;
+  gitBranch?: string;
+  gitRegistryId?: string | null;
+}
+
+export interface TestGitRepoResponse {
+  success: boolean;
+  status?: string;
+  error?: string;
+  warning?: string;
 }
 
 export interface CreateNetworkRequest {

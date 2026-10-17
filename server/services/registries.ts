@@ -1,9 +1,14 @@
+import { execFile } from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import crypto from "node:crypto";
-import { db } from "../db/index.js";
-import { config } from "../config.js";
+import { promisify } from "node:util";
 import { decryptCredential, encryptCredential } from "../auth/crypto.js";
+import { config } from "../config.js";
+import { db } from "../db/index.js";
+import { docker } from "../docker.js";
+
+const execFileAsync = promisify(execFile);
 
 export interface RegistryPublic {
   id: string;
@@ -296,7 +301,8 @@ export function findGitAuthForRepo(
       const reg = getRegistry(preferredRegistryId);
       const secret = getRegistrySecret(preferredRegistryId);
       if (reg && secret) {
-        return { username: reg.username, secret, registryName: reg.name };
+        const cleanUser = reg.username.replace(/^@+/, "").trim();
+        return { username: cleanUser, secret, registryName: reg.name };
       }
     }
 
@@ -304,8 +310,12 @@ export function findGitAuthForRepo(
       return undefined;
     }
 
-    // Auto-detect based on repo URL
-    const cleanRepo = repoUrl.toLowerCase().trim();
+    // Auto-detect based on repo URL (support both https:// and git@ URLs)
+    let cleanRepo = repoUrl.toLowerCase().trim();
+    if (cleanRepo.startsWith("git@")) {
+      cleanRepo = cleanRepo.replace(/^git@([^:]+):/, "https://$1/");
+    }
+
     const rows = db
       .prepare("SELECT id, name, url, username, encrypted_secret FROM registries")
       .all() as Array<{
@@ -335,11 +345,360 @@ export function findGitAuthForRepo(
 
       if ((isGitHubRepo && isGitHubReg) || (isGitLabRepo && isGitLabReg) || matchesCustom) {
         const secret = decryptCredential(r.encrypted_secret);
-        return { username: r.username, secret, registryName: r.name };
+        const cleanUser = r.username.replace(/^@+/, "").trim();
+        return { username: cleanUser, secret, registryName: r.name };
       }
     }
   } catch (err) {
     console.error("Erro ao resolver credencial Git:", err);
   }
   return undefined;
+}
+
+export function normalizeRegistryServerAddress(rawUrl: string): string {
+  const trimmed = rawUrl.trim();
+  const lower = trimmed.toLowerCase();
+  const clean = lower.replace(/^https?:\/\//, "").replace(/\/+$/, "");
+  if (
+    clean === "docker.io" ||
+    clean === "registry-1.docker.io" ||
+    clean.startsWith("index.docker.io")
+  ) {
+    return "https://index.docker.io/v1/";
+  }
+  if (trimmed.startsWith("http://")) {
+    return `http://${clean}`;
+  }
+  return `https://${clean}`;
+}
+
+export interface VerifyCredentialsResult {
+  success: boolean;
+  status?: string;
+  error?: string;
+  warning?: string;
+  scopes?: string[];
+  permissions?: {
+    canCloneRepos: boolean;
+    canPullImages: boolean;
+    provider?: string;
+    account?: string;
+  };
+}
+
+export async function verifyRegistryCredentials(data: {
+  url: string;
+  username: string;
+  secret: string;
+  repoUrl?: string;
+}): Promise<VerifyCredentialsResult> {
+  const cleanUrl = data.url.toLowerCase().trim();
+  const username = data.username.trim();
+  const secret = data.secret.trim();
+
+  // 1. If explicit repoUrl is provided or url is a git repo URL
+  if (
+    data.repoUrl ||
+    cleanUrl.endsWith(".git") ||
+    (cleanUrl.startsWith("http") && cleanUrl.includes(".git"))
+  ) {
+    const targetRepo = (data.repoUrl || cleanUrl).trim();
+    try {
+      const basicToken = Buffer.from(`${username}:${secret}`).toString("base64");
+      await execFileAsync(
+        "git",
+        [
+          "-c",
+          `http.extraheader=AUTHORIZATION: basic ${basicToken}`,
+          "ls-remote",
+          "--heads",
+          targetRepo,
+        ],
+        { timeout: 15000 },
+      );
+      return {
+        success: true,
+        status:
+          "Conexão com repositório Git confirmada! Permissões de clone e leitura validadas com sucesso.",
+        permissions: {
+          canCloneRepos: true,
+          canPullImages: true,
+          provider: "git",
+        },
+      };
+    } catch (err: unknown) {
+      let msg = err instanceof Error ? err.message : String(err);
+      if (secret) {
+        msg = msg.replaceAll(secret, "******");
+      }
+      return {
+        success: false,
+        error: `Falha ao acessar o repositório Git: verifique se o repositório existe e se o token possui permissão de leitura/clone (${msg}).`,
+        permissions: {
+          canCloneRepos: false,
+          canPullImages: false,
+          provider: "git",
+        },
+      };
+    }
+  }
+
+  // 2. Check if GitHub (ghcr.io, github.com, api.github.com)
+  if (
+    cleanUrl.includes("github.com") ||
+    cleanUrl.includes("ghcr.io") ||
+    cleanUrl.includes("api.github.com")
+  ) {
+    try {
+      const ghRes = await fetch("https://api.github.com/user", {
+        headers: {
+          Authorization: `Bearer ${secret}`,
+          "User-Agent": "HarborX-Platform",
+          Accept: "application/vnd.github+json",
+        },
+      });
+
+      if (ghRes.status === 401) {
+        return {
+          success: false,
+          error:
+            "Credenciais inválidas: o token do GitHub informado é inválido, expirou ou não possui acesso à API.",
+          permissions: {
+            canCloneRepos: false,
+            canPullImages: false,
+            provider: "github",
+          },
+        };
+      }
+
+      if (!ghRes.ok) {
+        const errText = await ghRes.text();
+        return {
+          success: false,
+          error: `Erro ao validar token na API do GitHub (${ghRes.status}): ${errText}`,
+          permissions: {
+            canCloneRepos: false,
+            canPullImages: false,
+            provider: "github",
+          },
+        };
+      }
+
+      const userData = (await ghRes.json()) as { login?: string };
+      const accountName = userData.login || username;
+
+      const rawScopes = ghRes.headers.get("x-oauth-scopes");
+      if (rawScopes !== null && rawScopes !== undefined) {
+        // Classic Personal Access Token
+        const scopes = rawScopes
+          .split(",")
+          .map((s) => s.trim().toLowerCase())
+          .filter(Boolean);
+
+        const hasRepo = scopes.includes("repo");
+        const hasPublicRepo = scopes.includes("public_repo");
+        const hasPackages =
+          scopes.includes("read:packages") || scopes.includes("write:packages") || hasRepo;
+
+        if (!hasRepo && !hasPublicRepo) {
+          // Token is authenticated, but lacks the repository permissions HarborX needs!
+          return {
+            success: false,
+            error: `Token conectado ao GitHub como @${accountName}, mas NÃO possui as permissões necessárias para o HarborX criar Stacks! Falta o escopo 'repo' para clonar repositórios de código. Escopos atualmente concedidos: [${scopes.join(", ") || "nenhum"}]. Gere um novo token no GitHub com o escopo 'repo'.`,
+            scopes,
+            permissions: {
+              canCloneRepos: false,
+              canPullImages: hasPackages,
+              provider: "github",
+              account: accountName,
+            },
+          };
+        }
+
+        if (hasPublicRepo && !hasRepo) {
+          return {
+            success: true,
+            status: `Token conectado para @${accountName} com permissões para repositórios públicos.`,
+            warning:
+              "Atenção: O token possui apenas o escopo 'public_repo'. Repositórios privados do GitHub falharão no clone para Stacks. Para suporte a repositórios privados, marque o escopo 'repo'.",
+            scopes,
+            permissions: {
+              canCloneRepos: true,
+              canPullImages: hasPackages,
+              provider: "github",
+              account: accountName,
+            },
+          };
+        }
+
+        return {
+          success: true,
+          status: `Token do GitHub validado com sucesso para @${accountName}! Possui permissão completa de repositório ('repo') para criação de Stacks e acesso a imagens no GHCR.`,
+          scopes,
+          permissions: {
+            canCloneRepos: true,
+            canPullImages: true,
+            provider: "github",
+            account: accountName,
+          },
+        };
+      } else {
+        // Fine-grained personal access token (github_pat_...)
+        try {
+          const reposRes = await fetch("https://api.github.com/user/repos?per_page=1", {
+            headers: {
+              Authorization: `Bearer ${secret}`,
+              "User-Agent": "HarborX-Platform",
+              Accept: "application/vnd.github+json",
+            },
+          });
+
+          if (reposRes.ok) {
+            return {
+              success: true,
+              status: `Token Fine-Grained do GitHub validado com sucesso para @${accountName}!`,
+              warning:
+                "Importante: No GitHub, confirme que este token possui permissão no repositório específico da Stack ('Repository access: All repositories' ou o repositório selecionado) com permissão 'Contents: Read-only'.",
+              permissions: {
+                canCloneRepos: true,
+                canPullImages: true,
+                provider: "github",
+                account: accountName,
+              },
+            };
+          } else {
+            return {
+              success: false,
+              error: `Token Fine-Grained conectado para @${accountName}, mas NÃO possui permissão em repositórios! No GitHub, configure as permissões do token em 'Repository access' e 'Repository permissions -> Contents: Read-only' para que o HarborX consiga criar a Stack.`,
+              permissions: {
+                canCloneRepos: false,
+                canPullImages: false,
+                provider: "github",
+                account: accountName,
+              },
+            };
+          }
+        } catch {
+          return {
+            success: true,
+            status: `Token do GitHub validado com sucesso para @${accountName}.`,
+            permissions: {
+              canCloneRepos: true,
+              canPullImages: true,
+              provider: "github",
+              account: accountName,
+            },
+          };
+        }
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return {
+        success: false,
+        error: `Falha ao comunicar com a API do GitHub: ${msg}`,
+      };
+    }
+  }
+
+  // 3. Check if GitLab
+  if (cleanUrl.includes("gitlab.com")) {
+    try {
+      const glRes = await fetch("https://gitlab.com/api/v4/personal_access_tokens/self", {
+        headers: {
+          "PRIVATE-TOKEN": secret,
+        },
+      });
+
+      if (glRes.status === 401) {
+        return {
+          success: false,
+          error: "Credenciais inválidas: o token do GitLab informado é inválido ou expirou.",
+        };
+      }
+
+      if (glRes.ok) {
+        const glData = (await glRes.json()) as { scopes?: string[]; name?: string };
+        const scopes = glData.scopes || [];
+        const hasRepo =
+          scopes.includes("read_repository") ||
+          scopes.includes("write_repository") ||
+          scopes.includes("api");
+
+        if (!hasRepo) {
+          return {
+            success: false,
+            error: `Token do GitLab autenticado, mas NÃO possui a permissão 'read_repository' necessária para o HarborX clonar repositórios de Stacks. Escopos detectados: [${scopes.join(", ")}].`,
+            scopes,
+            permissions: {
+              canCloneRepos: false,
+              canPullImages: scopes.includes("read_registry"),
+              provider: "gitlab",
+            },
+          };
+        }
+
+        return {
+          success: true,
+          status:
+            "Token do GitLab validado com sucesso! Possui permissão 'read_repository' para criação de Stacks.",
+          scopes,
+          permissions: {
+            canCloneRepos: true,
+            canPullImages: true,
+            provider: "gitlab",
+          },
+        };
+      }
+    } catch {
+      // Fallback to Docker checkAuth below if GitLab API fails or is unreachable
+    }
+  }
+
+  // 4. Fallback: Test with Docker Daemon (for Docker Hub or generic registries)
+  const serveraddress = normalizeRegistryServerAddress(data.url);
+  try {
+    const res = await docker.checkAuth({
+      username,
+      password: secret,
+      serveraddress,
+    });
+
+    const statusMsg =
+      (res as { Status?: string })?.Status || "Autenticação no registro realizada com sucesso!";
+
+    return {
+      success: true,
+      status: statusMsg,
+      permissions: {
+        canCloneRepos: false,
+        canPullImages: true,
+        provider: cleanUrl.includes("docker.io") ? "dockerhub" : "generic_docker",
+      },
+    };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    let friendlyError = msg;
+    if (
+      msg.includes("401") ||
+      msg.toLowerCase().includes("unauthorized") ||
+      msg.toLowerCase().includes("incorrect") ||
+      msg.toLowerCase().includes("bad credentials")
+    ) {
+      friendlyError =
+        "Credenciais inválidas: usuário ou senha/token incorretos para este registro.";
+    } else if (
+      msg.includes("ENOTFOUND") ||
+      msg.toLowerCase().includes("no such host") ||
+      msg.includes("EAI_AGAIN")
+    ) {
+      friendlyError = `Não foi possível alcançar o servidor do registro (${serveraddress}). Verifique o domínio digitado.`;
+    } else if (msg.includes("connect ECONNREFUSED")) {
+      friendlyError = `Conexão recusada ao tentar conectar em ${serveraddress}.`;
+    }
+
+    return {
+      success: false,
+      error: friendlyError,
+    };
+  }
 }

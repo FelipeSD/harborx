@@ -10,6 +10,7 @@ import {
   Server,
   Lock,
   AlertCircle,
+  AlertTriangle,
   ExternalLink,
   CheckCircle2,
   Loader2,
@@ -123,6 +124,8 @@ function RegistriesPage() {
   const [testResult, setTestResult] = useState<{
     success: boolean;
     message: string;
+    warning?: string;
+    scopes?: string[];
   } | null>(null);
 
   const {
@@ -141,16 +144,24 @@ function RegistriesPage() {
     mutationFn: (data: TestRegistryRequest) => api.registries.test(data),
     onSuccess: (res) => {
       if (res.success) {
-        toast.success(res.status || "Credenciais validadas com sucesso!");
+        if (res.warning) {
+          toast.warning(res.warning);
+        } else {
+          toast.success(res.status || "Credenciais e permissões validadas com sucesso!");
+        }
         setTestResult({
           success: true,
           message: res.status || "Autenticação bem-sucedida!",
+          warning: res.warning,
+          scopes: res.scopes,
         });
       } else {
         toast.error(res.error || "Falha na validação das credenciais");
         setTestResult({
           success: false,
           message: res.error || "Falha na validação das credenciais",
+          warning: res.warning,
+          scopes: res.scopes,
         });
       }
     },
@@ -200,6 +211,8 @@ function RegistriesPage() {
   const [editTestResult, setEditTestResult] = useState<{
     success: boolean;
     message: string;
+    warning?: string;
+    scopes?: string[];
   } | null>(null);
 
   const [isGuideOpen, setIsGuideOpen] = useState(false);
@@ -231,16 +244,24 @@ function RegistriesPage() {
     mutationFn: (data: TestRegistryRequest) => api.registries.test(data),
     onSuccess: (res) => {
       if (res.success) {
-        toast.success(res.status || "Credenciais validadas com sucesso!");
+        if (res.warning) {
+          toast.warning(res.warning);
+        } else {
+          toast.success(res.status || "Credenciais e permissões validadas com sucesso!");
+        }
         setEditTestResult({
           success: true,
           message: res.status || "Autenticação bem-sucedida!",
+          warning: res.warning,
+          scopes: res.scopes,
         });
       } else {
         toast.error(res.error || "Falha na validação das credenciais");
         setEditTestResult({
           success: false,
           message: res.error || "Falha na validação das credenciais",
+          warning: res.warning,
+          scopes: res.scopes,
         });
       }
     },
@@ -563,15 +584,18 @@ function RegistriesPage() {
           if (!open) setTestResult(null);
         }}
       >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
+        <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0 overflow-hidden">
+          <DialogHeader className="p-6 pb-2 shrink-0 border-b">
             <DialogTitle>Conectar registro de containers</DialogTitle>
             <DialogDescription>
               As credenciais são armazenadas de forma segura com criptografia AES-256-GCM.
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleSubmit} className="space-y-4 py-1">
+          <form
+            onSubmit={handleSubmit}
+            className="space-y-4 p-6 py-4 overflow-y-auto flex-1 min-w-0"
+          >
             <div>
               <label className="text-xs font-medium text-muted-foreground block mb-1.5">
                 Predefinições Rápidas
@@ -665,13 +689,13 @@ function RegistriesPage() {
                 required
               />
               <p className="text-[11px] text-muted-foreground mt-1">
-                {url.toLowerCase().includes("ghcr.io")
-                  ? "Para GitHub (GHCR), utilize um Personal Access Token com escopo 'read:packages' (e 'write:packages' para push)."
+                {url.toLowerCase().includes("ghcr.io") || url.toLowerCase().includes("github.com")
+                  ? "Para GitHub (GHCR e Stacks), utilize um Personal Access Token com os escopos 'repo' (para clonar stacks) e 'read:packages' (para baixar imagens)."
                   : url.toLowerCase().includes("gitlab")
-                    ? "Para GitLab, utilize um Deploy Token ou PAT com o escopo 'read_registry'."
+                    ? "Para GitLab (Registry e Stacks), utilize um Deploy Token ou PAT com os escopos 'read_repository' (para stacks) e 'read_registry'."
                     : url.toLowerCase().includes("docker.io")
                       ? "Para Docker Hub, utilize a senha da conta ou um Access Token gerado nas configurações de segurança."
-                      : "Senha da conta do registro ou token de acesso com permissão de pull/push."}
+                      : "Senha da conta do registro ou token de acesso com permissão de pull/clone."}
               </p>
             </div>
 
@@ -679,28 +703,62 @@ function RegistriesPage() {
               <div
                 className={cn(
                   "flex items-start gap-2.5 rounded-lg border p-3 text-xs leading-relaxed transition-all",
-                  testResult.success
+                  testResult.success && !testResult.warning
                     ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400 dark:text-emerald-300"
-                    : "border-destructive/30 bg-destructive/10 text-destructive",
+                    : testResult.warning
+                      ? "border-amber-500/30 bg-amber-500/10 text-amber-500 dark:text-amber-400"
+                      : "border-destructive/30 bg-destructive/10 text-destructive",
                 )}
               >
-                {testResult.success ? (
+                {testResult.success && !testResult.warning ? (
                   <CheckCircle2 className="size-4 shrink-0 text-emerald-500 mt-0.5" />
+                ) : testResult.warning ? (
+                  <AlertTriangle className="size-4 shrink-0 text-amber-500 mt-0.5" />
                 ) : (
                   <AlertCircle className="size-4 shrink-0 text-destructive mt-0.5" />
                 )}
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <p className="font-semibold">
-                    {testResult.success
-                      ? "Conexão e autenticação bem-sucedidas!"
-                      : "Falha na conexão / autenticação"}
+                    {testResult.success && !testResult.warning
+                      ? "Permissões validadas com sucesso!"
+                      : testResult.warning
+                        ? "Aviso de permissões"
+                        : "Permissões insuficientes ou falha na autenticação"}
                   </p>
-                  <p className="text-[11px] opacity-90 mt-0.5">{testResult.message}</p>
+                  <p className="text-[11px] opacity-90 mt-0.5 whitespace-pre-wrap break-words">
+                    {testResult.message}
+                  </p>
+                  {testResult.warning && (
+                    <p className="text-[11px] font-medium text-amber-500 mt-1.5 whitespace-pre-wrap">
+                      {testResult.warning}
+                    </p>
+                  )}
+                  {testResult.scopes && testResult.scopes.length > 0 && (
+                    <div className="mt-2 flex flex-wrap items-center gap-1">
+                      <span className="text-[10px] text-muted-foreground mr-1">
+                        Escopos detectados:
+                      </span>
+                      {testResult.scopes.map((sc) => (
+                        <Badge
+                          key={sc}
+                          variant="outline"
+                          className={cn(
+                            "text-[9px] px-1 py-0 font-mono",
+                            sc === "repo"
+                              ? "border-emerald-500/40 text-emerald-500 bg-emerald-500/10"
+                              : "border-muted-foreground/30",
+                          )}
+                        >
+                          {sc}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
-            <DialogFooter className="pt-2 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2">
+            <DialogFooter className="p-4 px-6 border-t shrink-0 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2 -mx-6 -mb-4 mt-4 bg-background">
               <Button
                 type="button"
                 variant="outline"
@@ -720,12 +778,12 @@ function RegistriesPage() {
                 {testMutation.isPending ? (
                   <>
                     <Loader2 className="size-3.5 animate-spin" />
-                    Testando conexão...
+                    Validando permissões...
                   </>
                 ) : (
                   <>
                     <ShieldCheck className="size-3.5 text-primary" />
-                    Testar Conexão
+                    Testar agora (Conexão e Permissões)
                   </>
                 )}
               </Button>
@@ -769,15 +827,18 @@ function RegistriesPage() {
           }
         }}
       >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
+        <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0 overflow-hidden">
+          <DialogHeader className="p-6 pb-2 shrink-0 border-b">
             <DialogTitle>Editar registro de containers</DialogTitle>
             <DialogDescription>
               Atualize as informações de conexão ou rotacione o token de autenticação.
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleEditSubmit} className="space-y-4 py-1">
+          <form
+            onSubmit={handleEditSubmit}
+            className="space-y-4 p-6 py-4 overflow-y-auto flex-1 min-w-0"
+          >
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-foreground block">
                 Nome de identificação
@@ -833,29 +894,63 @@ function RegistriesPage() {
             {editTestResult && (
               <div
                 className={cn(
-                  "p-3 rounded-lg border text-xs flex items-start gap-2",
-                  editTestResult.success
+                  "flex items-start gap-2.5 rounded-lg border p-3 text-xs leading-relaxed transition-all",
+                  editTestResult.success && !editTestResult.warning
                     ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400 dark:text-emerald-300"
-                    : "border-destructive/30 bg-destructive/10 text-destructive",
+                    : editTestResult.warning
+                      ? "border-amber-500/30 bg-amber-500/10 text-amber-500 dark:text-amber-400"
+                      : "border-destructive/30 bg-destructive/10 text-destructive",
                 )}
               >
-                {editTestResult.success ? (
+                {editTestResult.success && !editTestResult.warning ? (
                   <CheckCircle2 className="size-4 shrink-0 text-emerald-500 mt-0.5" />
+                ) : editTestResult.warning ? (
+                  <AlertTriangle className="size-4 shrink-0 text-amber-500 mt-0.5" />
                 ) : (
                   <AlertCircle className="size-4 shrink-0 text-destructive mt-0.5" />
                 )}
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <p className="font-semibold">
-                    {editTestResult.success
-                      ? "Conexão e autenticação bem-sucedidas!"
-                      : "Falha na conexão / autenticação"}
+                    {editTestResult.success && !editTestResult.warning
+                      ? "Permissões validadas com sucesso!"
+                      : editTestResult.warning
+                        ? "Aviso de permissões"
+                        : "Permissões insuficientes ou falha na autenticação"}
                   </p>
-                  <p className="text-[11px] opacity-90 mt-0.5">{editTestResult.message}</p>
+                  <p className="text-[11px] opacity-90 mt-0.5 whitespace-pre-wrap break-words">
+                    {editTestResult.message}
+                  </p>
+                  {editTestResult.warning && (
+                    <p className="text-[11px] font-medium text-amber-500 mt-1.5 whitespace-pre-wrap">
+                      {editTestResult.warning}
+                    </p>
+                  )}
+                  {editTestResult.scopes && editTestResult.scopes.length > 0 && (
+                    <div className="mt-2 flex flex-wrap items-center gap-1">
+                      <span className="text-[10px] text-muted-foreground mr-1">
+                        Escopos detectados:
+                      </span>
+                      {editTestResult.scopes.map((sc) => (
+                        <Badge
+                          key={sc}
+                          variant="outline"
+                          className={cn(
+                            "text-[9px] px-1 py-0 font-mono",
+                            sc === "repo"
+                              ? "border-emerald-500/40 text-emerald-500 bg-emerald-500/10"
+                              : "border-muted-foreground/30",
+                          )}
+                        >
+                          {sc}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
-            <DialogFooter className="pt-2 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2">
+            <DialogFooter className="p-4 px-6 border-t shrink-0 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2 -mx-6 -mb-4 mt-4 bg-background">
               <Button
                 type="button"
                 variant="outline"
@@ -875,12 +970,12 @@ function RegistriesPage() {
                 {editTestMutation.isPending ? (
                   <>
                     <Loader2 className="size-3.5 animate-spin" />
-                    Testando conexão...
+                    Validando permissões...
                   </>
                 ) : (
                   <>
                     <ShieldCheck className="size-3.5 text-primary" />
-                    Testar Conexão
+                    Testar agora (Conexão e Permissões)
                   </>
                 )}
               </Button>

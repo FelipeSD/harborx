@@ -1,7 +1,11 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { requireRole } from "../auth/middleware.js";
+import { db } from "../db/index.js";
 import { logAudit } from "../services/audit.js";
+import { findGitAuthForRepo } from "../services/registries.js";
 import {
   createStackRecord,
   deployStack,
@@ -13,6 +17,8 @@ import {
   updateStackCompose,
   updateStackRecord,
 } from "../services/stacks.js";
+
+const execFileAsync = promisify(execFile);
 
 const createStackSchema = z.object({
   name: z.string().min(2, "Nome da stack deve ter no mínimo 2 caracteres"),
@@ -304,6 +310,182 @@ export const stackRoutes: FastifyPluginAsync = async (fastify) => {
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         return reply.status(400).send({ error: `Falha ao remover stack: ${msg}` });
+      }
+    },
+  );
+
+  // GET /api/stacks/:id/logs - Get recent deployment logs
+  fastify.get<{ Params: { id: string } }>("/stacks/:id/logs", async (request, reply) => {
+    const stack = await getStack(request.params.id);
+    if (!stack) {
+      return reply.status(404).send({ error: "Stack não encontrada" });
+    }
+
+    const deployments = db
+      .prepare(
+        "SELECT id, stack_id, triggered_by, status, output_log, created_at FROM stack_deployments WHERE stack_id = ? ORDER BY created_at DESC LIMIT 10",
+      )
+      .all(stack.id) as Array<{
+      id: string;
+      stack_id: string;
+      triggered_by: string;
+      status: string;
+      output_log: string;
+      created_at: string;
+    }>;
+
+    return deployments.map((d) => ({
+      id: d.id,
+      stackId: d.stack_id,
+      triggeredBy: d.triggered_by,
+      status: d.status,
+      outputLog: d.output_log,
+      createdAt: d.created_at,
+    }));
+  });
+
+  // POST /api/stacks/test-git - Test git access & branch with credentials
+  fastify.post(
+    "/stacks/test-git",
+    { preHandler: [requireRole("operator", "admin")] },
+    async (request, reply) => {
+      const testGitSchema = z.object({
+        gitRepo: z.string().min(1, "URL do repositório Git é obrigatória"),
+        gitBranch: z.string().optional().default("main"),
+        gitRegistryId: z.string().nullable().optional(),
+      });
+
+      const parsed = testGitSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          success: false,
+          error: "Dados inválidos para teste de repositório",
+        });
+      }
+
+      const { gitRepo, gitBranch, gitRegistryId } = parsed.data;
+
+      // Normalize git@ SSH URLs to https://
+      let cleanRepo = gitRepo.trim();
+      if (cleanRepo.startsWith("git@")) {
+        cleanRepo = cleanRepo.replace(/^git@([^:]+):/, "https://$1/");
+      }
+
+      const gitAuth = findGitAuthForRepo(cleanRepo, gitRegistryId);
+      const isGitHub = cleanRepo.includes("github.com");
+      const authUsername = isGitHub
+        ? "x-access-token"
+        : gitAuth?.username.replace(/^@+/, "").trim() || "oauth2";
+
+      const gitExtraArgs: string[] = ["-c", "credential.helper=", "-c", "core.askPass="];
+
+      if (gitAuth && !cleanRepo.includes("@")) {
+        const basicToken = Buffer.from(`${authUsername}:${gitAuth.secret}`).toString("base64");
+        gitExtraArgs.push("-c", `http.extraheader=Authorization: Basic ${basicToken}`);
+      }
+
+      const gitEnv = {
+        ...process.env,
+        GIT_TERMINAL_PROMPT: "0",
+        GIT_ASKPASS: "",
+      };
+
+      try {
+        const targetBranch = (gitBranch || "main").trim();
+        let stdout = "";
+
+        try {
+          const res = await execFileAsync(
+            "git",
+            [...gitExtraArgs, "ls-remote", "--heads", cleanRepo, targetBranch],
+            { timeout: 15000, env: gitEnv },
+          );
+          stdout = res.stdout;
+        } catch (firstErr) {
+          // If extraheader failed and we have gitAuth, try direct authenticated URL
+          if (gitAuth) {
+            try {
+              const u = new URL(cleanRepo.startsWith("http") ? cleanRepo : `https://${cleanRepo}`);
+              u.username = authUsername;
+              u.password = gitAuth.secret;
+              const directAuthUrl = u.toString();
+
+              const fallbackRes = await execFileAsync(
+                "git",
+                [
+                  "-c",
+                  "credential.helper=",
+                  "-c",
+                  "core.askPass=",
+                  "ls-remote",
+                  "--heads",
+                  directAuthUrl,
+                  targetBranch,
+                ],
+                { timeout: 15000, env: gitEnv },
+              );
+              stdout = fallbackRes.stdout;
+            } catch {
+              throw firstErr;
+            }
+          } else {
+            throw firstErr;
+          }
+        }
+
+        if (!stdout.trim()) {
+          // Check if repo has any branches
+          try {
+            const anyRefs = await execFileAsync(
+              "git",
+              [...gitExtraArgs, "ls-remote", "--heads", cleanRepo],
+              { timeout: 15000, env: gitEnv },
+            );
+            if (anyRefs.stdout.trim()) {
+              return reply.send({
+                success: true,
+                warning: `Repositório acessado com sucesso! Porém a branch '${targetBranch}' não foi encontrada na lista de branches remotos.`,
+              });
+            }
+          } catch {
+            // ignore ref check
+          }
+        }
+
+        const credInfo = gitAuth ? ` via credencial '${gitAuth.registryName}'` : "";
+        return reply.send({
+          success: true,
+          status: `Conexão bem-sucedida! Repositório acessível e branch '${targetBranch}' verificada${credInfo}. HarborX possui permissão para clonar.`,
+        });
+      } catch (err: unknown) {
+        let msg = err instanceof Error ? err.message : String(err);
+        if (gitAuth?.secret) {
+          msg = msg.replaceAll(gitAuth.secret, "******");
+        }
+
+        let friendly = msg;
+        if (
+          msg.includes("401") ||
+          msg.includes("Authentication failed") ||
+          msg.includes("could not read Username")
+        ) {
+          friendly =
+            "Falha de autenticação: credencial ausente, token expirado ou inválido para este repositório.";
+        } else if (
+          msg.includes("403") ||
+          msg.includes("Repository not found") ||
+          msg.includes("access denied") ||
+          msg.includes("not found")
+        ) {
+          friendly = isGitHub
+            ? "Acesso negado (403 ou Repositório não encontrado). Se estiver usando um Token Fine-Grained do GitHub (github_pat_...), certifique-se no GitHub (Settings > Developer Settings > Fine-grained tokens) de que o repositório específico foi incluído em 'Repository access' (caso esteja configurado 'Only select repositories') e conceda a permissão 'Contents: Read-only'. Se o repositório pertence a uma Organização, confirme também se a organização aprovou o token."
+            : "Acesso negado (403 ou Repositório não encontrado): o token configurado não possui permissão para ler este repositório.";
+        }
+
+        return reply.send({
+          success: false,
+          error: friendly,
+        });
       }
     },
   );

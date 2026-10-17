@@ -21,6 +21,8 @@ import type {
   StackSummary,
   SystemDfResponse,
   SystemInfo,
+  TestGitRepoRequest,
+  TestGitRepoResponse,
   TestRegistryRequest,
   TestRegistryResponse,
   UpdateRegistryRequest,
@@ -368,6 +370,22 @@ export const api = {
   stacks: {
     list: () => fetchApi<StackSummary[]>("/api/stacks"),
     get: (id: string) => fetchApi<StackSummary>(`/api/stacks/${id}`),
+    getLogs: (id: string) =>
+      fetchApi<
+        Array<{
+          id: string;
+          stackId: string;
+          triggeredBy: string;
+          status: string;
+          outputLog: string;
+          createdAt: string;
+        }>
+      >(`/api/stacks/${id}/logs`),
+    testGit: (data: TestGitRepoRequest) =>
+      fetchApi<TestGitRepoResponse>("/api/stacks/test-git", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
     create: (data: CreateStackRequest) =>
       fetchApi<StackSummary>("/api/stacks", {
         method: "POST",
