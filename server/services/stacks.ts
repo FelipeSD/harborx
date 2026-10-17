@@ -404,10 +404,19 @@ export async function deployStack(
   const stack = await getStack(stackId);
   if (!stack) throw new Error("Stack não encontrada");
 
+  const startTime = new Date().toISOString();
   db.prepare("UPDATE stacks SET status = 'deploying', updated_at = ? WHERE id = ?").run(
-    new Date().toISOString(),
+    startTime,
     stack.id,
   );
+
+  // Cria imediatamente um registro de deployment com status 'deploying' e log vazio
+  // garantindo que os logs antigos sejam limpos imediatamente no início da execução
+  const depId = crypto.randomUUID();
+  db.prepare(
+    `INSERT INTO stack_deployments (id, stack_id, triggered_by, status, output_log, created_at)
+     VALUES (?, ?, ?, 'deploying', '', ?)`,
+  ).run(depId, stack.id, triggeredBy, startTime);
 
   const stackDir = getStackDir(stack.name);
   let outputLog = "";
@@ -639,19 +648,12 @@ export async function deployStack(
     stack.id,
   );
 
-  // Record deployment log
-  const depId = crypto.randomUUID();
+  // Atualiza o registro de deploy com o status final e log completo
   db.prepare(
-    `INSERT INTO stack_deployments (id, stack_id, triggered_by, status, output_log, created_at)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-  ).run(
-    depId,
-    stack.id,
-    triggeredBy,
-    finalStatus === "deployed" ? "success" : "failed",
-    outputLog,
-    now,
-  );
+    `UPDATE stack_deployments
+     SET status = ?, output_log = ?
+     WHERE id = ?`,
+  ).run(finalStatus === "deployed" ? "success" : "failed", outputLog, depId);
 
   if (finalStatus === "failed") {
     throw new Error(outputLog);

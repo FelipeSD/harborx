@@ -11,6 +11,11 @@ import { requireRole } from "../auth/middleware.js";
 import { docker } from "../docker.js";
 import { logAudit } from "../services/audit.js";
 import { getRegistryAuthForImage } from "../services/registries.js";
+import {
+  detectDatabaseType,
+  executePreRemoveBackup,
+  findAssociatedBackupContainer,
+} from "../services/container-backup.js";
 
 function checkHarborXSelfProtection(
   id: string,
@@ -576,45 +581,127 @@ export const containerRoutes: FastifyPluginAsync = async (fastify) => {
     },
   );
 
-  // DELETE /api/containers/:id (remove)
-  fastify.delete<{ Params: { id: string }; Querystring: { force?: string; volumes?: string } }>(
-    "/:id",
-    { preHandler: [requireRole("operator", "admin")] },
+  // GET /api/containers/:id/backup-info
+  fastify.get<{ Params: { id: string } }>(
+    "/:id/backup-info",
+    { preHandler: [requireRole("viewer", "operator", "admin")] },
     async (request, reply) => {
       const { id } = request.params;
-      const force = request.query.force === "true" || request.query.force === "1";
-      const removeVolumes = request.query.volumes === "true" || request.query.volumes === "1";
-
       const container = docker.getContainer(id);
 
       try {
         const inspect = await container.inspect();
-        if (checkHarborXSelfProtection(id, inspect)) {
-          return reply.status(409).send({
-            error: "Não é permitido remover o próprio container do HarborX.",
-          });
-        }
+        const cleanName = (inspect.Name || "").replace(/^\//, "");
+        const image = inspect.Config?.Image || "";
+        const env = inspect.Config?.Env || [];
 
-        await container.remove({ force, v: removeVolumes });
+        const dbDetection = detectDatabaseType(image, cleanName, env);
+        const backupResult = await findAssociatedBackupContainer(id);
 
-        logAudit({
-          action: "container.remove",
-          userId: request.user?.id,
-          target: id,
-          details: { name: (inspect.Name || "").replace(/^\//, ""), force, removeVolumes },
-          ip: request.ip,
-        });
-
-        return { success: true, message: "Container removido com sucesso." };
+        return {
+          id,
+          name: cleanName,
+          image,
+          isDatabase: dbDetection.isDatabase,
+          dbType: dbDetection.dbType,
+          hasBackupConfigured: backupResult.hasBackup,
+          backupContainer: backupResult.backupContainer,
+        };
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
-        if (msg.includes("404") || msg.toLowerCase().includes("no such container")) {
-          return reply.status(404).send({ error: "Container não encontrado" });
-        }
-        return reply.status(502).send({ error: `Falha ao remover container: ${msg}` });
+        return reply.status(404).send({ error: `Container não encontrado: ${msg}` });
       }
     },
   );
+
+  // DELETE /api/containers/:id (remove)
+  fastify.delete<{
+    Params: { id: string };
+    Querystring: {
+      force?: string;
+      volumes?: string;
+      runBackup?: string;
+      confirmName?: string;
+    };
+  }>("/:id", { preHandler: [requireRole("operator", "admin")] }, async (request, reply) => {
+    const { id } = request.params;
+    const force = request.query.force === "true" || request.query.force === "1";
+    const removeVolumes = request.query.volumes === "true" || request.query.volumes === "1";
+    const runBackup = request.query.runBackup === "true" || request.query.runBackup === "1";
+    const confirmName = request.query.confirmName?.trim();
+
+    const container = docker.getContainer(id);
+
+    try {
+      const inspect = await container.inspect();
+      const cleanName = (inspect.Name || "").replace(/^\//, "");
+
+      if (checkHarborXSelfProtection(id, inspect)) {
+        return reply.status(409).send({
+          error: "Não é permitido remover o próprio container do HarborX.",
+        });
+      }
+
+      // Validate confirmed container name if supplied
+      if (confirmName && confirmName.toLowerCase() !== cleanName.toLowerCase()) {
+        return reply.status(400).send({
+          error: `Confirmação de segurança inválida: o nome digitado '${confirmName}' não corresponde ao nome real do container '${cleanName}'.`,
+        });
+      }
+
+      // Run pre-remove backup if requested and configured
+      let backupExecuted = false;
+      if (runBackup) {
+        const { hasBackup, backupContainer } = await findAssociatedBackupContainer(id);
+        if (hasBackup && backupContainer) {
+          try {
+            const res = await executePreRemoveBackup(backupContainer.id);
+            backupExecuted = res.success;
+            logAudit({
+              action: "container.pre_remove_backup",
+              userId: request.user?.id,
+              target: id,
+              details: {
+                containerName: cleanName,
+                backupContainerId: backupContainer.id,
+                backupContainerName: backupContainer.name,
+              },
+              ip: request.ip,
+            });
+          } catch (backupErr: unknown) {
+            const bMsg = backupErr instanceof Error ? backupErr.message : String(backupErr);
+            return reply.status(502).send({
+              error: `Falha ao executar o backup de segurança obrigatório antes da remoção: ${bMsg}. A remoção do container foi cancelada para prevenir perda de dados.`,
+            });
+          }
+        }
+      }
+
+      await container.remove({ force, v: removeVolumes });
+
+      logAudit({
+        action: "container.remove",
+        userId: request.user?.id,
+        target: id,
+        details: { name: cleanName, force, removeVolumes, backupExecuted },
+        ip: request.ip,
+      });
+
+      return {
+        success: true,
+        message: backupExecuted
+          ? `Backup de segurança concluído e container '${cleanName}' removido com sucesso.`
+          : `Container '${cleanName}' removido com sucesso.`,
+        backupExecuted,
+      };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("404") || msg.toLowerCase().includes("no such container")) {
+        return reply.status(404).send({ error: "Container não encontrado" });
+      }
+      return reply.status(502).send({ error: `Falha ao remover container: ${msg}` });
+    }
+  });
 
   // Helper function to demux Docker logs buffer
   function demuxLogBuffer(

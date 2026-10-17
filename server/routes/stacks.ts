@@ -308,30 +308,41 @@ export const stackRoutes: FastifyPluginAsync = async (fastify) => {
   );
 
   // DELETE /api/stacks/:id
-  fastify.delete<{ Params: { id: string }; Querystring: { volumes?: string } }>(
-    "/stacks/:id",
-    { preHandler: [requireRole("operator", "admin")] },
-    async (request, reply) => {
-      const removeVolumes = request.query.volumes === "true";
+  fastify.delete<{
+    Params: { id: string };
+    Querystring: { volumes?: string; confirmName?: string };
+  }>("/stacks/:id", { preHandler: [requireRole("operator", "admin")] }, async (request, reply) => {
+    const removeVolumes = request.query.volumes === "true";
+    const confirmName = request.query.confirmName?.trim();
 
-      try {
-        await removeStack(request.params.id, removeVolumes);
-
-        logAudit({
-          userId: request.user?.id,
-          action: "stack.remove",
-          target: request.params.id,
-          details: { removeVolumes },
-          ip: request.ip,
-        });
-
-        return { success: true };
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return reply.status(400).send({ error: `Falha ao remover stack: ${msg}` });
+    try {
+      const stack = await getStack(request.params.id);
+      if (!stack) {
+        return reply.status(404).send({ error: "Stack não encontrada" });
       }
-    },
-  );
+
+      if (confirmName !== undefined && confirmName !== stack.name) {
+        return reply.status(400).send({
+          error: `Confirmação de segurança inválida: esperado '${stack.name}', recebido '${confirmName}'`,
+        });
+      }
+
+      await removeStack(request.params.id, removeVolumes);
+
+      logAudit({
+        userId: request.user?.id,
+        action: "stack.remove",
+        target: request.params.id,
+        details: { removeVolumes, stackName: stack.name },
+        ip: request.ip,
+      });
+
+      return { success: true };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return reply.status(400).send({ error: `Falha ao remover stack: ${msg}` });
+    }
+  });
 
   // GET /api/stacks/:id/logs - Get recent deployment logs
   fastify.get<{ Params: { id: string } }>("/stacks/:id/logs", async (request, reply) => {

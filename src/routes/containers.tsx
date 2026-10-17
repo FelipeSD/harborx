@@ -22,6 +22,11 @@ import {
   Square as SquareOutline,
   Code,
   Shield,
+  ShieldCheck,
+  ShieldAlert,
+  AlertTriangle,
+  CheckCircle2,
+  Database,
   Loader2,
   Table as TableIcon,
 } from "lucide-react";
@@ -103,6 +108,9 @@ function ContainersPage() {
 
   // Confirmações
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+  const [typedConfirmName, setTypedConfirmName] = useState("");
+  const [batchConfirmTyped, setBatchConfirmTyped] = useState("");
+  const [runBackupBeforeRemove, setRunBackupBeforeRemove] = useState(true);
   const [confirmRemoveBatch, setConfirmRemoveBatch] = useState(false);
   const [confirmRecreateId, setConfirmRecreateId] = useState<string | null>(null);
   const [recreatePullLatest, setRecreatePullLatest] = useState(true);
@@ -124,6 +132,13 @@ function ContainersPage() {
     queryFn: api.containers.list,
     refetchInterval: 12000,
     refetchIntervalInBackground: false,
+  });
+
+  // Query para verificar detecção de banco e container de backup associado
+  const { data: backupInfo, isLoading: isBackupInfoLoading } = useQuery({
+    queryKey: ["containerBackupInfo", confirmRemoveId],
+    queryFn: () => (confirmRemoveId ? api.containers.getBackupInfo(confirmRemoveId) : null),
+    enabled: Boolean(confirmRemoveId),
   });
 
   // Query para obter dados do inspect quando o container estiver selecionado
@@ -176,15 +191,29 @@ function ContainersPage() {
 
   // Mutação para remoção com desaparecimento imediato (0ms de atraso visual)
   const removeMutation = useMutation({
-    mutationFn: ({ id, volumes }: { id: string; volumes: boolean }) =>
-      api.containers.remove(id, { force: true, volumes }),
-    onSuccess: (_, vars) => {
-      toast.success("Container removido com sucesso!");
+    mutationFn: ({
+      id,
+      volumes,
+      runBackup,
+      confirmName,
+    }: {
+      id: string;
+      volumes: boolean;
+      runBackup?: boolean;
+      confirmName?: string;
+    }) => api.containers.remove(id, { force: true, volumes, runBackup, confirmName }),
+    onSuccess: (res, vars) => {
+      toast.success(
+        res.backupExecuted
+          ? "Backup de segurança executado no R2 e container removido com sucesso!"
+          : "Container removido com sucesso!",
+      );
       // Remove do cache React Query instantaneamente para não permitir novos cliques
       queryClient.setQueryData<ContainerSummary[]>(["containers"], (old) =>
         old ? old.filter((c) => c.id !== vars.id) : [],
       );
       setConfirmRemoveId(null);
+      setTypedConfirmName("");
       if (selectedContainer?.id === vars.id) {
         setSelectedContainer(null);
       }
@@ -1215,50 +1244,252 @@ function ContainersPage() {
         onOpenChange={(o) => {
           if (!removeMutation.isPending) {
             setConfirmRemoveId(o ? confirmRemoveId : null);
+            if (!o) {
+              setTypedConfirmName("");
+              setRemoveVolumes(false);
+              setRunBackupBeforeRemove(true);
+            }
           }
         }}
       >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remover Container</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja remover este container? Esta ação não pode ser desfeita. Se o
-              container estiver em execução, ele será forçadamente encerrado.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="flex items-center space-x-2 py-2">
-            <Checkbox
-              id="remove-vols"
-              checked={removeVolumes}
-              onCheckedChange={(c) => setRemoveVolumes(Boolean(c))}
-              disabled={removeMutation.isPending}
-            />
-            <label htmlFor="remove-vols" className="text-xs cursor-pointer">
-              Remover também volumes anônimos associados
-            </label>
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={removeMutation.isPending}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={removeMutation.isPending}
-              onClick={(e) => {
-                e.preventDefault();
-                if (confirmRemoveId) {
-                  removeMutation.mutate({ id: confirmRemoveId, volumes: removeVolumes });
-                }
-              }}
-            >
-              {removeMutation.isPending ? (
-                <>
-                  <Loader2 className="mr-2 size-4 animate-spin" />
-                  Removendo...
-                </>
-              ) : (
-                "Remover"
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
+        <AlertDialogContent className="sm:max-w-xl max-h-[92vh] overflow-y-auto">
+          {(() => {
+            const containerToRemove = containers.find((c) => c.id === confirmRemoveId);
+            const isNameMatching =
+              Boolean(containerToRemove?.name) &&
+              typedConfirmName.trim().toLowerCase() === containerToRemove?.name.toLowerCase();
+            const isDb = Boolean(backupInfo?.isDatabase);
+            const hasBackup = Boolean(
+              backupInfo?.hasBackupConfigured && backupInfo.backupContainer,
+            );
+
+            return (
+              <>
+                <AlertDialogHeader>
+                  <div className="flex items-center gap-2 text-destructive">
+                    <ShieldAlert className="size-5 shrink-0" />
+                    <AlertDialogTitle className="text-lg">Remover Container</AlertDialogTitle>
+                  </div>
+                  <AlertDialogDescription className="text-xs text-muted-foreground">
+                    Esta ação é permanente e irreversível. Se o container estiver em execução, ele
+                    será forçadamente encerrado.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+
+                <div className="space-y-3.5 my-1 text-xs">
+                  {/* Container Details Summary */}
+                  <div className="rounded-lg border bg-muted/40 p-3 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Container:</span>
+                      <code className="font-mono font-bold text-foreground bg-background px-1.5 py-0.5 rounded border text-[13px]">
+                        {containerToRemove?.name || confirmRemoveId?.slice(0, 12)}
+                      </code>
+                    </div>
+                    <div className="flex items-center justify-between text-muted-foreground">
+                      <span>Imagem:</span>
+                      <span
+                        className="font-mono truncate max-w-[280px]"
+                        title={containerToRemove?.image}
+                      >
+                        {containerToRemove?.image}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-muted-foreground">
+                      <span>Status atual:</span>
+                      <Badge variant="outline" className="text-[11px] font-mono capitalize">
+                        {containerToRemove?.state || "desconhecido"}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* Database Detected Alert */}
+                  {isDb && (
+                    <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 space-y-1.5 animate-in fade-in-50 duration-200">
+                      <div className="flex items-center gap-2 font-semibold text-destructive text-xs">
+                        <Database className="size-4 shrink-0" />
+                        <span>
+                          Banco de Dados Detectado: {backupInfo?.dbType || "Banco de Dados"}
+                        </span>
+                      </div>
+                      <p className="text-muted-foreground text-[11px] leading-relaxed">
+                        Este container opera como banco de dados. A remoção incorreta resultará na
+                        indisponibilidade de dados e pode afetar outras aplicações e stacks
+                        conectadas.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Pre-Removal Backup Section */}
+                  {hasBackup ? (
+                    <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 font-semibold text-emerald-600 dark:text-emerald-400 text-xs">
+                          <ShieldCheck className="size-4 shrink-0" />
+                          <span>Backup de Segurança Configurado</span>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] bg-background/80 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-mono"
+                        >
+                          {backupInfo?.backupContainer?.name}
+                        </Badge>
+                      </div>
+
+                      <div className="flex items-start space-x-2 pt-1">
+                        <Checkbox
+                          id="run-backup-cb"
+                          checked={runBackupBeforeRemove}
+                          onCheckedChange={(c) => setRunBackupBeforeRemove(Boolean(c))}
+                          disabled={removeMutation.isPending}
+                        />
+                        <div className="space-y-0.5">
+                          <label
+                            htmlFor="run-backup-cb"
+                            className="text-xs font-semibold leading-none cursor-pointer flex items-center gap-1 text-foreground"
+                          >
+                            Executar backup no Cloudflare R2 antes da remoção
+                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-normal">
+                              (Recomendado)
+                            </span>
+                          </label>
+                          <p className="text-[11px] text-muted-foreground">
+                            Cria um snapshot imediato do banco de dados e sincroniza com o
+                            repositório seguro antes de deletar o container. Se o backup falhar, a
+                            remoção é cancelada.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : isDb && !isBackupInfoLoading ? (
+                    <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-2.5 flex items-start gap-2 text-[11px] text-amber-700 dark:text-amber-300">
+                      <AlertTriangle className="size-4 shrink-0 mt-0.5 text-amber-500" />
+                      <div>
+                        <strong className="font-medium">
+                          Nenhum container de backup automático detectado.
+                        </strong>{" "}
+                        Certifique-se de ter um dump ou cópia dos dados antes de prosseguir com a
+                        exclusão.
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {/* Volume Removal Option */}
+                  <div className="space-y-1.5 pt-1">
+                    <div className="flex items-start space-x-2">
+                      <Checkbox
+                        id="remove-vols"
+                        checked={removeVolumes}
+                        onCheckedChange={(c) => setRemoveVolumes(Boolean(c))}
+                        disabled={removeMutation.isPending}
+                      />
+                      <label
+                        htmlFor="remove-vols"
+                        className="text-xs cursor-pointer font-medium leading-none mt-0.5"
+                      >
+                        Remover também volumes anônimos e dados persistidos associados
+                      </label>
+                    </div>
+
+                    {isDb && removeVolumes && (
+                      <div className="rounded-md border border-rose-600/50 bg-rose-600/15 p-2 text-[11px] font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-1.5 animate-in fade-in duration-150">
+                        <AlertTriangle className="size-3.5 shrink-0" />
+                        <span>
+                          Alerta Crítico: Todos os arquivos físicos e tabelas gravadas nos volumes
+                          serão destruídos permanentemente!
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Mandatory Name Confirmation Input */}
+                  <div className="pt-2 border-t space-y-2">
+                    <label className="text-xs font-semibold text-foreground flex items-center gap-1">
+                      Para confirmar a remoção com segurança, digite o nome exato do container:
+                    </label>
+                    <div className="flex items-center justify-between gap-2 p-1.5 px-2 bg-muted/60 rounded border text-xs font-mono select-all">
+                      <span className="text-muted-foreground text-[11px]">Nome obrigatório:</span>
+                      <span className="font-bold text-destructive select-all">
+                        {containerToRemove?.name}
+                      </span>
+                    </div>
+
+                    <Input
+                      placeholder={`Digite "${containerToRemove?.name}"`}
+                      value={typedConfirmName}
+                      onChange={(e) => setTypedConfirmName(e.target.value)}
+                      disabled={removeMutation.isPending}
+                      className={cn(
+                        "font-mono text-xs mt-1 transition-colors",
+                        isNameMatching
+                          ? "border-emerald-500 focus-visible:ring-emerald-500/30"
+                          : typedConfirmName
+                            ? "border-destructive/60 focus-visible:ring-destructive/30"
+                            : "",
+                      )}
+                      autoFocus
+                    />
+
+                    <div className="text-[11px]">
+                      {isNameMatching ? (
+                        <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-medium">
+                          <CheckCircle2 className="size-3.5" /> Nome correspondente. Exclusão
+                          autorizada.
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">
+                          O botão de exclusão só será liberado após digitar o nome exato.
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <AlertDialogFooter className="mt-2">
+                  <AlertDialogCancel
+                    disabled={removeMutation.isPending}
+                    onClick={() => {
+                      setTypedConfirmName("");
+                      setRemoveVolumes(false);
+                      setRunBackupBeforeRemove(true);
+                    }}
+                  >
+                    Cancelar
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-1.5"
+                    disabled={!isNameMatching || removeMutation.isPending}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (confirmRemoveId && isNameMatching) {
+                        removeMutation.mutate({
+                          id: confirmRemoveId,
+                          volumes: removeVolumes,
+                          runBackup: runBackupBeforeRemove && hasBackup,
+                          confirmName: typedConfirmName.trim(),
+                        });
+                      }
+                    }}
+                  >
+                    {removeMutation.isPending ? (
+                      <>
+                        <Loader2 className="size-4 animate-spin mr-1.5" />
+                        {runBackupBeforeRemove && hasBackup
+                          ? "Executando backup e removendo..."
+                          : "Removendo..."}
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="size-3.5 mr-1" />
+                        {runBackupBeforeRemove && hasBackup
+                          ? "Executar Backup e Remover"
+                          : "Remover Container"}
+                      </>
+                    )}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </>
+            );
+          })()}
         </AlertDialogContent>
       </AlertDialog>
 
@@ -1268,48 +1499,168 @@ function ContainersPage() {
         onOpenChange={(o) => {
           if (!batchMutation.isPending) {
             setConfirmRemoveBatch(o);
+            if (!o) {
+              setBatchConfirmTyped("");
+              setRemoveVolumes(false);
+            }
           }
         }}
       >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remover {selectedIds.length} Container(s)</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja remover todos os containers selecionados? Esta ação é
-              definitiva e forçará o encerramento dos containers em execução.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="flex items-center space-x-2 py-2">
-            <Checkbox
-              id="batch-remove-vols"
-              checked={removeVolumes}
-              onCheckedChange={(c) => setRemoveVolumes(Boolean(c))}
-              disabled={batchMutation.isPending}
-            />
-            <label htmlFor="batch-remove-vols" className="text-xs cursor-pointer">
-              Remover também volumes anônimos associados
-            </label>
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={batchMutation.isPending}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={batchMutation.isPending}
-              onClick={(e) => {
-                e.preventDefault();
-                batchMutation.mutate("remove");
-              }}
-            >
-              {batchMutation.isPending ? (
-                <>
-                  <Loader2 className="mr-2 size-4 animate-spin" />
-                  Removendo...
-                </>
-              ) : (
-                "Remover Selecionados"
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
+        <AlertDialogContent className="sm:max-w-xl max-h-[92vh] overflow-y-auto">
+          {(() => {
+            const selectedContainersList = containers.filter((c) => selectedIds.includes(c.id));
+            const selectedDatabases = selectedContainersList.filter((c) => {
+              const img = (c.image || "").toLowerCase();
+              const name = (c.name || "").toLowerCase();
+              return (
+                img.includes("postgres") ||
+                img.includes("mysql") ||
+                img.includes("mariadb") ||
+                img.includes("mongo") ||
+                img.includes("redis") ||
+                img.includes("clickhouse") ||
+                name.includes("postgres") ||
+                name.includes("mysql") ||
+                name.includes("mongo") ||
+                name.includes("-db") ||
+                name.includes("_db")
+              );
+            });
+            const isBatchConfirmed = batchConfirmTyped.trim().toLowerCase() === "remover";
+
+            return (
+              <>
+                <AlertDialogHeader>
+                  <div className="flex items-center gap-2 text-destructive">
+                    <ShieldAlert className="size-5 shrink-0" />
+                    <AlertDialogTitle className="text-lg">
+                      Remover {selectedIds.length} Container(s) Selecionados
+                    </AlertDialogTitle>
+                  </div>
+                  <AlertDialogDescription className="text-xs text-muted-foreground">
+                    Tem certeza que deseja remover todos os containers selecionados? Esta ação é
+                    definitiva e forçará o encerramento dos containers em execução.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+
+                <div className="space-y-3.5 my-1 text-xs">
+                  {/* Database warning if any selected is a DB */}
+                  {selectedDatabases.length > 0 && (
+                    <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 space-y-1.5 animate-in fade-in duration-200">
+                      <div className="flex items-center gap-2 font-semibold text-destructive text-xs">
+                        <Database className="size-4 shrink-0" />
+                        <span>
+                          Alerta Crítico: {selectedDatabases.length} Banco(s) de Dados entre os
+                          selecionados!
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {selectedDatabases.map((db) => (
+                          <Badge
+                            key={db.id}
+                            variant="outline"
+                            className="text-[10px] bg-background border-destructive/30 font-mono text-destructive"
+                          >
+                            {db.name}
+                          </Badge>
+                        ))}
+                      </div>
+                      <p className="text-muted-foreground text-[11px] leading-relaxed pt-1">
+                        A remoção em lote destruirá estes bancos de dados simultaneamente.
+                        Certifique-se de que os dados não são mais necessários ou foram salvos em
+                        backup antes de continuar.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Volume removal checkbox */}
+                  <div className="flex items-center space-x-2 py-1">
+                    <Checkbox
+                      id="batch-remove-vols"
+                      checked={removeVolumes}
+                      onCheckedChange={(c) => setRemoveVolumes(Boolean(c))}
+                      disabled={batchMutation.isPending}
+                    />
+                    <label
+                      htmlFor="batch-remove-vols"
+                      className="text-xs cursor-pointer font-medium"
+                    >
+                      Remover também volumes anônimos e dados associados
+                    </label>
+                  </div>
+
+                  {/* Typed verification for batch */}
+                  <div className="pt-2 border-t space-y-2">
+                    <label className="text-xs font-semibold text-foreground flex items-center gap-1">
+                      Para confirmar a remoção em lote com segurança, digite{" "}
+                      <strong className="text-destructive font-mono">remover</strong> no campo
+                      abaixo:
+                    </label>
+                    <Input
+                      placeholder='Digite "remover" para liberar a ação'
+                      value={batchConfirmTyped}
+                      onChange={(e) => setBatchConfirmTyped(e.target.value)}
+                      disabled={batchMutation.isPending}
+                      className={cn(
+                        "font-mono text-xs mt-1 transition-colors",
+                        isBatchConfirmed
+                          ? "border-emerald-500 focus-visible:ring-emerald-500/30"
+                          : batchConfirmTyped
+                            ? "border-destructive/60 focus-visible:ring-destructive/30"
+                            : "",
+                      )}
+                      autoFocus
+                    />
+                    <div className="text-[11px]">
+                      {isBatchConfirmed ? (
+                        <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-medium">
+                          <CheckCircle2 className="size-3.5" /> Palavra-chave confirmada.
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">
+                          Digite a palavra &quot;remover&quot; para autorizar a exclusão em lote.
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <AlertDialogFooter className="mt-2">
+                  <AlertDialogCancel
+                    disabled={batchMutation.isPending}
+                    onClick={() => {
+                      setBatchConfirmTyped("");
+                      setRemoveVolumes(false);
+                    }}
+                  >
+                    Cancelar
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-1.5"
+                    disabled={!isBatchConfirmed || batchMutation.isPending}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (isBatchConfirmed) {
+                        batchMutation.mutate("remove");
+                      }
+                    }}
+                  >
+                    {batchMutation.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 size-4 animate-spin" />
+                        Removendo...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="size-3.5 mr-1" />
+                        Remover Selecionados ({selectedIds.length})
+                      </>
+                    )}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </>
+            );
+          })()}
         </AlertDialogContent>
       </AlertDialog>
 

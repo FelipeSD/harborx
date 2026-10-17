@@ -504,6 +504,7 @@ function StacksPage() {
 
   const [logStack, setLogStack] = useState<StackSummary | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<StackSummary | null>(null);
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
   const [removeVolumes, setRemoveVolumes] = useState(false);
   const [isInjectorOpen, setIsInjectorOpen] = useState(false);
   const [injectorTarget, setInjectorTarget] = useState<"create" | "edit">("create");
@@ -784,13 +785,15 @@ function StacksPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: ({ id, vols }: { id: string; vols: boolean }) => api.stacks.remove(id, vols),
+    mutationFn: ({ id, vols, confirmName }: { id: string; vols: boolean; confirmName: string }) =>
+      api.stacks.remove(id, vols, confirmName),
     onSuccess: (_, vars) => {
       toast.success("Stack removida.");
       queryClient.setQueryData<StackSummary[]>(["stacks"], (old) =>
         old ? old.filter((s) => s.id !== vars.id) : [],
       );
       setDeleteTarget(null);
+      setDeleteConfirmName("");
       void queryClient.invalidateQueries({ queryKey: ["stacks"] });
     },
     onError: (err: Error) => {
@@ -885,23 +888,102 @@ function StacksPage() {
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           {stacks.map((s) => {
-            const isRunning = s.status === "deployed" || s.runningContainersCount > 0;
+            const total = s.containersCount;
+            const running = s.runningContainersCount;
             const isDeploying =
               s.status === "deploying" ||
               (deployMutation.isPending &&
                 (typeof deployMutation.variables === "string"
                   ? deployMutation.variables === s.id
                   : deployMutation.variables?.id === s.id));
+            const hasFailed =
+              s.status === "failed" ||
+              s.containers.some(
+                (c) => c.state === "dead" || c.status?.toLowerCase().includes("unhealthy"),
+              );
+
+            let cardBorder = "border-border/80 bg-card/60 hover:border-primary/40";
+            let iconBoxStyle = "bg-secondary text-secondary-foreground";
+            let statusBadge = (
+              <Badge
+                variant="outline"
+                className="font-medium text-xs border-muted-foreground/30 text-muted-foreground shrink-0 capitalize"
+              >
+                Totalmente Parada
+              </Badge>
+            );
+
+            if (isDeploying) {
+              cardBorder =
+                "border-sky-500/50 bg-sky-500/[0.03] shadow-sm shadow-sky-500/10 ring-1 ring-sky-500/20";
+              iconBoxStyle = "bg-sky-500/10 text-sky-500 animate-pulse";
+              statusBadge = (
+                <Badge
+                  variant="outline"
+                  className="font-medium text-xs border-sky-500/40 text-sky-500 bg-sky-500/10 flex items-center gap-1.5 shrink-0"
+                >
+                  <Loader2 className="size-3 animate-spin" />
+                  Em Deploy
+                </Badge>
+              );
+            } else if (hasFailed) {
+              cardBorder =
+                "border-rose-500/40 bg-rose-500/[0.02] shadow-sm shadow-rose-500/5 hover:border-rose-500/60";
+              iconBoxStyle = "bg-rose-500/10 text-rose-500";
+              statusBadge = (
+                <Badge
+                  variant="outline"
+                  className="font-medium text-xs border-rose-500/40 text-rose-500 bg-rose-500/10 flex items-center gap-1.5 shrink-0"
+                >
+                  <span className="size-1.5 rounded-full bg-rose-500 animate-pulse" />
+                  Falha Crítica
+                </Badge>
+              );
+            } else if (total > 0 && running === total) {
+              cardBorder =
+                "border-emerald-500/40 bg-emerald-500/[0.02] shadow-sm shadow-emerald-500/5 hover:border-emerald-500/60";
+              iconBoxStyle = "bg-emerald-500/10 text-emerald-500";
+              statusBadge = (
+                <Badge
+                  variant="outline"
+                  className="font-medium text-xs border-emerald-500/40 text-emerald-500 bg-emerald-500/10 flex items-center gap-1.5 shrink-0"
+                >
+                  <span className="size-1.5 rounded-full bg-emerald-500" />
+                  100% Operacional
+                </Badge>
+              );
+            } else if (running > 0 && running < total) {
+              cardBorder =
+                "border-amber-500/40 bg-amber-500/[0.02] shadow-sm shadow-amber-500/5 hover:border-amber-500/60";
+              iconBoxStyle = "bg-amber-500/10 text-amber-500";
+              statusBadge = (
+                <Badge
+                  variant="outline"
+                  className="font-medium text-xs border-amber-500/40 text-amber-500 bg-amber-500/10 flex items-center gap-1.5 shrink-0"
+                >
+                  <span className="size-1.5 rounded-full bg-amber-500" />
+                  {running}/{total} Rodando
+                </Badge>
+              );
+            }
 
             return (
               <Panel
                 key={s.id}
-                className="p-5 flex flex-col justify-between hover:border-foreground/20 transition-colors"
+                className={cn(
+                  "p-5 flex flex-col justify-between transition-all duration-200",
+                  cardBorder,
+                )}
               >
                 <div>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-3">
-                      <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-secondary text-secondary-foreground">
+                      <div
+                        className={cn(
+                          "grid size-9 shrink-0 place-items-center rounded-lg transition-colors",
+                          iconBoxStyle,
+                        )}
+                      >
                         <FileStack className="size-4" />
                       </div>
                       <div className="min-w-0">
@@ -924,27 +1006,7 @@ function StacksPage() {
                       </div>
                     </div>
 
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        "font-medium text-xs capitalize shrink-0",
-                        isRunning
-                          ? "border-emerald-500/30 text-emerald-500 bg-emerald-500/5"
-                          : s.status === "deploying"
-                            ? "border-sky-500/30 text-sky-500 bg-sky-500/5"
-                            : s.status === "failed"
-                              ? "border-rose-500/30 text-rose-500 bg-rose-500/5"
-                              : "border-muted-foreground/30 text-muted-foreground",
-                      )}
-                    >
-                      {s.status === "deployed"
-                        ? "Ativa"
-                        : s.status === "deploying"
-                          ? "Fazendo deploy"
-                          : s.status === "failed"
-                            ? "Falha"
-                            : "Parada"}
-                    </Badge>
+                    {statusBadge}
                   </div>
 
                   {s.status === "failed" && (
@@ -1204,6 +1266,7 @@ function StacksPage() {
                       className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                       onClick={() => {
                         setDeleteTarget(s);
+                        setDeleteConfirmName("");
                         setRemoveVolumes(false);
                       }}
                     >
@@ -1870,21 +1933,22 @@ function StacksPage() {
                 </DialogHeader>
 
                 {isDeploying && (
-                  <div className="flex items-center gap-2 px-6 py-2.5 bg-primary/10 border-b text-xs text-primary font-medium animate-pulse">
+                  <div className="flex items-center gap-2 px-6 py-2.5 bg-sky-500/10 border-b text-xs text-sky-500 font-medium animate-pulse">
                     <Loader2 className="size-3.5 animate-spin shrink-0" />
                     <span>
-                      Executando processo de deploy (git clone & docker compose)... A tela
-                      atualizará automaticamente em tempo real.
+                      Executando processo de deploy (git clone & docker compose)... Os logs
+                      anteriores foram limpos e a saída completa será gravada ao término da
+                      execução.
                     </span>
                   </div>
                 )}
 
                 <div className="p-6 py-4 overflow-y-auto flex-1 min-w-0 bg-muted/20">
                   <pre className="rounded-lg border bg-zinc-950 p-4 font-mono text-xs leading-relaxed text-zinc-100 whitespace-pre-wrap break-all sm:break-normal select-all">
-                    {activeLogStack?.recentDeployment?.outputLog ||
-                      (isDeploying
-                        ? "Iniciando o processo de deploy e clonagem do repositório...\nAguarde alguns instantes enquanto os containers são orquestrados."
-                        : "Nenhum log registrado para este deploy ou a saída ainda não foi gravada.")}
+                    {isDeploying
+                      ? "Iniciando o processo de deploy e orquestração dos containers...\nOs logs antigos foram limpos.\nAguarde a conclusão da execução para visualizar o relatório completo."
+                      : activeLogStack?.recentDeployment?.outputLog ||
+                        "Nenhum log registrado para este deploy ou a saída ainda não foi gravada."}
                   </pre>
                 </div>
 
@@ -1894,7 +1958,7 @@ function StacksPage() {
                     variant="outline"
                     size="sm"
                     className="gap-1.5"
-                    disabled={!activeLogStack?.recentDeployment?.outputLog}
+                    disabled={!activeLogStack?.recentDeployment?.outputLog || isDeploying}
                     onClick={() => {
                       if (activeLogStack?.recentDeployment?.outputLog) {
                         copyToClipboard(
@@ -1924,38 +1988,109 @@ function StacksPage() {
       {/* Delete Stack Alert */}
       <AlertDialog
         open={Boolean(deleteTarget)}
-        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteTarget(null);
+            setDeleteConfirmName("");
+          }
+        }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className="sm:max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle>Remover stack Docker Compose?</AlertDialogTitle>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="size-5 shrink-0" />
+              Remover stack Docker Compose?
+            </AlertDialogTitle>
             <AlertDialogDescription>
               A stack <strong className="font-mono text-foreground">{deleteTarget?.name}</strong> e
               todos os seus containers serão parados e removidos.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="flex items-center space-x-2 py-2">
-            <Checkbox
-              id="remove-vols"
-              checked={removeVolumes}
-              onCheckedChange={(v) => setRemoveVolumes(Boolean(v))}
-            />
-            <label
-              htmlFor="remove-vols"
-              className="text-xs font-medium leading-none text-muted-foreground cursor-pointer"
-            >
-              Remover também os volumes nomeados declarados na stack (-v)
-            </label>
-          </div>
+
+          {(() => {
+            const hasDatabase = deleteTarget?.containers?.some(
+              (c) =>
+                /postgres|mysql|mariadb|mongo|redis|mssql|clickhouse/i.test(c.image || "") ||
+                /db|database/i.test(c.name || ""),
+            );
+
+            return (
+              <div className="space-y-3.5 py-1">
+                {hasDatabase && (
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-500 flex items-start gap-2.5">
+                    <AlertTriangle className="size-4 shrink-0 mt-0.5 text-amber-500" />
+                    <div className="space-y-1">
+                      <p className="font-semibold">
+                        Atenção: Banco de dados detectado nesta stack!
+                      </p>
+                      <p className="text-amber-400/90 text-[11px] leading-relaxed">
+                        Esta stack contém containers de banco de dados. Certifique-se de que possui
+                        backups atualizados antes de prosseguir com a remoção.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="remove-vols"
+                    checked={removeVolumes}
+                    onCheckedChange={(v) => setRemoveVolumes(Boolean(v))}
+                  />
+                  <label
+                    htmlFor="remove-vols"
+                    className="text-xs font-medium leading-none text-muted-foreground cursor-pointer"
+                  >
+                    Remover também os volumes nomeados declarados na stack (-v)
+                  </label>
+                </div>
+
+                <div className="space-y-1.5 pt-1">
+                  <label className="text-xs text-muted-foreground block font-medium">
+                    Para confirmar a remoção, digite o nome da stack{" "}
+                    <strong className="text-foreground font-mono select-all">
+                      {deleteTarget?.name}
+                    </strong>
+                    :
+                  </label>
+                  <Input
+                    placeholder={deleteTarget?.name}
+                    value={deleteConfirmName}
+                    onChange={(e) => setDeleteConfirmName(e.target.value)}
+                    className="font-mono text-xs h-9"
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                </div>
+              </div>
+            );
+          })()}
+
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel
+              disabled={deleteMutation.isPending}
+              onClick={() => {
+                setDeleteTarget(null);
+                setDeleteConfirmName("");
+              }}
+            >
+              Cancelar
+            </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={deleteMutation.isPending}
+              disabled={
+                deleteMutation.isPending ||
+                !deleteTarget ||
+                deleteConfirmName.trim() !== deleteTarget.name
+              }
               onClick={(e) => {
                 e.preventDefault();
-                if (deleteTarget) {
-                  deleteMutation.mutate({ id: deleteTarget.id, vols: removeVolumes });
+                if (deleteTarget && deleteConfirmName.trim() === deleteTarget.name) {
+                  deleteMutation.mutate({
+                    id: deleteTarget.id,
+                    vols: removeVolumes,
+                    confirmName: deleteConfirmName.trim(),
+                  });
                 }
               }}
             >

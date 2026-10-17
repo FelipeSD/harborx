@@ -94,13 +94,84 @@ export function StackBinderView({
           }
         };
 
+        const total = group.containers.length;
+        const running = group.runningCount;
+        const hasFailed = group.containers.some(
+          (c) => c.state === "dead" || c.status?.toLowerCase().includes("unhealthy"),
+        );
+
+        let binderBorder = "border-border/80 bg-card/60 hover:border-primary/40";
+        let binderHeaderBg = "from-surface/90 via-surface/70 to-surface/90";
+        let healthBadge = null;
+
+        if (hasFailed) {
+          binderBorder =
+            "border-rose-500/40 bg-rose-500/[0.02] shadow-sm shadow-rose-500/5 hover:border-rose-500/60";
+          binderHeaderBg = "from-rose-500/10 via-surface/80 to-surface/90";
+          healthBadge = (
+            <Badge
+              variant="outline"
+              className="border-rose-500/40 text-rose-500 bg-rose-500/10 text-[10px] flex items-center gap-1 font-mono"
+            >
+              <span className="size-1.5 rounded-full bg-rose-500 animate-pulse" />
+              Falha Crítica
+            </Badge>
+          );
+        } else if (total > 0 && running === total) {
+          binderBorder =
+            "border-emerald-500/40 bg-emerald-500/[0.02] shadow-sm shadow-emerald-500/5 hover:border-emerald-500/60";
+          binderHeaderBg = "from-emerald-500/10 via-surface/80 to-surface/90";
+          healthBadge = (
+            <Badge
+              variant="outline"
+              className="border-emerald-500/40 text-emerald-500 bg-emerald-500/10 text-[10px] flex items-center gap-1 font-mono"
+            >
+              <span className="size-1.5 rounded-full bg-emerald-500" />
+              100% Operacional
+            </Badge>
+          );
+        } else if (running > 0 && running < total) {
+          binderBorder =
+            "border-amber-500/40 bg-amber-500/[0.02] shadow-sm shadow-amber-500/5 hover:border-amber-500/60";
+          binderHeaderBg = "from-amber-500/10 via-surface/80 to-surface/90";
+          healthBadge = (
+            <Badge
+              variant="outline"
+              className="border-amber-500/40 text-amber-500 bg-amber-500/10 text-[10px] flex items-center gap-1 font-mono"
+            >
+              <span className="size-1.5 rounded-full bg-amber-500" />
+              {running}/{total} Ativos
+            </Badge>
+          );
+        } else {
+          binderBorder = "border-border/80 bg-card/60 hover:border-foreground/30";
+          binderHeaderBg = "from-surface/90 via-surface/70 to-surface/90";
+          healthBadge = (
+            <Badge
+              variant="outline"
+              className="border-muted-foreground/30 text-muted-foreground bg-muted/20 text-[10px] flex items-center gap-1 font-mono"
+            >
+              <span className="size-1.5 rounded-full bg-muted-foreground/40" />
+              Parado
+            </Badge>
+          );
+        }
+
         return (
           <div
             key={groupKey}
-            className="group relative rounded-xl border border-border/80 bg-card/60 shadow-md backdrop-blur transition-all duration-200 hover:border-primary/40 hover:shadow-lg"
+            className={cn(
+              "group relative rounded-xl border shadow-md backdrop-blur transition-all duration-200",
+              binderBorder,
+            )}
           >
             {/* Divisória de Fichário (Pasta Tab) */}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-gradient-to-r from-surface/90 via-surface/70 to-surface/90 px-4 py-3.5 sm:px-5">
+            <div
+              className={cn(
+                "flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-gradient-to-r px-4 py-3.5 sm:px-5 transition-colors",
+                binderHeaderBg,
+              )}
+            >
               <div className="flex items-center gap-3">
                 <button
                   type="button"
@@ -146,6 +217,7 @@ export function StackBinderView({
                         >
                           {group.isStandalone ? "Avulso" : "Docker Compose"}
                         </Badge>
+                        {healthBadge}
                       </div>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <span>{group.containers.length} container(s)</span>

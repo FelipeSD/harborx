@@ -2,6 +2,7 @@ import type {
   BatchActionResult,
   BatchContainerActionRequest,
   ContainerAction,
+  ContainerBackupInfo,
   ContainerStatsSummary,
   ContainerSummary,
   CreateContainerRequest,
@@ -203,14 +204,29 @@ export const api = {
         method: "POST",
         body: JSON.stringify(options || {}),
       }),
-    remove: (id: string, options?: { force?: boolean; volumes?: boolean }) => {
+    getBackupInfo: (id: string) =>
+      fetchApi<ContainerBackupInfo>(`/api/containers/${id}/backup-info`),
+    remove: (
+      id: string,
+      options?: {
+        force?: boolean;
+        volumes?: boolean;
+        runBackup?: boolean;
+        confirmName?: string;
+      },
+    ) => {
       const params = new URLSearchParams();
       if (options?.force) params.set("force", "true");
       if (options?.volumes) params.set("volumes", "true");
+      if (options?.runBackup) params.set("runBackup", "true");
+      if (options?.confirmName) params.set("confirmName", options.confirmName);
       const qs = params.toString() ? `?${params.toString()}` : "";
-      return fetchApi<{ success: true; message: string }>(`/api/containers/${id}${qs}`, {
-        method: "DELETE",
-      });
+      return fetchApi<{ success: true; message: string; backupExecuted?: boolean }>(
+        `/api/containers/${id}${qs}`,
+        {
+          method: "DELETE",
+        },
+      );
     },
     batch: (data: BatchContainerActionRequest) =>
       fetchApi<BatchActionResult>("/api/containers/batch", {
@@ -409,8 +425,11 @@ export const api = {
       fetchApi<{ success: true }>(`/api/stacks/${id}/start`, {
         method: "POST",
       }),
-    remove: (id: string, removeVolumes = false) => {
-      const qs = removeVolumes ? "?volumes=true" : "";
+    remove: (id: string, removeVolumes = false, confirmName?: string) => {
+      const params = new URLSearchParams();
+      if (removeVolumes) params.set("volumes", "true");
+      if (confirmName) params.set("confirmName", confirmName);
+      const qs = params.toString() ? `?${params.toString()}` : "";
       return fetchApi<{ success: true }>(`/api/stacks/${id}${qs}`, {
         method: "DELETE",
       });

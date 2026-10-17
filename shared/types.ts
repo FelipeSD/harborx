@@ -60,6 +60,21 @@ export interface ContainerSummary {
   stack?: string | undefined;
 }
 
+export interface ContainerBackupInfo {
+  id: string;
+  name: string;
+  image: string;
+  isDatabase: boolean;
+  dbType: string | null;
+  hasBackupConfigured: boolean;
+  backupContainer?: {
+    id: string;
+    name: string;
+    state: string;
+    image: string;
+  };
+}
+
 export interface ImageSummary {
   id: string;
   repoTags: string[];
