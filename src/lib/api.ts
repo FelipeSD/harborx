@@ -440,6 +440,10 @@ export const api = {
         method: "DELETE",
       });
     },
+    reset: (id: string) =>
+      fetchApi<{ success: true }>(`/api/stacks/${id}/reset`, {
+        method: "POST",
+      }),
   },
 
   webhooks: {

@@ -344,6 +344,45 @@ export const stackRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
+  // POST /api/stacks/:id/reset - Unlock or reset stuck deployment status
+  fastify.post<{ Params: { id: string } }>(
+    "/stacks/:id/reset",
+    { preHandler: [requireRole("operator", "admin")] },
+    async (request, reply) => {
+      try {
+        const stack = await getStack(request.params.id);
+        if (!stack) {
+          return reply.status(404).send({ error: "Stack não encontrada" });
+        }
+
+        const now = new Date().toISOString();
+        db.prepare("UPDATE stacks SET status = 'failed', updated_at = ? WHERE id = ?").run(
+          now,
+          stack.id,
+        );
+
+        db.prepare(
+          `UPDATE stack_deployments 
+           SET status = 'failed', output_log = output_log || '\n[HarborX] Deploy destravado/cancelado manualmente pelo usuário.'
+           WHERE stack_id = ? AND status = 'deploying'`,
+        ).run(stack.id);
+
+        logAudit({
+          userId: request.user?.id,
+          action: "stack.reset",
+          target: stack.id,
+          details: { stackName: stack.name },
+          ip: request.ip,
+        });
+
+        return { success: true };
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return reply.status(400).send({ error: `Falha ao destravar stack: ${msg}` });
+      }
+    },
+  );
+
   // GET /api/stacks/:id/logs - Get recent deployment logs
   fastify.get<{ Params: { id: string } }>("/stacks/:id/logs", async (request, reply) => {
     const stack = await getStack(request.params.id);

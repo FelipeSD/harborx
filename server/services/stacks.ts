@@ -101,7 +101,51 @@ export function resolveComposeFilePath(stackDir: string, requestedPath?: string 
   return requestedPath?.trim() || "docker-compose.yml";
 }
 
+export function reconcileOrphanedDeployments(): void {
+  try {
+    const now = new Date().toISOString();
+    // Reset any stack that was in 'deploying' when HarborX was shut down or restarted
+    const stuck = db
+      .prepare("SELECT id, name FROM stacks WHERE status = 'deploying'")
+      .all() as Array<{ id: string; name: string }>;
+
+    if (stuck.length > 0) {
+      db.prepare(
+        `UPDATE stacks 
+         SET status = 'failed', updated_at = ? 
+         WHERE status = 'deploying'`,
+      ).run(now);
+
+      db.prepare(
+        `UPDATE stack_deployments 
+         SET status = 'failed', output_log = output_log || '\n[HarborX] Deploy interrompido: o servidor HarborX foi reiniciado ou finalizado durante o processo.'
+         WHERE status = 'deploying'`,
+      ).run();
+    }
+  } catch {
+    // ignore
+  }
+}
+
 export async function listStacks(): Promise<StackWithContainers[]> {
+  try {
+    // Auto-fail any deployment stuck in 'deploying' for over 10 minutes
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    db.prepare(
+      `UPDATE stacks 
+       SET status = 'failed', updated_at = ? 
+       WHERE status = 'deploying' AND updated_at < ?`,
+    ).run(new Date().toISOString(), tenMinutesAgo);
+
+    db.prepare(
+      `UPDATE stack_deployments 
+       SET status = 'failed', output_log = output_log || '\n[HarborX] Deploy expirado: tempo limite de execução excedido (10 minutos).'
+       WHERE status = 'deploying' AND created_at < ?`,
+    ).run(tenMinutesAgo);
+  } catch {
+    // ignore
+  }
+
   const rows = db.prepare("SELECT * FROM stacks ORDER BY name ASC").all() as Array<{
     id: string;
     name: string;
@@ -710,13 +754,25 @@ export async function removeStack(stackId: string, removeVolumes = false): Promi
 
   // Executa 'docker compose down' apenas se a stack possuir containers e o compose existir
   if (stack.containersCount > 0 && fs.existsSync(composePath)) {
-    const downArgs = ["compose", "-p", stack.name, "-f", composeFile, "down"];
-    if (removeVolumes) downArgs.push("-v");
+    // Protege contra auto-exclusão do container do HarborX
+    const currentContainerId = process.env.HOSTNAME?.trim() || "";
+    const isSelfContainer = stack.containers.some(
+      (c) =>
+        (currentContainerId && c.id.startsWith(currentContainerId)) ||
+        c.name.toLowerCase() === "harborx" ||
+        c.name.toLowerCase() === "docker-harmony-hub" ||
+        /felipesdam496\/harborx|harborx/i.test(c.image),
+    );
 
-    try {
-      await execFileAsync("docker", downArgs, { cwd: stackDir, timeout: 15000 });
-    } catch {
-      // Ignore down errors if containers are already gone
+    if (!isSelfContainer) {
+      const downArgs = ["compose", "-p", stack.name, "-f", composeFile, "down"];
+      if (removeVolumes) downArgs.push("-v");
+
+      try {
+        await execFileAsync("docker", downArgs, { cwd: stackDir, timeout: 15000 });
+      } catch {
+        // Ignore down errors if containers are already gone
+      }
     }
   }
 
@@ -729,8 +785,9 @@ export async function removeStack(stackId: string, removeVolumes = false): Promi
     // ignore
   }
 
-  // Delete DB record
+  // Delete DB records
   db.prepare("DELETE FROM stacks WHERE id = ?").run(stack.id);
+  db.prepare("DELETE FROM stack_deployments WHERE stack_id = ?").run(stack.id);
 }
 
 export async function updateStackRecord(

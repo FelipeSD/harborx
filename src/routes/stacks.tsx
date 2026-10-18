@@ -806,6 +806,17 @@ function StacksPage() {
     },
   });
 
+  const resetMutation = useMutation({
+    mutationFn: (id: string) => api.stacks.reset(id),
+    onSuccess: () => {
+      toast.success("Status do deploy destravado com sucesso.");
+      void queryClient.invalidateQueries({ queryKey: ["stacks"] });
+    },
+    onError: (err: Error) => {
+      toast.error(`Erro ao destravar deploy: ${err.message}`);
+    },
+  });
+
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
@@ -924,13 +935,32 @@ function StacksPage() {
                 "border-sky-500/50 bg-sky-500/[0.03] shadow-sm shadow-sky-500/10 ring-1 ring-sky-500/20";
               iconBoxStyle = "bg-sky-500/10 text-sky-500 animate-pulse";
               statusBadge = (
-                <Badge
-                  variant="outline"
-                  className="font-medium text-xs border-sky-500/40 text-sky-500 bg-sky-500/10 flex items-center gap-1.5 shrink-0"
-                >
-                  <Loader2 className="size-3 animate-spin" />
-                  Em Deploy
-                </Badge>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Badge
+                    variant="outline"
+                    className="font-medium text-xs border-sky-500/40 text-sky-500 bg-sky-500/10 flex items-center gap-1.5 shrink-0"
+                  >
+                    <Loader2 className="size-3 animate-spin" />
+                    Em Deploy
+                  </Badge>
+                  {isOperator && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-1.5 text-[10px] text-amber-500 hover:text-amber-400 hover:bg-amber-500/10 font-sans"
+                      onClick={() => resetMutation.mutate(s.id)}
+                      disabled={resetMutation.isPending}
+                      title="Destravar deploy travado e redefinir para com falha"
+                    >
+                      {resetMutation.isPending ? (
+                        <Loader2 className="size-2.5 animate-spin" />
+                      ) : (
+                        "Destravar"
+                      )}
+                    </Button>
+                  )}
+                </div>
               );
             } else if (hasFailed) {
               cardBorder =
@@ -1022,7 +1052,7 @@ function StacksPage() {
                     {statusBadge}
                   </div>
 
-                  {s.status === "failed" && (
+                  {(s.status === "failed" || s.recentDeployment?.status === "failed") && (
                     <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-500">
                       <div className="flex items-center gap-2 min-w-0">
                         <AlertTriangle className="size-4 shrink-0 text-rose-500" />
