@@ -596,11 +596,7 @@ export function BackupToolkitInjectorDialog({
           >
             Cancelar
           </Button>
-          <Button
-            type="button"
-            onClick={handleInject}
-            className="gap-1.5 w-full sm:w-auto"
-          >
+          <Button type="button" onClick={handleInject} className="gap-1.5 w-full sm:w-auto">
             <ShieldCheck className="size-4" /> Injetar no Compose e .env
           </Button>
         </DialogFooter>

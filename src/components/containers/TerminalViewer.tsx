@@ -247,7 +247,9 @@ export function TerminalViewer({
     <div
       ref={containerRef}
       className={`flex flex-col bg-zinc-950 text-zinc-100 rounded-lg border border-zinc-800 overflow-hidden ${
-        isFullscreen ? "fixed inset-0 z-50 rounded-none border-none" : "min-h-[350px] h-[55dvh] sm:h-[620px]"
+        isFullscreen
+          ? "fixed inset-0 z-50 rounded-none border-none"
+          : "min-h-[350px] h-[55dvh] sm:h-[620px]"
       } ${className}`}
     >
       {/* Terminal Settings & Control Toolbar */}

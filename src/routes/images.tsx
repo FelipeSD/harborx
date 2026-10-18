@@ -287,7 +287,9 @@ function ImagesPage() {
                   ) : (
                     <Scissors className="size-4" />
                   )}
-                  <span>Podar <span className="hidden sm:inline">imagens órfãs</span></span>
+                  <span>
+                    Podar <span className="hidden sm:inline">imagens órfãs</span>
+                  </span>
                 </Button>
                 <Button
                   variant="outline"
@@ -301,7 +303,9 @@ function ImagesPage() {
                   ) : (
                     <Sparkles className="size-4" />
                   )}
-                  <span>Limpar <span className="hidden sm:inline">cache de build</span></span>
+                  <span>
+                    Limpar <span className="hidden sm:inline">cache de build</span>
+                  </span>
                 </Button>
               </>
             )}

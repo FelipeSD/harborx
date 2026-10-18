@@ -351,7 +351,9 @@ function HostsPage() {
                 </p>
 
                 <div className="relative rounded-lg border bg-surface p-3 font-mono text-[11px] leading-relaxed text-foreground min-w-0">
-                  <pre className="whitespace-pre overflow-x-auto overscroll-x-contain pr-8">{vmInstallCmd}</pre>
+                  <pre className="whitespace-pre overflow-x-auto overscroll-x-contain pr-8">
+                    {vmInstallCmd}
+                  </pre>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -387,7 +389,11 @@ function HostsPage() {
                   recursos.
                 </p>
               </div>
-              <Button size="sm" onClick={() => setIsNewUserOpen(true)} className="self-start sm:self-auto">
+              <Button
+                size="sm"
+                onClick={() => setIsNewUserOpen(true)}
+                className="self-start sm:self-auto"
+              >
                 <Plus className="size-4" /> Novo Usuário
               </Button>
             </div>
@@ -414,7 +420,10 @@ function HostsPage() {
                             <div className="font-mono text-xs font-semibold text-foreground flex items-center gap-1.5">
                               <span>{u.username}</span>
                               {isSelf && (
-                                <Badge variant="secondary" className="text-[10px] py-0 px-1 font-sans">
+                                <Badge
+                                  variant="secondary"
+                                  className="text-[10px] py-0 px-1 font-sans"
+                                >
                                   você
                                 </Badge>
                               )}
@@ -683,7 +692,9 @@ function HostsPage() {
                   ) : (
                     auditData?.items.map((log) => (
                       <tr key={log.id} className="border-b last:border-0 hover:bg-accent/40">
-                        <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">{formatDate(log.ts)}</td>
+                        <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">
+                          {formatDate(log.ts)}
+                        </td>
                         <td className="px-4 py-2.5 whitespace-nowrap">
                           <span className="rounded bg-muted px-1.5 py-0.5 text-foreground font-semibold">
                             {log.action}
@@ -692,8 +703,12 @@ function HostsPage() {
                         <td className="px-4 py-2.5 text-foreground font-medium whitespace-nowrap">
                           {log.username || "sistema"}
                         </td>
-                        <td className="px-4 py-2.5 truncate max-w-[140px] sm:max-w-xs">{log.target || "—"}</td>
-                        <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">{log.ip || "—"}</td>
+                        <td className="px-4 py-2.5 truncate max-w-[140px] sm:max-w-xs">
+                          {log.target || "—"}
+                        </td>
+                        <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">
+                          {log.ip || "—"}
+                        </td>
                         <td
                           className="px-4 py-2.5 text-muted-foreground truncate max-w-[180px] sm:max-w-sm"
                           title={log.details ? JSON.stringify(log.details) : undefined}
@@ -840,7 +855,11 @@ function HostsPage() {
               >
                 Cancelar
               </Button>
-              <Button type="submit" className="w-full sm:w-auto" disabled={createUserMutation.isPending}>
+              <Button
+                type="submit"
+                className="w-full sm:w-auto"
+                disabled={createUserMutation.isPending}
+              >
                 {createUserMutation.isPending ? "Criando..." : "Criar Usuário"}
               </Button>
             </DialogFooter>
@@ -889,7 +908,10 @@ function HostsPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
-            <AlertDialogCancel className="w-full sm:w-auto" disabled={pruneSystemMutation.isPending}>
+            <AlertDialogCancel
+              className="w-full sm:w-auto"
+              disabled={pruneSystemMutation.isPending}
+            >
               Cancelar
             </AlertDialogCancel>
             <AlertDialogAction

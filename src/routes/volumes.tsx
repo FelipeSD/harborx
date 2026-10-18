@@ -400,7 +400,10 @@ function VolumesPage() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-semibold font-mono text-xs text-foreground truncate" title={v.name}>
+                        <span
+                          className="font-semibold font-mono text-xs text-foreground truncate"
+                          title={v.name}
+                        >
                           {v.name}
                         </span>
                         <span className="rounded border px-1.5 py-0.5 font-mono text-[9px] uppercase">
@@ -454,7 +457,10 @@ function VolumesPage() {
                   <div className="rounded border bg-background/60 p-2 font-mono text-[11px] text-muted-foreground">
                     <div className="flex items-center justify-between gap-1">
                       <span className="text-[10px] uppercase font-semibold">Montagem:</span>
-                      <span className="text-foreground truncate flex-1 text-right ml-2" title={v.mountpoint}>
+                      <span
+                        className="text-foreground truncate flex-1 text-right ml-2"
+                        title={v.mountpoint}
+                      >
                         {v.mountpoint}
                       </span>
                     </div>
@@ -483,8 +489,7 @@ function VolumesPage() {
                           setForceDelete(false);
                         }}
                       >
-                        {deleteMutation.isPending &&
-                        deleteMutation.variables?.name === v.name ? (
+                        {deleteMutation.isPending && deleteMutation.variables?.name === v.name ? (
                           <Loader2 className="size-3.5 animate-spin" />
                         ) : (
                           <Trash2 className="size-3.5" />
@@ -617,7 +622,8 @@ function VolumesPage() {
                               className="size-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
                               title="Remover volume"
                               disabled={
-                                deleteMutation.isPending && deleteMutation.variables?.name === v.name
+                                deleteMutation.isPending &&
+                                deleteMutation.variables?.name === v.name
                               }
                               onClick={() => {
                                 setDeleteTarget(v);
@@ -683,7 +689,11 @@ function VolumesPage() {
               >
                 Cancelar
               </Button>
-              <Button type="submit" className="w-full sm:w-auto" disabled={createMutation.isPending}>
+              <Button
+                type="submit"
+                className="w-full sm:w-auto"
+                disabled={createMutation.isPending}
+              >
                 {createMutation.isPending ? "Criando..." : "Criar volume"}
               </Button>
             </DialogFooter>

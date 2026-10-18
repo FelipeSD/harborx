@@ -151,7 +151,9 @@ export function CreateContainerDialog({ open, onOpenChange }: CreateContainerDia
               <TabsTrigger value="basic">Básico</TabsTrigger>
               <TabsTrigger value="ports">Portas</TabsTrigger>
               <TabsTrigger value="volumes">Volumes</TabsTrigger>
-              <TabsTrigger value="env" className="truncate">Variáveis & Recursos</TabsTrigger>
+              <TabsTrigger value="env" className="truncate">
+                Variáveis & Recursos
+              </TabsTrigger>
             </TabsList>
 
             {/* Aba 1: Básico */}

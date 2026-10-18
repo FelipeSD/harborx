@@ -168,12 +168,20 @@ jobs:
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <p className="font-semibold text-sm text-foreground truncate">{w.stackName}</p>
-                          <Badge variant="outline" className="font-mono text-[10px] py-0 uppercase shrink-0">
+                          <p className="font-semibold text-sm text-foreground truncate">
+                            {w.stackName}
+                          </p>
+                          <Badge
+                            variant="outline"
+                            className="font-mono text-[10px] py-0 uppercase shrink-0"
+                          >
                             {w.stackType}
                           </Badge>
                         </div>
-                        <p className="font-mono text-xs text-muted-foreground mt-0.5 truncate" title={w.webhookUrl}>
+                        <p
+                          className="font-mono text-xs text-muted-foreground mt-0.5 truncate"
+                          title={w.webhookUrl}
+                        >
                           {w.webhookUrl}
                         </p>
                       </div>

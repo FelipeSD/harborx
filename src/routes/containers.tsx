@@ -1032,7 +1032,7 @@ function ContainersPage() {
 
                   <div>
                     <p className="text-xs font-medium mb-1.5 text-muted-foreground">
-                       Comando de execução
+                      Comando de execução
                     </p>
                     <pre className="overflow-auto overscroll-contain rounded-lg border bg-background p-3 font-mono text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap break-all sm:break-normal">
                       {selectedContainer.command || "Nenhum comando explícito"}

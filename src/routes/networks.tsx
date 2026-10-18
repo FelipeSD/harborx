@@ -409,9 +409,15 @@ function NetworksPage() {
             filteredNetworks.map((n) => {
               const isBuiltin = BUILTIN_NETWORKS.includes(n.name.toLowerCase());
               const subnets =
-                n.ipam?.config?.map((c) => c.subnet).filter(Boolean).join(", ") || "—";
+                n.ipam?.config
+                  ?.map((c) => c.subnet)
+                  .filter(Boolean)
+                  .join(", ") || "—";
               const gateways =
-                n.ipam?.config?.map((c) => c.gateway).filter(Boolean).join(", ") || "—";
+                n.ipam?.config
+                  ?.map((c) => c.gateway)
+                  .filter(Boolean)
+                  .join(", ") || "—";
 
               const inUseItems =
                 n.inUseBy && n.inUseBy.length > 0
@@ -432,7 +438,9 @@ function NetworksPage() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-semibold text-sm text-foreground truncate">{n.name}</span>
+                        <span className="font-semibold text-sm text-foreground truncate">
+                          {n.name}
+                        </span>
                         {n.internal && (
                           <span title="Rede interna isolada">
                             <Lock className="size-3 text-muted-foreground" />
@@ -658,7 +666,9 @@ function NetworksPage() {
                           {n.driver}
                         </span>
                       </td>
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{n.scope}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                        {n.scope}
+                      </td>
                       <td className="px-4 py-3 font-mono text-xs">
                         <div>{subnets}</div>
                         {gateways !== "—" && (

@@ -997,14 +997,19 @@ function StacksPage() {
                           <p className="font-semibold text-base text-foreground truncate max-w-[170px] sm:max-w-none">
                             {s.name}
                           </p>
-                          <Badge variant="outline" className="font-mono text-[10px] py-0 uppercase shrink-0">
+                          <Badge
+                            variant="outline"
+                            className="font-mono text-[10px] py-0 uppercase shrink-0"
+                          >
                             {s.type}
                           </Badge>
                         </div>
                         {s.type === "git" ? (
                           <p className="truncate font-mono text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                             <GitBranch className="size-3 shrink-0" />
-                            <span className="truncate">{s.gitRepo} ({s.gitBranch})</span>
+                            <span className="truncate">
+                              {s.gitRepo} ({s.gitBranch})
+                            </span>
                           </p>
                         ) : (
                           <p className="font-mono text-xs text-muted-foreground mt-0.5">

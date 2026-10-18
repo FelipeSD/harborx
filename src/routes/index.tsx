@@ -384,7 +384,9 @@ function Overview() {
             </div>
             <div className="rounded-lg border bg-surface p-3">
               <dt className="text-muted-foreground">Versão do Docker</dt>
-              <dd className="mt-1 font-mono font-medium truncate">{system?.serverVersion || "—"}</dd>
+              <dd className="mt-1 font-mono font-medium truncate">
+                {system?.serverVersion || "—"}
+              </dd>
             </div>
             <div className="rounded-lg border bg-surface p-3">
               <dt className="text-muted-foreground">Sistema Operacional</dt>
