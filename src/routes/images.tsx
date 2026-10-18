@@ -383,19 +383,19 @@ function ImagesPage() {
       </Panel>
 
       {/* Divisórias Estilizadas tipo Fichário e Busca */}
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-border/70 bg-surface/50 p-1 backdrop-blur">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between min-w-0">
+        <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 rounded-xl border border-border/70 bg-surface/50 p-1 backdrop-blur min-w-0">
           <button
             type="button"
             onClick={() => setFilterUsage("all")}
             className={cn(
-              "flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
+              "flex items-center gap-1.5 sm:gap-2 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-medium transition-all",
               filterUsage === "all"
                 ? "bg-primary text-primary-foreground shadow-sm"
                 : "text-muted-foreground hover:bg-surface hover:text-foreground",
             )}
           >
-            <span>Todas as Imagens</span>
+            <span>Todas</span>
             <Badge
               variant="outline"
               className={cn(
@@ -413,7 +413,7 @@ function ImagesPage() {
             type="button"
             onClick={() => setFilterUsage("in_use")}
             className={cn(
-              "flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
+              "flex items-center gap-1.5 sm:gap-2 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-medium transition-all",
               filterUsage === "in_use"
                 ? "bg-emerald-500 text-white shadow-sm"
                 : "text-muted-foreground hover:bg-surface hover:text-foreground",
@@ -440,7 +440,7 @@ function ImagesPage() {
             type="button"
             onClick={() => setFilterUsage("unused")}
             className={cn(
-              "flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
+              "flex items-center gap-1.5 sm:gap-2 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-medium transition-all",
               filterUsage === "unused"
                 ? "bg-amber-500 text-black font-semibold shadow-sm"
                 : "text-muted-foreground hover:bg-surface hover:text-foreground",
@@ -448,7 +448,7 @@ function ImagesPage() {
           >
             <span className="flex items-center gap-1.5">
               <span className="size-2 rounded-full bg-amber-400" />
-              Não Utilizadas / Órfãs
+              Órfãs
             </span>
             <Badge
               variant="outline"
@@ -514,18 +514,18 @@ function ImagesPage() {
       )}
 
       {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Panel key={i} className="p-5">
+            <Panel key={i} className="p-4 sm:p-5">
               <Skeleton className="h-4 w-20 mb-3" />
-              <Skeleton className="h-5 w-48 mb-1" />
+              <Skeleton className="h-5 w-48 max-w-full mb-1" />
               <Skeleton className="h-4 w-24 mb-4" />
               <Skeleton className="h-3 w-32" />
             </Panel>
           ))}
         </div>
       ) : filteredImages.length === 0 ? (
-        <Panel className="p-12 text-center text-muted-foreground">
+        <Panel className="p-8 sm:p-12 text-center text-muted-foreground">
           <Layers className="mx-auto size-10 mb-3 opacity-40" />
           <p className="text-base font-medium">Nenhuma imagem Docker encontrada</p>
           <p className="text-sm mt-1">
@@ -535,7 +535,7 @@ function ImagesPage() {
           </p>
         </Panel>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {filteredImages.map((i) => {
             const primaryTag = i.repoTags[0] || "<none>:<none>";
             const [repo, tag] = primaryTag.includes(":")
@@ -552,7 +552,7 @@ function ImagesPage() {
             return (
               <Panel
                 key={i.id}
-                className="p-5 flex flex-col justify-between hover:border-foreground/20 transition-colors"
+                className="p-4 sm:p-5 flex flex-col justify-between hover:border-foreground/20 transition-colors overflow-hidden"
               >
                 <div>
                   <div className="flex items-start justify-between gap-2">

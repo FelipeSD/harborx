@@ -161,25 +161,25 @@ export function StackBinderView({
           <div
             key={groupKey}
             className={cn(
-              "group relative rounded-xl border shadow-md backdrop-blur transition-all duration-200",
+              "group relative rounded-xl border shadow-md backdrop-blur transition-all duration-200 min-w-0 max-w-full overflow-hidden",
               binderBorder,
             )}
           >
             {/* Divisória de Fichário (Pasta Tab) */}
             <div
               className={cn(
-                "flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-gradient-to-r px-4 py-3.5 sm:px-5 transition-colors",
+                "flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-3 border-b border-border/60 bg-gradient-to-r px-3.5 py-3 sm:px-5 sm:py-3.5 transition-colors min-w-0",
                 binderHeaderBg,
               )}
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-start sm:items-center gap-2.5 min-w-0 flex-1">
                 <button
                   type="button"
                   onClick={() => toggleCollapse(groupKey)}
-                  className="flex items-center gap-2 text-left focus:outline-none"
+                  className="flex items-start sm:items-center gap-2 text-left focus:outline-none min-w-0 flex-1"
                   title={isCollapsed ? "Expandir pasta da stack" : "Recolher pasta da stack"}
                 >
-                  <div className="grid size-7 place-items-center rounded-lg bg-surface border border-border/80 text-primary transition-transform duration-200 group-hover:scale-105">
+                  <div className="grid size-7 shrink-0 place-items-center rounded-lg bg-surface border border-border/80 text-primary transition-transform duration-200 group-hover:scale-105 mt-0.5 sm:mt-0">
                     {isCollapsed ? (
                       <ChevronRight className="size-4" />
                     ) : (
@@ -187,10 +187,10 @@ export function StackBinderView({
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-start sm:items-center gap-2 min-w-0 flex-1">
                     <div
                       className={cn(
-                        "grid size-8 place-items-center rounded-lg border",
+                        "grid size-8 shrink-0 place-items-center rounded-lg border mt-0.5 sm:mt-0",
                         group.isStandalone
                           ? "bg-slate-500/10 border-slate-500/20 text-slate-400"
                           : "bg-primary/10 border-primary/30 text-primary",
@@ -202,24 +202,24 @@ export function StackBinderView({
                         <Layers className="size-4" />
                       )}
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold tracking-tight text-foreground sm:text-base">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 min-w-0">
+                        <span className="font-semibold tracking-tight text-foreground text-sm sm:text-base truncate max-w-full">
                           {group.stackName}
                         </span>
                         <Badge
                           variant={group.isStandalone ? "secondary" : "default"}
                           className={cn(
-                            "text-[10px] uppercase tracking-wider font-mono px-2 py-0.5",
+                            "text-[10px] uppercase tracking-wider font-mono px-1.5 py-0.5 shrink-0",
                             !group.isStandalone &&
                               "bg-primary/15 text-primary border-primary/30 hover:bg-primary/20",
                           )}
                         >
-                          {group.isStandalone ? "Avulso" : "Docker Compose"}
+                          {group.isStandalone ? "Avulso" : "Compose"}
                         </Badge>
                         {healthBadge}
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground mt-0.5">
                         <span>{group.containers.length} container(s)</span>
                         <span>•</span>
                         <span className="text-emerald-500 font-medium">
@@ -240,9 +240,9 @@ export function StackBinderView({
               </div>
 
               {/* Controles da Divisória da Stack */}
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
                 {!isViewer && !group.isStandalone && (
-                  <div className="flex items-center gap-1 rounded-lg border border-border/60 bg-background/50 p-1">
+                  <div className="flex flex-wrap items-center gap-1 rounded-lg border border-border/60 bg-background/50 p-1">
                     <Button
                       size="sm"
                       variant="ghost"
@@ -297,8 +297,9 @@ export function StackBinderView({
 
                 {!isViewer && (
                   <button
+                    type="button"
                     onClick={toggleSelectGroup}
-                    className="flex items-center gap-1.5 rounded-lg border border-border/60 bg-background/50 px-2.5 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+                    className="flex items-center gap-1.5 rounded-lg border border-border/60 bg-background/50 px-2.5 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground shrink-0"
                     title={
                       allSelected ? "Desmarcar todos desta pasta" : "Selecionar todos desta pasta"
                     }

@@ -285,19 +285,19 @@ function NetworksPage() {
       />
 
       {/* Divisórias Estilizadas tipo Fichário e Busca */}
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-border/70 bg-surface/50 p-1 backdrop-blur">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between min-w-0">
+        <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 rounded-xl border border-border/70 bg-surface/50 p-1 backdrop-blur min-w-0">
           <button
             type="button"
             onClick={() => setFilterUsage("all")}
             className={cn(
-              "flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
+              "flex items-center gap-1.5 sm:gap-2 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-medium transition-all",
               filterUsage === "all"
                 ? "bg-primary text-primary-foreground shadow-sm"
                 : "text-muted-foreground hover:bg-surface hover:text-foreground",
             )}
           >
-            <span>Todas as Redes</span>
+            <span>Todas</span>
             <Badge
               variant="outline"
               className={cn(
@@ -315,7 +315,7 @@ function NetworksPage() {
             type="button"
             onClick={() => setFilterUsage("in_use")}
             className={cn(
-              "flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
+              "flex items-center gap-1.5 sm:gap-2 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-medium transition-all",
               filterUsage === "in_use"
                 ? "bg-emerald-500 text-white shadow-sm"
                 : "text-muted-foreground hover:bg-surface hover:text-foreground",
@@ -323,7 +323,7 @@ function NetworksPage() {
           >
             <span className="flex items-center gap-1.5">
               <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-              Com Containers
+              Em Uso
             </span>
             <Badge
               variant="outline"
@@ -342,7 +342,7 @@ function NetworksPage() {
             type="button"
             onClick={() => setFilterUsage("unused")}
             className={cn(
-              "flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
+              "flex items-center gap-1.5 sm:gap-2 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-medium transition-all",
               filterUsage === "unused"
                 ? "bg-amber-500 text-black font-semibold shadow-sm"
                 : "text-muted-foreground hover:bg-surface hover:text-foreground",
@@ -350,7 +350,7 @@ function NetworksPage() {
           >
             <span className="flex items-center gap-1.5">
               <span className="size-2 rounded-full bg-amber-400" />
-              Vazias / Desconectadas
+              Vazias
             </span>
             <Badge
               variant="outline"

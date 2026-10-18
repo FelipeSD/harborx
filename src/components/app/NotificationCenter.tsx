@@ -174,7 +174,8 @@ export function NotificationCenter() {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
-          className="relative rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40"
+          type="button"
+          className="relative shrink-0 rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40"
           aria-label="Abrir centro de notificações"
           title={
             unreadCount > 0 ? `${unreadCount} nova(s) notificação(ões)` : "Centro de notificações"
@@ -192,7 +193,7 @@ export function NotificationCenter() {
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-[calc(100vw-2rem)] sm:w-96 p-0 shadow-2xl border-border/80 bg-card/95 backdrop-blur-md"
+        className="w-[calc(100dvw-1.5rem)] sm:w-96 p-0 shadow-2xl border-border/80 bg-card/95 backdrop-blur-md"
       >
         {/* Cabeçalho */}
         <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">

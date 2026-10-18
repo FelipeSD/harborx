@@ -56,17 +56,19 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="mb-5 sm:mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4">
-      <div className="min-w-0">
-        <h1 className="text-xl sm:text-2xl font-semibold tracking-tight truncate">{title}</h1>
+    <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4 min-w-0 max-w-full">
+      <div className="min-w-0 max-w-full">
+        <h1 className="text-xl sm:text-2xl font-semibold tracking-tight break-words sm:truncate">
+          {title}
+        </h1>
         {subtitle && (
-          <p className="mt-0.5 sm:mt-1 text-xs sm:text-sm text-muted-foreground leading-relaxed">
+          <p className="mt-0.5 sm:mt-1 text-xs sm:text-sm text-muted-foreground leading-relaxed break-words">
             {subtitle}
           </p>
         )}
       </div>
       {actions && (
-        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:shrink-0">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:shrink-0 min-w-0">
           {actions}
         </div>
       )}
@@ -88,7 +90,7 @@ export function Meter({ value, className }: { value: number; className?: string 
 
 export function Panel({ children, className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("rounded-xl border bg-card", className)} {...props}>
+    <div className={cn("rounded-xl border bg-card min-w-0 max-w-full", className)} {...props}>
       {children}
     </div>
   );

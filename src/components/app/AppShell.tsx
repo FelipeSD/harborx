@@ -66,9 +66,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const initials = (user?.username || "HX").slice(0, 2).toUpperCase();
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-dvh w-full max-w-full overflow-x-clip">
       {/* Sidebar Desktop */}
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r bg-surface p-4 md:flex">
+      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r bg-surface p-4 md:flex">
         <Logo size="sm" className="mb-8 px-2" />
         <nav className="flex flex-col gap-1">
           {nav.map((n) => (
@@ -96,7 +96,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       {/* Drawer de Navegação Mobile */}
       <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
-        <SheetContent side="left" className="flex flex-col w-72 p-4">
+        <SheetContent side="left" className="flex flex-col w-72 max-w-[85dvw] p-4">
           <SheetHeader className="text-left px-2 mb-4">
             <SheetTitle className="sr-only">Navegação HarborX</SheetTitle>
             <Logo size="sm" />
@@ -142,7 +142,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="size-7 text-destructive hover:bg-destructive/10"
+                  className="size-7 text-destructive hover:bg-destructive/10 shrink-0"
                   onClick={() => {
                     setMobileNavOpen(false);
                     void handleLogout();
@@ -157,49 +157,51 @@ export function AppShell({ children }: { children: ReactNode }) {
         </SheetContent>
       </Sheet>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col max-w-full">
         {/* Header Superior Responsivo */}
-        <header className="sticky top-0 z-10 flex h-14 items-center gap-2 sm:gap-3 border-b bg-background/80 px-3 sm:px-6 backdrop-blur">
-          {/* Botão Hambúrguer Mobile */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setMobileNavOpen(true)}
-            className="md:hidden size-9 p-0 text-muted-foreground hover:text-foreground"
-            aria-label="Abrir menu de navegação"
-          >
-            <Menu className="size-5" />
-          </Button>
+        <header className="sticky top-0 z-30 flex h-14 w-full max-w-full items-center justify-between gap-2 sm:gap-3 border-b bg-background/80 px-3 sm:px-6 backdrop-blur">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            {/* Botão Hambúrguer Mobile */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setMobileNavOpen(true)}
+              className="md:hidden size-9 shrink-0 p-0 text-muted-foreground hover:text-foreground"
+              aria-label="Abrir menu de navegação"
+            >
+              <Menu className="size-5" />
+            </Button>
 
-          {/* Mini Logo em telas pequenas */}
-          <div className="flex items-center gap-2 md:hidden mr-1">
-            <Logo size="sm" iconOnly />
-            <span className="font-bold text-sm tracking-tight text-foreground">
-              Harbor<span className="text-primary">X</span>
-            </span>
+            {/* Mini Logo em telas pequenas */}
+            <div className="flex items-center gap-2 md:hidden shrink-0">
+              <Logo size="sm" iconOnly />
+              <span className="font-bold text-sm tracking-tight text-foreground">
+                Harbor<span className="text-primary">X</span>
+              </span>
+            </div>
+
+            {/* Campo de Busca Interativo (desktop) */}
+            <button
+              type="button"
+              onClick={() => setIsSearchOpen(true)}
+              className="hidden sm:flex flex-1 min-w-0 items-center gap-2 rounded-md border bg-surface/80 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:bg-surface md:max-w-md text-left cursor-pointer"
+            >
+              <Search className="size-4 shrink-0 text-muted-foreground" />
+              <span className="flex-1 text-xs text-muted-foreground truncate">
+                Buscar containers, imagens, stacks…
+              </span>
+              <kbd className="hidden lg:inline rounded border bg-muted/50 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground shrink-0">
+                ⌘K
+              </kbd>
+            </button>
           </div>
 
-          {/* Campo de Busca Interativo (desktop) */}
-          <button
-            type="button"
-            onClick={() => setIsSearchOpen(true)}
-            className="hidden sm:flex flex-1 items-center gap-2 rounded-md border bg-surface/80 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:bg-surface md:max-w-md text-left cursor-pointer"
-          >
-            <Search className="size-4 shrink-0 text-muted-foreground" />
-            <span className="flex-1 text-xs text-muted-foreground truncate">
-              Buscar containers, imagens, stacks…
-            </span>
-            <kbd className="hidden lg:inline rounded border bg-muted/50 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-              ⌘K
-            </kbd>
-          </button>
-
-          <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* Botão de Busca Mobile */}
             <Button
               variant="ghost"
               size="icon"
-              className="sm:hidden size-8 text-muted-foreground hover:text-foreground"
+              className="sm:hidden size-8 shrink-0 text-muted-foreground hover:text-foreground"
               onClick={() => setIsSearchOpen(true)}
               aria-label="Buscar no HarborX"
             >
@@ -210,21 +212,22 @@ export function AppShell({ children }: { children: ReactNode }) {
             <NotificationCenter />
 
             {user && (
-              <DropdownMenu>
+              <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
                   <button
-                    className="flex items-center gap-2 rounded-full p-0.5 outline-none hover:ring-2 hover:ring-primary/40 focus:ring-2 focus:ring-primary"
+                    type="button"
+                    className="flex shrink-0 items-center gap-2 rounded-full p-0.5 outline-none hover:ring-2 hover:ring-primary/40 focus:ring-2 focus:ring-primary"
                     aria-label="Menu do usuário"
                   >
-                    <div className="grid size-8 place-items-center rounded-full bg-primary/20 text-xs font-semibold text-primary">
+                    <div className="grid size-8 shrink-0 place-items-center rounded-full bg-primary/20 text-xs font-semibold text-primary">
                       {initials}
                     </div>
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuContent align="end" className="w-56 max-w-[calc(100dvw-1.5rem)]">
                   <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">{user.username}</p>
+                    <div className="flex flex-col space-y-1 min-w-0">
+                      <p className="text-sm font-medium leading-none truncate">{user.username}</p>
                       <div className="pt-1">
                         <Badge variant="outline" className="text-[10px] font-normal gap-1">
                           <Shield className="size-3 text-primary" />
@@ -247,7 +250,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <main className="flex-1 min-w-0 max-w-full p-3.5 sm:p-6 lg:p-8">{children}</main>
+        <main className="flex-1 w-full min-w-0 max-w-full overflow-x-clip p-3 sm:p-6 lg:p-8">
+          {children}
+        </main>
       </div>
 
       <GlobalSearchCommand open={isSearchOpen} onOpenChange={setIsSearchOpen} />

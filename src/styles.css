@@ -80,11 +80,21 @@
   * {
     border-color: var(--color-border);
   }
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: clip;
+  }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+  }
+  body[data-scroll-locked] {
+    margin-right: 0 !important;
+    margin-left: 0 !important;
+    padding-right: 0 !important;
   }
 }
 

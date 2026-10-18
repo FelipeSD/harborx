@@ -220,7 +220,7 @@ function VolumesPage() {
         title="Volumes"
         subtitle={`${volumes.length} volumes persistentes no Docker`}
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -228,7 +228,7 @@ function VolumesPage() {
               disabled={isFetching}
             >
               <RefreshCw className={cn("size-4", isFetching && "animate-spin")} />
-              Atualizar
+              <span className="hidden sm:inline">Atualizar</span>
             </Button>
             {isOperator && (
               <>
@@ -243,7 +243,7 @@ function VolumesPage() {
                   ) : (
                     <Scissors className="size-4" />
                   )}
-                  {pruneMutation.isPending ? "Podando volumes..." : "Podar não usados"}
+                  {pruneMutation.isPending ? "Podando..." : "Podar órfãos"}
                 </Button>
                 <Button size="sm" onClick={() => setIsCreateOpen(true)}>
                   <Plus className="size-4" /> Novo volume
@@ -255,19 +255,19 @@ function VolumesPage() {
       />
 
       {/* Divisórias Estilizadas tipo Fichário e Busca */}
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-border/70 bg-surface/50 p-1 backdrop-blur">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between min-w-0">
+        <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 rounded-xl border border-border/70 bg-surface/50 p-1 backdrop-blur min-w-0">
           <button
             type="button"
             onClick={() => setFilterUsage("all")}
             className={cn(
-              "flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
+              "flex items-center gap-1.5 sm:gap-2 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-medium transition-all",
               filterUsage === "all"
                 ? "bg-primary text-primary-foreground shadow-sm"
                 : "text-muted-foreground hover:bg-surface hover:text-foreground",
             )}
           >
-            <span>Todos os Volumes</span>
+            <span>Todos</span>
             <Badge
               variant="outline"
               className={cn(
@@ -285,7 +285,7 @@ function VolumesPage() {
             type="button"
             onClick={() => setFilterUsage("in_use")}
             className={cn(
-              "flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
+              "flex items-center gap-1.5 sm:gap-2 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-medium transition-all",
               filterUsage === "in_use"
                 ? "bg-emerald-500 text-white shadow-sm"
                 : "text-muted-foreground hover:bg-surface hover:text-foreground",
@@ -312,7 +312,7 @@ function VolumesPage() {
             type="button"
             onClick={() => setFilterUsage("unused")}
             className={cn(
-              "flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
+              "flex items-center gap-1.5 sm:gap-2 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-medium transition-all",
               filterUsage === "unused"
                 ? "bg-amber-500 text-black font-semibold shadow-sm"
                 : "text-muted-foreground hover:bg-surface hover:text-foreground",
@@ -320,7 +320,7 @@ function VolumesPage() {
           >
             <span className="flex items-center gap-1.5">
               <span className="size-2 rounded-full bg-amber-400" />
-              Não Utilizados / Órfãos
+              Órfãos
             </span>
             <Badge
               variant="outline"

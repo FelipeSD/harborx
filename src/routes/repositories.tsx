@@ -387,8 +387,8 @@ function RegistriesPage() {
 
         {isGuideOpen && (
           <div className="mt-4 pt-4 border-t border-primary/10 space-y-4 text-xs">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-lg border bg-surface/80 p-3 space-y-1">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="rounded-lg border bg-surface/80 p-3 space-y-1 min-w-0">
                 <span className="font-semibold text-foreground flex items-center gap-1.5">
                   <ShieldCheck className="size-3.5 text-primary" /> 1. Autenticação Global
                 </span>
@@ -397,7 +397,7 @@ function RegistriesPage() {
                   <code>config.json</code> do Docker daemon.
                 </p>
               </div>
-              <div className="rounded-lg border bg-surface/80 p-3 space-y-1">
+              <div className="rounded-lg border bg-surface/80 p-3 space-y-1 min-w-0">
                 <span className="font-semibold text-foreground flex items-center gap-1.5">
                   <Layers className="size-3.5 text-primary" /> 2. Deploy Automático
                 </span>
@@ -406,7 +406,7 @@ function RegistriesPage() {
                   <code>docker compose pull</code> lê essas credenciais automaticamente.
                 </p>
               </div>
-              <div className="rounded-lg border bg-surface/80 p-3 space-y-1">
+              <div className="rounded-lg border bg-surface/80 p-3 space-y-1 min-w-0">
                 <span className="font-semibold text-foreground flex items-center gap-1.5">
                   <RefreshCw className="size-3.5 text-primary" /> 3. Atualizar Imagens
                 </span>
@@ -417,22 +417,24 @@ function RegistriesPage() {
               </div>
             </div>
 
-            <div className="rounded-lg border bg-surface/80 p-3 space-y-2">
+            <div className="rounded-lg border bg-surface/80 p-3 space-y-2 min-w-0">
               <span className="font-semibold text-foreground flex items-center gap-1.5">
                 <Code className="size-3.5 text-primary" /> Exemplos de sintaxe no compose.yaml:
               </span>
-              <div className="grid gap-2 sm:grid-cols-2 font-mono text-[11px]">
-                <div className="rounded bg-muted/50 p-2 border">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 font-mono text-[11px]">
+                <div className="rounded bg-muted/50 p-2 border min-w-0">
                   <span className="text-muted-foreground block text-[10px] uppercase font-sans font-medium">
                     GitHub Container Registry (GHCR)
                   </span>
-                  <code className="text-primary">image: ghcr.io/seu-usuario/app:latest</code>
+                  <code className="text-primary break-all">
+                    image: ghcr.io/seu-usuario/app:latest
+                  </code>
                 </div>
-                <div className="rounded bg-muted/50 p-2 border">
+                <div className="rounded bg-muted/50 p-2 border min-w-0">
                   <span className="text-muted-foreground block text-[10px] uppercase font-sans font-medium">
                     Docker Hub (Privado ou Pró)
                   </span>
-                  <code className="text-primary">image: seu-usuario/app:latest</code>
+                  <code className="text-primary break-all">image: seu-usuario/app:latest</code>
                 </div>
               </div>
             </div>
@@ -451,17 +453,17 @@ function RegistriesPage() {
       )}
 
       {isLoading ? (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {Array.from({ length: 2 }).map((_, i) => (
-            <Panel key={i} className="p-5">
+            <Panel key={i} className="p-4 sm:p-5">
               <Skeleton className="h-5 w-40 mb-2" />
-              <Skeleton className="h-4 w-60 mb-4" />
+              <Skeleton className="h-4 w-60 max-w-full mb-4" />
               <Skeleton className="h-3 w-28" />
             </Panel>
           ))}
         </div>
       ) : registries.length === 0 ? (
-        <Panel className="p-12 text-center text-muted-foreground">
+        <Panel className="p-8 sm:p-12 text-center text-muted-foreground">
           <Server className="mx-auto size-10 mb-3 opacity-40" />
           <p className="text-base font-medium">Nenhum registro autenticado configurado</p>
           <p className="text-sm mt-1 max-w-md mx-auto">
@@ -476,7 +478,7 @@ function RegistriesPage() {
           )}
         </Panel>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {registries.map((r) => {
             const isGhcr = r.url.includes("ghcr.io");
             const isDockerHub = r.url.includes("docker.io");
@@ -490,7 +492,7 @@ function RegistriesPage() {
             return (
               <Panel
                 key={r.id}
-                className="p-5 flex flex-col justify-between hover:border-foreground/20 transition-colors"
+                className="p-4 sm:p-5 flex flex-col justify-between hover:border-foreground/20 transition-colors overflow-hidden"
               >
                 <div>
                   <div className="flex items-start justify-between gap-2">

@@ -878,17 +878,17 @@ function StacksPage() {
       )}
 
       {isLoading ? (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {Array.from({ length: 2 }).map((_, i) => (
-            <Panel key={i} className="p-5">
+            <Panel key={i} className="p-4 sm:p-5">
               <Skeleton className="h-5 w-40 mb-2" />
-              <Skeleton className="h-4 w-60 mb-4" />
+              <Skeleton className="h-4 w-60 max-w-full mb-4" />
               <Skeleton className="h-3 w-28" />
             </Panel>
           ))}
         </div>
       ) : stacks.length === 0 ? (
-        <Panel className="p-12 text-center text-muted-foreground">
+        <Panel className="p-8 sm:p-12 text-center text-muted-foreground">
           <FileStack className="mx-auto size-10 mb-3 opacity-40" />
           <p className="text-base font-medium">Nenhuma stack Docker Compose configurada</p>
           <p className="text-sm mt-1 max-w-md mx-auto">
@@ -902,7 +902,7 @@ function StacksPage() {
           )}
         </Panel>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {stacks.map((s) => {
             const total = s.containersCount;
             const running = s.runningContainersCount;
@@ -935,7 +935,7 @@ function StacksPage() {
                 "border-sky-500/50 bg-sky-500/[0.03] shadow-sm shadow-sky-500/10 ring-1 ring-sky-500/20";
               iconBoxStyle = "bg-sky-500/10 text-sky-500 animate-pulse";
               statusBadge = (
-                <div className="flex items-center gap-1.5 shrink-0">
+                <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
                   <Badge
                     variant="outline"
                     className="font-medium text-xs border-sky-500/40 text-sky-500 bg-sky-500/10 flex items-center gap-1.5 shrink-0"
@@ -1007,13 +1007,13 @@ function StacksPage() {
               <Panel
                 key={s.id}
                 className={cn(
-                  "p-5 flex flex-col justify-between transition-all duration-200",
+                  "p-4 sm:p-5 flex flex-col justify-between transition-all duration-200 overflow-hidden",
                   cardBorder,
                 )}
               >
-                <div>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex min-w-0 items-center gap-3 flex-1">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-start justify-between gap-2 sm:gap-3">
+                    <div className="flex min-w-0 items-center gap-2.5 sm:gap-3 flex-1">
                       <div
                         className={cn(
                           "grid size-9 shrink-0 place-items-center rounded-lg transition-colors",
@@ -1024,7 +1024,7 @@ function StacksPage() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <p className="font-semibold text-base text-foreground truncate max-w-[170px] sm:max-w-none">
+                          <p className="font-semibold text-base text-foreground truncate max-w-full">
                             {s.name}
                           </p>
                           <Badge
@@ -1035,7 +1035,7 @@ function StacksPage() {
                           </Badge>
                         </div>
                         {s.type === "git" ? (
-                          <p className="truncate font-mono text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                          <p className="truncate font-mono text-xs text-muted-foreground flex items-center gap-1 mt-0.5 min-w-0">
                             <GitBranch className="size-3 shrink-0" />
                             <span className="truncate">
                               {s.gitRepo} ({s.gitBranch})
@@ -1053,10 +1053,10 @@ function StacksPage() {
                   </div>
 
                   {(s.status === "failed" || s.recentDeployment?.status === "failed") && (
-                    <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-500">
-                      <div className="flex items-center gap-2 min-w-0">
+                    <div className="mt-3 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 sm:gap-3 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-500">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
                         <AlertTriangle className="size-4 shrink-0 text-rose-500" />
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <span className="font-semibold block truncate">
                             Falha no deploy da stack
                           </span>
@@ -1079,16 +1079,18 @@ function StacksPage() {
                   )}
 
                   {/* Containers list in stack */}
-                  <div className="mt-4 rounded-lg border bg-surface p-3 text-xs font-mono">
-                    <div className="flex items-center justify-between text-muted-foreground mb-2">
+                  <div className="mt-4 rounded-lg border bg-surface p-2.5 sm:p-3 text-xs font-mono min-w-0">
+                    <div className="flex flex-wrap items-center justify-between gap-1 text-muted-foreground mb-2">
                       <span className="flex items-center gap-1.5 font-sans font-medium text-foreground">
-                        <Boxes className="size-3.5" />
-                        Containers ({s.runningContainersCount}/{s.containersCount} rodando)
+                        <Boxes className="size-3.5 shrink-0" />
+                        <span>
+                          Containers ({s.runningContainersCount}/{s.containersCount} rodando)
+                        </span>
                       </span>
                       {s.recentDeployment && (
                         <button
                           type="button"
-                          className="text-[11px] hover:underline flex items-center gap-1 font-sans text-primary"
+                          className="text-[11px] hover:underline flex items-center gap-1 font-sans text-primary shrink-0"
                           onClick={() => setLogStack(s)}
                         >
                           <Terminal className="size-3" />
@@ -1102,16 +1104,16 @@ function StacksPage() {
                         Nenhum container ativo associado a esta stack no momento.
                       </p>
                     ) : (
-                      <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                      <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1 min-w-0">
                         {s.containers.map((c) => (
                           <div
                             key={c.id}
-                            className="flex items-center justify-between gap-2 border-b pb-1 last:border-0 last:pb-0"
+                            className="flex items-center justify-between gap-2 border-b pb-1 last:border-0 last:pb-0 min-w-0"
                           >
-                            <div className="flex items-center gap-1.5 truncate">
+                            <div className="flex items-center gap-1.5 min-w-0 flex-1">
                               <span
                                 className={cn(
-                                  "size-1.5 rounded-full",
+                                  "size-1.5 shrink-0 rounded-full",
                                   c.state === "running"
                                     ? "bg-emerald-500"
                                     : "bg-muted-foreground/50",
@@ -1120,11 +1122,11 @@ function StacksPage() {
                               <span className="text-foreground font-semibold truncate">
                                 {c.name}
                               </span>
-                              <span className="text-muted-foreground text-[10px] truncate">
+                              <span className="text-muted-foreground text-[10px] truncate hidden sm:inline">
                                 ({c.image})
                               </span>
                             </div>
-                            <div className="text-[10px] text-muted-foreground shrink-0">
+                            <div className="text-[10px] text-muted-foreground shrink-0 truncate max-w-[110px] sm:max-w-none">
                               {c.ports.length > 0
                                 ? c.ports
                                     .map(
@@ -1141,8 +1143,8 @@ function StacksPage() {
                   </div>
 
                   {/* Webhook GitOps Bar */}
-                  <div className="mt-3 rounded-lg border bg-surface/80 p-2.5 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <div className="mt-3 rounded-lg border bg-surface/80 p-2.5 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0 w-full sm:flex-1">
                       <div className="grid size-6 place-items-center rounded bg-primary/10 text-primary shrink-0">
                         <Zap className="size-3.5" />
                       </div>
@@ -1163,7 +1165,7 @@ function StacksPage() {
                             {s.autoDeploy ? "Auto-deploy Ativo" : "Disponível"}
                           </Badge>
                         </div>
-                        <p className="font-mono text-[10px] text-muted-foreground truncate break-all max-w-full">
+                        <p className="font-mono text-[10px] text-muted-foreground truncate max-w-full">
                           {typeof window !== "undefined"
                             ? `${window.location.origin}/api/public/hooks/${s.webhookToken}`
                             : `/api/public/hooks/${s.webhookToken}`}
@@ -1232,7 +1234,7 @@ function StacksPage() {
                           )}
                           Redeploy
                         </Button>
-                        <DropdownMenu>
+                        <DropdownMenu modal={false}>
                           <DropdownMenuTrigger asChild>
                             <Button
                               size="sm"
@@ -1370,14 +1372,14 @@ function StacksPage() {
 
             {createMode === "compose" ? (
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <Label className="text-xs">Modelo Pronto (Opcional)</Label>
                   <Select
                     onValueChange={(v) => {
                       if (TEMPLATES[v]) setComposeYaml(TEMPLATES[v]!.yaml);
                     }}
                   >
-                    <SelectTrigger className="w-56 h-8 text-xs">
+                    <SelectTrigger className="w-full sm:w-56 h-8 text-xs">
                       <SelectValue placeholder="Selecione um modelo..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -1391,7 +1393,7 @@ function StacksPage() {
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
                     <Label className="text-xs">docker-compose.yml *</Label>
                     <Button
                       type="button"
@@ -1648,14 +1650,14 @@ function StacksPage() {
 
             {editMode === "compose" ? (
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <Label className="text-xs">Modelo Pronto (Opcional)</Label>
                   <Select
                     onValueChange={(v) => {
                       if (TEMPLATES[v]) setEditYaml(TEMPLATES[v]!.yaml);
                     }}
                   >
-                    <SelectTrigger className="w-56 h-8 text-xs">
+                    <SelectTrigger className="w-full sm:w-56 h-8 text-xs">
                       <SelectValue placeholder="Aplicar modelo..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -1669,7 +1671,7 @@ function StacksPage() {
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
                     <Label className="text-xs">docker-compose.yml *</Label>
                     <Button
                       type="button"
@@ -1767,7 +1769,7 @@ function StacksPage() {
                 </div>
 
                 <div className="pt-2 border-t space-y-2">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-xs text-muted-foreground">
                       Validar permissões e branch antes de atualizar:
                     </span>
@@ -1839,12 +1841,12 @@ function StacksPage() {
                 </div>
 
                 {editStack && (
-                  <div className="rounded-lg border bg-surface/50 p-2.5 text-xs space-y-1">
+                  <div className="rounded-lg border bg-surface/50 p-2.5 text-xs space-y-1 min-w-0">
                     <span className="text-[11px] font-semibold text-foreground flex items-center gap-1.5">
                       <Zap className="size-3 text-primary" /> Webhook da Stack:
                     </span>
-                    <div className="flex items-center gap-2">
-                      <code className="text-[10px] font-mono bg-muted p-1 rounded flex-1 truncate select-all">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <code className="text-[10px] font-mono bg-muted p-1 rounded flex-1 min-w-0 truncate select-all">
                         {typeof window !== "undefined"
                           ? `${window.location.origin}/api/public/hooks/${editStack.webhookToken}`
                           : `/api/public/hooks/${editStack.webhookToken}`}
@@ -1853,7 +1855,7 @@ function StacksPage() {
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="h-6 px-2 text-[10px] gap-1"
+                        className="h-6 px-2 text-[10px] gap-1 shrink-0"
                         onClick={() => {
                           const url = `${window.location.origin}/api/public/hooks/${editStack.webhookToken}`;
                           copyToClipboard(url, "URL do Webhook");
@@ -1951,9 +1953,9 @@ function StacksPage() {
 
             return (
               <>
-                <DialogHeader className="p-6 pb-3 shrink-0 border-b">
-                  <div className="flex items-center justify-between gap-3">
-                    <DialogTitle className="font-mono text-base flex items-center gap-2 min-w-0">
+                <DialogHeader className="p-4 sm:p-6 pb-3 shrink-0 border-b pr-10">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <DialogTitle className="font-mono text-sm sm:text-base flex items-center gap-2 min-w-0">
                       <Terminal className="size-4 text-primary shrink-0" />
                       <span className="truncate">Logs de Deploy: {activeLogStack?.name}</span>
                     </DialogTitle>
@@ -1982,7 +1984,7 @@ function StacksPage() {
                       </Badge>
                     )}
                   </div>
-                  <DialogDescription className="text-xs text-muted-foreground mt-1">
+                  <DialogDescription className="text-xs text-muted-foreground mt-1 text-left">
                     Disparado por{" "}
                     <strong className="text-foreground">
                       {activeLogStack?.recentDeployment?.triggeredBy || "usuário"}
@@ -1994,7 +1996,7 @@ function StacksPage() {
                 </DialogHeader>
 
                 {isDeploying && (
-                  <div className="flex items-center gap-2 px-6 py-2.5 bg-sky-500/10 border-b text-xs text-sky-500 font-medium animate-pulse">
+                  <div className="flex items-center gap-2 px-4 sm:px-6 py-2.5 bg-sky-500/10 border-b text-xs text-sky-500 font-medium animate-pulse">
                     <Loader2 className="size-3.5 animate-spin shrink-0" />
                     <span>
                       Executando processo de deploy (git clone & docker compose)... Os logs

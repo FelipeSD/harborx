@@ -120,22 +120,22 @@ jobs:
       )}
 
       {isLoading ? (
-        <div className="grid gap-6 xl:grid-cols-[1fr_420px]">
-          <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_420px]">
+          <div className="space-y-4 min-w-0">
             {Array.from({ length: 3 }).map((_, i) => (
-              <Panel key={i} className="p-5">
+              <Panel key={i} className="p-4 sm:p-5">
                 <Skeleton className="h-5 w-40 mb-2" />
-                <Skeleton className="h-4 w-60" />
+                <Skeleton className="h-4 w-60 max-w-full" />
               </Panel>
             ))}
           </div>
-          <Panel className="p-5">
+          <Panel className="p-4 sm:p-5">
             <Skeleton className="h-6 w-32 mb-4" />
             <Skeleton className="h-40 w-full" />
           </Panel>
         </div>
       ) : webhooks.length === 0 ? (
-        <Panel className="p-12 text-center text-muted-foreground">
+        <Panel className="p-8 sm:p-12 text-center text-muted-foreground">
           <Zap className="mx-auto size-10 mb-3 opacity-40" />
           <p className="text-base font-medium">Nenhum webhook disponível</p>
           <p className="text-sm mt-1 max-w-md mx-auto">
@@ -144,8 +144,8 @@ jobs:
           </p>
         </Panel>
       ) : (
-        <div className="grid gap-6 xl:grid-cols-[1fr_440px]">
-          <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_440px]">
+          <div className="space-y-4 min-w-0">
             {webhooks.map((w) => {
               const isSelected = activeWebhook?.id === w.id;
               const isSuccess = w.recentDeployment?.status === "success";
@@ -154,21 +154,21 @@ jobs:
                 <Panel
                   key={w.id}
                   className={cn(
-                    "p-5 cursor-pointer transition-all",
+                    "p-4 sm:p-5 cursor-pointer transition-all overflow-hidden",
                     isSelected
                       ? "border-primary ring-1 ring-primary/30"
                       : "hover:border-foreground/20",
                   )}
                   onClick={() => setSelectedId(w.id)}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2 sm:gap-3 min-w-0">
+                    <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
                       <div className="grid size-9 place-items-center rounded-lg bg-secondary text-secondary-foreground shrink-0">
                         <FileStack className="size-4" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold text-sm text-foreground truncate">
+                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                          <p className="font-semibold text-sm text-foreground truncate max-w-full">
                             {w.stackName}
                           </p>
                           <Badge
@@ -179,7 +179,7 @@ jobs:
                           </Badge>
                         </div>
                         <p
-                          className="font-mono text-xs text-muted-foreground mt-0.5 truncate"
+                          className="font-mono text-xs text-muted-foreground mt-0.5 truncate max-w-full"
                           title={w.webhookUrl}
                         >
                           {w.webhookUrl}
@@ -201,15 +201,15 @@ jobs:
                   </div>
 
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-1.5 font-mono">
+                    <div className="flex items-center gap-1.5 font-mono min-w-0">
                       {w.recentDeployment ? (
                         <>
                           {isSuccess ? (
-                            <CheckCircle2 className="size-3.5 text-emerald-500" />
+                            <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0" />
                           ) : (
-                            <XCircle className="size-3.5 text-rose-500" />
+                            <XCircle className="size-3.5 text-rose-500 shrink-0" />
                           )}
-                          <span>
+                          <span className="truncate">
                             Último deploy: {w.recentDeployment.triggeredBy} (
                             {w.recentDeployment.status})
                           </span>
@@ -219,7 +219,7 @@ jobs:
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       <Button
                         size="sm"
                         variant="outline"
@@ -256,17 +256,17 @@ jobs:
           </div>
 
           {activeWebhook && (
-            <Panel className="p-5 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between mb-3">
+            <Panel className="p-4 sm:p-5 flex flex-col justify-between overflow-hidden">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                   <h3 className="font-semibold text-sm flex items-center gap-2 text-foreground">
-                    <Zap className="size-4 text-primary" />
-                    Integração GitHub Actions
+                    <Zap className="size-4 text-primary shrink-0" />
+                    <span>Integração GitHub Actions</span>
                   </h3>
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 text-xs"
+                    className="h-7 text-xs shrink-0"
                     onClick={() => copy(githubSnippet)}
                   >
                     <Copy className="size-3" /> Copiar YAML
@@ -276,7 +276,7 @@ jobs:
                   Adicione este step ao final do seu pipeline no GitHub para fazer deploy automático
                   no HarborX sempre que uma nova tag ou commit for enviado:
                 </p>
-                <pre className="rounded-lg border bg-surface p-3 font-mono text-[11px] leading-relaxed overflow-x-auto overscroll-x-contain text-foreground whitespace-pre">
+                <pre className="rounded-lg border bg-surface p-3 font-mono text-[11px] leading-relaxed overflow-x-auto overscroll-x-contain text-foreground whitespace-pre-wrap break-all sm:break-normal sm:whitespace-pre max-w-full">
                   {githubSnippet}
                 </pre>
               </div>

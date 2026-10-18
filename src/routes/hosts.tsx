@@ -254,30 +254,44 @@ function HostsPage() {
         }
       />
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-surface border w-full sm:w-auto flex justify-start sm:justify-center overflow-x-auto overscroll-x-contain max-w-full">
-          <TabsTrigger value="host">Host & Docker Engine</TabsTrigger>
-          {isAdmin && <TabsTrigger value="users">Usuários & RBAC</TabsTrigger>}
-          {isOperator && <TabsTrigger value="audit">Log de Auditoria</TabsTrigger>}
-          {isAdmin && <TabsTrigger value="maintenance">Manutenção & Backup</TabsTrigger>}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6 min-w-0">
+        <TabsList className="bg-surface border w-full sm:w-auto h-auto flex flex-wrap justify-start sm:justify-center p-1 gap-1 max-w-full">
+          <TabsTrigger value="host" className="text-xs px-2.5 py-1.5">
+            Host & Engine
+          </TabsTrigger>
+          {isAdmin && (
+            <TabsTrigger value="users" className="text-xs px-2.5 py-1.5">
+              Usuários & RBAC
+            </TabsTrigger>
+          )}
+          {isOperator && (
+            <TabsTrigger value="audit" className="text-xs px-2.5 py-1.5">
+              Log de Auditoria
+            </TabsTrigger>
+          )}
+          {isAdmin && (
+            <TabsTrigger value="maintenance" className="text-xs px-2.5 py-1.5">
+              Manutenção & Backup
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* Tab 1: Host & Docker Engine */}
         <TabsContent value="host" className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Panel className="p-5">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="font-mono text-base font-semibold text-foreground">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <Panel className="p-4 sm:p-5 overflow-hidden">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="font-mono text-base font-semibold text-foreground truncate">
                     {hostInfo?.hostname || "Docker Host"}
                   </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5 truncate">
                     {hostInfo?.platform} ({hostInfo?.arch}) · Kernel {hostInfo?.release}
                   </p>
                 </div>
                 <Badge
                   variant="outline"
-                  className="text-emerald-500 border-emerald-500/30 bg-emerald-500/5"
+                  className="text-emerald-500 border-emerald-500/30 bg-emerald-500/5 shrink-0"
                 >
                   Online
                 </Badge>
@@ -296,7 +310,7 @@ function HostsPage() {
                 </div>
 
                 <div>
-                  <div className="flex justify-between text-xs mb-1.5">
+                  <div className="flex flex-wrap justify-between gap-1 text-xs mb-1.5">
                     <span className="flex items-center gap-1.5 text-muted-foreground">
                       <HardDrive className="size-3.5" /> Memória RAM
                     </span>
@@ -309,7 +323,7 @@ function HostsPage() {
                 </div>
 
                 <div>
-                  <div className="flex justify-between text-xs mb-1.5">
+                  <div className="flex flex-wrap justify-between gap-1 text-xs mb-1.5">
                     <span className="flex items-center gap-1.5 text-muted-foreground">
                       <Server className="size-3.5" /> Armazenamento Docker
                     </span>
@@ -340,8 +354,8 @@ function HostsPage() {
               </div>
             </Panel>
 
-            <Panel className="p-5 flex flex-col justify-between">
-              <div>
+            <Panel className="p-4 sm:p-5 flex flex-col justify-between overflow-hidden">
+              <div className="min-w-0">
                 <h3 className="font-semibold text-sm text-foreground mb-1">
                   Adicionar HarborX em novas VMs
                 </h3>
@@ -351,7 +365,7 @@ function HostsPage() {
                 </p>
 
                 <div className="relative rounded-lg border bg-surface p-3 font-mono text-[11px] leading-relaxed text-foreground min-w-0">
-                  <pre className="whitespace-pre overflow-x-auto overscroll-x-contain pr-8">
+                  <pre className="whitespace-pre overflow-x-auto overscroll-x-contain pr-8 max-w-full">
                     {vmInstallCmd}
                   </pre>
                   <Button
@@ -727,8 +741,8 @@ function HostsPage() {
         {/* Tab 4: Maintenance & Backup */}
         {isAdmin && (
           <TabsContent value="maintenance" className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2">
-              <Panel className="p-5 flex flex-col justify-between">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <Panel className="p-4 sm:p-5 flex flex-col justify-between">
                 <div>
                   <div className="flex items-center gap-2 mb-2">
                     <Download className="size-4 text-primary" />
@@ -751,7 +765,7 @@ function HostsPage() {
                 </a>
               </Panel>
 
-              <Panel className="p-5 flex flex-col justify-between">
+              <Panel className="p-4 sm:p-5 flex flex-col justify-between">
                 <div>
                   <div className="flex items-center gap-2 mb-2 text-rose-500">
                     <Scissors className="size-4" />

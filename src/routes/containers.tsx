@@ -461,10 +461,10 @@ function ContainersPage() {
       )}
 
       {/* Barra de Filtros e Busca */}
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between min-w-0">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 min-w-0">
           {/* Alternador de Modo de Visualização */}
-          <div className="flex items-center rounded-lg border border-border/80 bg-surface/60 p-0.5">
+          <div className="flex items-center rounded-lg border border-border/80 bg-surface/60 p-0.5 shrink-0">
             <button
               type="button"
               onClick={() => setViewMode("binder")}
@@ -476,7 +476,7 @@ function ContainersPage() {
               )}
             >
               <Layers className="size-3.5" />
-              <span>Fichário de Stacks</span>
+              <span>Fichário</span>
             </button>
             <button
               type="button"
@@ -496,12 +496,13 @@ function ContainersPage() {
           <div className="h-4 w-px bg-border/60 mx-1 hidden sm:block" />
 
           <button
+            type="button"
             onClick={() => {
               setFilterStack("all");
               setFilterState("all");
             }}
             className={cn(
-              "rounded-full border px-3 py-1 text-xs font-mono transition-colors",
+              "rounded-full border px-2.5 sm:px-3 py-1 text-xs font-mono transition-colors shrink-0",
               filterStack === "all" && filterState === "all"
                 ? "border-primary bg-primary/10 text-primary"
                 : "text-muted-foreground hover:text-foreground",
@@ -510,9 +511,10 @@ function ContainersPage() {
             todos ({containers.length})
           </button>
           <button
+            type="button"
             onClick={() => setFilterState(filterState === "running" ? "all" : "running")}
             className={cn(
-              "rounded-full border px-3 py-1 text-xs font-mono transition-colors",
+              "rounded-full border px-2.5 sm:px-3 py-1 text-xs font-mono transition-colors shrink-0",
               filterState === "running"
                 ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
                 : "text-muted-foreground hover:text-foreground",
@@ -521,9 +523,10 @@ function ContainersPage() {
             rodando ({containers.filter((c) => c.state === "running").length})
           </button>
           <button
+            type="button"
             onClick={() => setFilterState(filterState === "stopped" ? "all" : "stopped")}
             className={cn(
-              "rounded-full border px-3 py-1 text-xs font-mono transition-colors",
+              "rounded-full border px-2.5 sm:px-3 py-1 text-xs font-mono transition-colors shrink-0",
               filterState === "stopped"
                 ? "border-amber-500 bg-amber-500/10 text-amber-400"
                 : "text-muted-foreground hover:text-foreground",
@@ -533,10 +536,11 @@ function ContainersPage() {
           </button>
           {stacks.map((stk) => (
             <button
+              type="button"
               key={stk}
               onClick={() => setFilterStack(filterStack === stk ? "all" : stk)}
               className={cn(
-                "rounded-full border px-3 py-1 text-xs font-mono transition-colors",
+                "rounded-full border px-2.5 sm:px-3 py-1 text-xs font-mono transition-colors truncate max-w-[180px]",
                 filterStack === stk
                   ? "border-primary bg-primary/10 text-primary"
                   : "text-muted-foreground hover:text-foreground",
@@ -978,17 +982,17 @@ function ContainersPage() {
 
       {/* Drawer de Detalhes com Abas */}
       <Sheet open={!!selectedContainer} onOpenChange={(o) => !o && setSelectedContainer(null)}>
-        <SheetContent className="w-full sm:max-w-4xl lg:max-w-5xl overflow-y-auto overscroll-contain">
+        <SheetContent className="w-full max-w-full sm:max-w-4xl lg:max-w-5xl overflow-y-auto overflow-x-hidden overscroll-contain p-4 sm:p-6">
           {selectedContainer && (
             <>
-              <SheetHeader>
-                <SheetTitle className="flex items-center gap-3">
-                  <span className="truncate">{selectedContainer.name}</span>
+              <SheetHeader className="pr-8">
+                <SheetTitle className="flex flex-wrap items-center gap-2 min-w-0">
+                  <span className="truncate max-w-full">{selectedContainer.name}</span>
                   <StatusPill status={selectedContainer.state} />
                 </SheetTitle>
               </SheetHeader>
 
-              <Tabs defaultValue="overview" className="mt-6 w-full">
+              <Tabs defaultValue="overview" className="mt-5 sm:mt-6 w-full min-w-0">
                 <TabsList className="grid grid-cols-3 sm:grid-cols-6 w-full h-auto p-1 text-[11px] sm:text-xs">
                   <TabsTrigger value="overview" className="px-1 py-1.5 sm:px-3 truncate">
                     Visão Geral
@@ -1276,19 +1280,19 @@ function ContainersPage() {
                   </AlertDialogDescription>
                 </AlertDialogHeader>
 
-                <div className="space-y-3.5 my-1 text-xs">
+                <div className="space-y-3.5 my-1 text-xs min-w-0">
                   {/* Container Details Summary */}
-                  <div className="rounded-lg border bg-muted/40 p-3 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Container:</span>
-                      <code className="font-mono font-bold text-foreground bg-background px-1.5 py-0.5 rounded border text-[13px]">
+                  <div className="rounded-lg border bg-muted/40 p-3 space-y-1.5 min-w-0">
+                    <div className="flex items-center justify-between gap-2 min-w-0">
+                      <span className="text-muted-foreground shrink-0">Container:</span>
+                      <code className="font-mono font-bold text-foreground bg-background px-1.5 py-0.5 rounded border text-xs truncate max-w-[200px] sm:max-w-xs">
                         {containerToRemove?.name || confirmRemoveId?.slice(0, 12)}
                       </code>
                     </div>
-                    <div className="flex items-center justify-between text-muted-foreground">
-                      <span>Imagem:</span>
+                    <div className="flex items-center justify-between gap-2 text-muted-foreground min-w-0">
+                      <span className="shrink-0">Imagem:</span>
                       <span
-                        className="font-mono truncate max-w-[280px]"
+                        className="font-mono truncate max-w-[190px] sm:max-w-[280px]"
                         title={containerToRemove?.image}
                       >
                         {containerToRemove?.image}

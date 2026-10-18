@@ -157,25 +157,30 @@ function Overview() {
       )}
 
       {/* Top 4 Stats Panels */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((s) => (
-          <Panel key={s.label} className={cn("p-5", s.hl && "border-primary/40 glow-primary")}>
+          <Panel
+            key={s.label}
+            className={cn("p-4 sm:p-5", s.hl && "border-primary/40 glow-primary")}
+          >
             <div className="flex items-center justify-between text-sm text-muted-foreground">
               {s.label}
-              <s.icon className={cn("size-4", s.hl && "text-primary")} />
+              <s.icon className={cn("size-4 shrink-0", s.hl && "text-primary")} />
             </div>
             {isSystemLoading ? (
               <Skeleton className="mt-3 h-9 w-20" />
             ) : (
-              <p className="mt-3 font-mono text-3xl font-semibold">{s.value}</p>
+              <p className="mt-2 sm:mt-3 font-mono text-2xl sm:text-3xl font-semibold truncate">
+                {s.value}
+              </p>
             )}
-            <p className="mt-1 text-xs text-muted-foreground">{s.sub}</p>
+            <p className="mt-1 text-xs text-muted-foreground truncate">{s.sub}</p>
           </Panel>
         ))}
       </div>
 
       {/* Charts & Live Events */}
-      <div className="mt-6 grid gap-6 lg:grid-cols-3">
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Real Historical Chart */}
         <Panel className="p-4 sm:p-5 lg:col-span-2">
           <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -263,19 +268,19 @@ function Overview() {
         </Panel>
 
         {/* Live Docker Events Feed */}
-        <Panel className="p-5 flex flex-col">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-medium flex items-center gap-2">
+        <Panel className="p-4 sm:p-5 flex flex-col">
+          <div className="mb-4 flex items-center justify-between gap-2">
+            <h2 className="font-medium flex items-center gap-2 text-sm sm:text-base">
               <Radio
                 className={cn(
-                  "size-3.5",
+                  "size-3.5 shrink-0",
                   isEventsConnected ? "text-emerald-400 animate-pulse" : "text-zinc-600",
                 )}
               />
-              Atividade em Tempo Real
+              <span className="truncate">Atividade em Tempo Real</span>
             </h2>
-            <span className="text-[10px] text-muted-foreground font-mono">
-              {isEventsConnected ? "Ao vivo (WebSocket)" : "Conectando..."}
+            <span className="text-[10px] text-muted-foreground font-mono shrink-0">
+              {isEventsConnected ? "Ao vivo" : "Conectando..."}
             </span>
           </div>
           <div className="flex-1 overflow-y-auto max-h-[220px] space-y-2.5 pr-1">
@@ -293,7 +298,7 @@ function Overview() {
                 return (
                   <div
                     key={`${evt.id}-${evt.time}-${idx}`}
-                    className="flex items-start gap-2.5 text-xs"
+                    className="flex items-start gap-2.5 text-xs min-w-0"
                   >
                     <span className="font-mono text-[10px] text-muted-foreground shrink-0 mt-0.5">
                       {timeStr}
@@ -304,7 +309,7 @@ function Overview() {
                         isDieOrKill ? "bg-red-500" : isStart ? "bg-emerald-500" : "bg-cyan-500",
                       )}
                     />
-                    <div className="flex-1 truncate">
+                    <div className="flex-1 min-w-0 truncate">
                       <span className="font-semibold text-foreground uppercase text-[10px] mr-1">
                         [{evt.type}]
                       </span>
@@ -329,8 +334,8 @@ function Overview() {
       </div>
 
       {/* Recent Containers & Host Specs */}
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <Panel className="p-5">
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Panel className="p-4 sm:p-5">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="font-medium">Containers mais recentes</h2>
             <Link to="/containers" className="text-xs text-primary hover:underline">
