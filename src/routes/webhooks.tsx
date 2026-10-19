@@ -24,6 +24,9 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import type { WebhookItem } from "../../shared/types";
 
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useQueryClient } from "@tanstack/react-query";
+
 export const Route = createFileRoute("/webhooks")({
   head: () => ({
     meta: [
@@ -40,8 +43,15 @@ export const Route = createFileRoute("/webhooks")({
 });
 
 function WebhooksPage() {
+  const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<string>("");
-  const [isTesting, setIsTesting] = useState(false);
+  const [testingId, setTestingId] = useState<string | null>(null);
+  const [deployResult, setDeployResult] = useState<{
+    stackName: string;
+    success: boolean;
+    message: string;
+    output?: string | undefined;
+  } | null>(null);
 
   const {
     data: webhooks = [],
@@ -62,20 +72,63 @@ function WebhooksPage() {
     toast.success("Copiado para a área de transferência");
   };
 
-  const testWebhook = async (url: string) => {
-    setIsTesting(true);
+  const testWebhook = async (webhook: WebhookItem) => {
+    setTestingId(webhook.id);
+    toast.info(`Disparando redeploy para a stack "${webhook.stackName}"...`);
+
     try {
-      const res = await fetch(url, { method: "POST" });
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
+      const res = await fetch(webhook.webhookUrl, {
+        method: "POST",
+        headers: {
+          "X-HarborX-Client": "web",
+        },
+      });
+
+      let json: { success?: boolean; message?: string; error?: string; output?: string } = {};
+      try {
+        json = await res.json();
+      } catch {
+        // Resposta não JSON (ex: proxy / Cloudflare)
       }
-      toast.success("Webhook disparado com sucesso! O deploy foi iniciado.");
+
+      if (!res.ok) {
+        const errorMsg =
+          json.error ||
+          (res.status === 403
+            ? "403 Forbidden: O servidor ou proxy reverso bloqueou a requisição. Se estiver usando Cloudflare, verifique se o Bot Fight Mode está ativo ou passe o header X-HarborX-Client."
+            : `HTTP ${res.status}: ${res.statusText}`);
+
+        setDeployResult({
+          stackName: webhook.stackName,
+          success: false,
+          message: errorMsg,
+          output: json.output,
+        });
+        toast.error(`Falha no redeploy de "${webhook.stackName}": ${errorMsg}`);
+        return;
+      }
+
+      setDeployResult({
+        stackName: webhook.stackName,
+        success: true,
+        message: json.message || "Deploy concluído com sucesso",
+        output: json.output,
+      });
+
+      toast.success(`Redeploy da stack "${webhook.stackName}" concluído com sucesso!`);
       void refetch();
+      void queryClient.invalidateQueries({ queryKey: ["stacks"] });
+      void queryClient.invalidateQueries({ queryKey: ["containers"] });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      toast.error(`Falha ao disparar webhook: ${msg}`);
+      setDeployResult({
+        stackName: webhook.stackName,
+        success: false,
+        message: msg,
+      });
+      toast.error(`Erro na conexão com webhook: ${msg}`);
     } finally {
-      setIsTesting(false);
+      setTestingId(null);
     }
   };
 
@@ -93,7 +146,10 @@ jobs:
     steps:
       - name: Trigger HarborX Redeploy
         run: |
-          curl -fsS -X POST "${activeWebhook.webhookUrl}"`
+          curl -fsSL -X POST \\
+            -A "HarborX-Webhook/1.0" \\
+            -H "X-HarborX-Client: web" \\
+            "${activeWebhook.webhookUrl}"`
     : "";
 
   return (
@@ -235,18 +291,23 @@ jobs:
                         size="sm"
                         variant="default"
                         className="h-7 text-xs"
-                        disabled={isTesting}
+                        disabled={testingId !== null}
                         onClick={(e) => {
                           e.stopPropagation();
-                          void testWebhook(w.webhookUrl);
+                          void testWebhook(w);
                         }}
                       >
-                        {isTesting ? (
-                          <Loader2 className="size-3 animate-spin" />
+                        {testingId === w.id ? (
+                          <>
+                            <Loader2 className="size-3 animate-spin mr-1" />
+                            Disparando...
+                          </>
                         ) : (
-                          <Play className="size-3" />
+                          <>
+                            <Play className="size-3 mr-1" />
+                            Disparar
+                          </>
                         )}
-                        Disparar
                       </Button>
                     </div>
                   </div>
@@ -285,14 +346,62 @@ jobs:
                 <p className="font-semibold text-foreground mb-1">Como funciona:</p>
                 <p>
                   O HarborX valida o token criptografado da URL, executa um <code>git pull</code> no
-                  repositório associado e orquestra <code>docker compose up -d</code> sem
-                  interrupção de serviço.
+                  repositório associado, baixa a nova imagem com <code>docker compose pull</code> e recria
+                  os containers atualizados (<code>--force-recreate</code>) sem interrupção de serviço.
                 </p>
               </div>
             </Panel>
           )}
         </div>
       )}
+
+      {/* Dialog de Resultado do Redeploy */}
+      <Dialog open={!!deployResult} onOpenChange={(o) => !o && setDeployResult(null)}>
+        <DialogContent className="sm:max-w-xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <div className="flex items-center gap-2">
+              {deployResult?.success ? (
+                <CheckCircle2 className="size-5 text-emerald-500 shrink-0" />
+              ) : (
+                <XCircle className="size-5 text-rose-500 shrink-0" />
+              )}
+              <DialogTitle className="text-base truncate">
+                {deployResult?.success
+                  ? `Redeploy concluído: ${deployResult?.stackName}`
+                  : `Falha no redeploy: ${deployResult?.stackName}`}
+              </DialogTitle>
+            </div>
+            <DialogDescription className="text-xs pt-1">
+              {deployResult?.message}
+            </DialogDescription>
+          </DialogHeader>
+
+          {deployResult?.output && (
+            <div className="flex-1 min-h-0 space-y-2 mt-2">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span className="font-medium">Log da Execução (git pull & docker compose):</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-[11px]"
+                  onClick={() => copy(deployResult.output || "")}
+                >
+                  <Copy className="size-3 mr-1" /> Copiar log
+                </Button>
+              </div>
+              <pre className="max-h-64 overflow-y-auto rounded-lg border bg-surface p-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap break-all text-muted-foreground select-text">
+                {deployResult.output}
+              </pre>
+            </div>
+          )}
+
+          <DialogFooter className="mt-4">
+            <Button variant="outline" size="sm" onClick={() => setDeployResult(null)}>
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

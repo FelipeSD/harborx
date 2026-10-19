@@ -36,7 +36,10 @@ interface StackBinderViewProps {
   groups: StackGroup[];
   selectedIds: string[];
   toggleSelectOne: (id: string) => void;
-  onSelectContainer: (c: ContainerSummary) => void;
+  onSelectContainer: (
+    c: ContainerSummary,
+    initialTab?: "overview" | "env" | "logs" | "console" | "stats" | "inspect",
+  ) => void;
   onAction: (id: string, action: ContainerAction) => void;
   onStackAction: (containerIds: string[], action: ContainerAction) => void;
   onRemoveContainer?: (id: string) => void;
@@ -347,7 +350,7 @@ export function StackBinderView({
                             )}
                             <div className="min-w-0">
                               <button
-                                onClick={() => onSelectContainer(c)}
+                                onClick={() => onSelectContainer(c, "overview")}
                                 className="font-medium text-sm hover:text-primary transition-colors text-left flex items-center gap-1.5 truncate"
                               >
                                 <span className="truncate">{c.name}</span>
@@ -380,21 +383,32 @@ export function StackBinderView({
                               size="sm"
                               variant="outline"
                               className="h-8 px-2 text-xs"
-                              onClick={() => onSelectContainer(c)}
+                              onClick={() => onSelectContainer(c, "logs")}
                             >
                               <FileText className="size-3.5 mr-1" />
                               Logs
                             </Button>
                             {isRunning && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-8 px-2 text-xs"
-                                onClick={() => onSelectContainer(c)}
-                              >
-                                <Terminal className="size-3.5 mr-1" />
-                                Exec
-                              </Button>
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 px-2 text-xs"
+                                  onClick={() => onSelectContainer(c, "console")}
+                                >
+                                  <Terminal className="size-3.5 mr-1" />
+                                  Exec
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 px-2 text-xs"
+                                  onClick={() => onSelectContainer(c, "stats")}
+                                >
+                                  <Activity className="size-3.5 mr-1" />
+                                  Métricas
+                                </Button>
+                              </>
                             )}
                           </div>
 
@@ -525,7 +539,7 @@ export function StackBinderView({
                             )}
                             <td className="px-4 py-3">
                               <button
-                                onClick={() => onSelectContainer(c)}
+                                onClick={() => onSelectContainer(c, "overview")}
                                 className="font-medium hover:text-primary transition-colors text-left flex items-center gap-1.5"
                               >
                                 <span>{c.name}</span>
@@ -560,7 +574,7 @@ export function StackBinderView({
                                   variant="ghost"
                                   className="size-7 text-muted-foreground hover:text-primary hover:bg-primary/10"
                                   title="Ver logs em tempo real"
-                                  onClick={() => onSelectContainer(c)}
+                                  onClick={() => onSelectContainer(c, "logs")}
                                 >
                                   <FileText className="size-3.5" />
                                 </Button>
@@ -572,7 +586,7 @@ export function StackBinderView({
                                     variant="ghost"
                                     className="size-7 text-muted-foreground hover:text-primary hover:bg-primary/10"
                                     title="Abrir terminal interativo (exec)"
-                                    onClick={() => onSelectContainer(c)}
+                                    onClick={() => onSelectContainer(c, "console")}
                                   >
                                     <Terminal className="size-3.5" />
                                   </Button>
@@ -585,7 +599,7 @@ export function StackBinderView({
                                     variant="ghost"
                                     className="size-7 text-muted-foreground hover:text-primary hover:bg-primary/10"
                                     title="Estatísticas ao vivo"
-                                    onClick={() => onSelectContainer(c)}
+                                    onClick={() => onSelectContainer(c, "stats")}
                                   >
                                     <Activity className="size-3.5" />
                                   </Button>

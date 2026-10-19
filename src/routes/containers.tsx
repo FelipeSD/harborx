@@ -104,7 +104,18 @@ function ContainersPage() {
   const [viewMode, setViewMode] = useState<"binder" | "table">("binder");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectedContainer, setSelectedContainer] = useState<ContainerSummary | null>(null);
+  const [activeTab, setActiveTab] = useState<
+    "overview" | "env" | "logs" | "console" | "stats" | "inspect"
+  >("overview");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+
+  const handleSelectContainer = (
+    c: ContainerSummary,
+    tab: "overview" | "env" | "logs" | "console" | "stats" | "inspect" = "overview",
+  ) => {
+    setSelectedContainer(c);
+    setActiveTab(tab);
+  };
 
   // Confirmações
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
@@ -660,7 +671,7 @@ function ContainersPage() {
             groups={groupedByStack}
             selectedIds={selectedIds}
             toggleSelectOne={toggleSelectOne}
-            onSelectContainer={(c) => setSelectedContainer(c)}
+            onSelectContainer={handleSelectContainer}
             onAction={(id, action) => actionMutation.mutate({ id, action })}
             onStackAction={handleStackAction}
             onRemoveContainer={(id) => setConfirmRemoveId(id)}
@@ -804,7 +815,7 @@ function ContainersPage() {
                       )}
                       <td className="px-4 py-3">
                         <button
-                          onClick={() => setSelectedContainer(c)}
+                          onClick={() => handleSelectContainer(c, "overview")}
                           className="font-medium hover:text-primary transition-colors text-left"
                         >
                           {c.name}
@@ -961,10 +972,45 @@ function ContainersPage() {
                             </Badge>
                           )}
 
+                          {/* Ações de Acesso Rápido a Abas */}
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="size-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                            title="Ver logs em tempo real"
+                            onClick={() => handleSelectContainer(c, "logs")}
+                          >
+                            <FileText className="size-3.5" />
+                          </Button>
+
+                          {isRunning && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="size-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                              title="Abrir terminal interativo (exec)"
+                              onClick={() => handleSelectContainer(c, "console")}
+                            >
+                              <Terminal className="size-3.5" />
+                            </Button>
+                          )}
+
+                          {isRunning && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="size-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                              title="Estatísticas ao vivo"
+                              onClick={() => handleSelectContainer(c, "stats")}
+                            >
+                              <Activity className="size-3.5" />
+                            </Button>
+                          )}
+
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => setSelectedContainer(c)}
+                            onClick={() => handleSelectContainer(c, "overview")}
                             disabled={isThisRemoving}
                           >
                             Detalhes
@@ -992,7 +1038,11 @@ function ContainersPage() {
                 </SheetTitle>
               </SheetHeader>
 
-              <Tabs defaultValue="overview" className="mt-5 sm:mt-6 w-full min-w-0">
+              <Tabs
+                value={activeTab}
+                onValueChange={(val) => setActiveTab(val as typeof activeTab)}
+                className="mt-5 sm:mt-6 w-full min-w-0"
+              >
                 <TabsList className="grid grid-cols-3 sm:grid-cols-6 w-full h-auto p-1 text-[11px] sm:text-xs">
                   <TabsTrigger value="overview" className="px-1 py-1.5 sm:px-3 truncate">
                     Visão Geral
