@@ -15,6 +15,14 @@ import { docker } from "../docker.js";
 import { logAudit, queryAuditLogs } from "../services/audit.js";
 import { getHostMetricsHistory } from "../services/metrics.js";
 
+const DF_CACHE_TTL_MS = 30_000;
+let dfCache: { data: Record<string, unknown>; expiresAt: number } | null = null;
+let dfInFlight: Promise<Record<string, unknown>> | null = null;
+
+export function invalidateSystemDfCache(): void {
+  dfCache = null;
+}
+
 export const dockerRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /api/system/info
   fastify.get("/system/info", async (_request, reply) => {
@@ -45,18 +53,33 @@ export const dockerRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  // GET /api/system/df (Disk usage breakdown)
+  // GET /api/system/df (Disk usage breakdown — cached for 30s to avoid heavy disk scans)
   fastify.get("/system/df", async (_request, reply) => {
+    const now = Date.now();
+    if (dfCache && dfCache.expiresAt > now) {
+      return dfCache.data;
+    }
+
     try {
-      const df = await docker.df();
-      return {
-        layersSize: df.LayersSize || 0,
-        images: (df.Images || []).length,
-        containers: (df.Containers || []).length,
-        volumes: (df.Volumes || []).length,
-        buildCache: (df.BuildCache || []).length,
-        raw: df,
-      };
+      if (!dfInFlight) {
+        dfInFlight = (async () => {
+          const df = await docker.df();
+          const result = {
+            layersSize: df.LayersSize || 0,
+            images: (df.Images || []).length,
+            containers: (df.Containers || []).length,
+            volumes: (df.Volumes || []).length,
+            buildCache: (df.BuildCache || []).length,
+            raw: df,
+          };
+          dfCache = { data: result, expiresAt: Date.now() + DF_CACHE_TTL_MS };
+          return result;
+        })().finally(() => {
+          dfInFlight = null;
+        });
+      }
+
+      return await dfInFlight;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       return reply.status(502).send({ error: `Falha ao obter uso de disco: ${msg}` });
@@ -138,6 +161,7 @@ export const dockerRoutes: FastifyPluginAsync = async (fastify) => {
       ]);
 
       const totalReclaimed = (imagesRes.SpaceReclaimed || 0) + (volumesRes.SpaceReclaimed || 0);
+      invalidateSystemDfCache();
 
       logAudit({
         userId: request.user?.id,

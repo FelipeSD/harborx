@@ -95,9 +95,24 @@ export const eventsWsRoute: FastifyPluginAsync = async (fastify) => {
 
           try {
             const raw = JSON.parse(rawLine);
+            const rawAction = String(raw.Action || raw.status || "update");
+
+            // Ignore noisy internal events (e.g. periodic container HEALTHCHECK execs)
+            if (
+              rawAction.startsWith("exec_") ||
+              rawAction === "top" ||
+              rawAction === "resize" ||
+              rawAction === "archive-path" ||
+              rawAction === "extract-to-dir" ||
+              rawAction === "copy" ||
+              rawAction === "health_status: healthy"
+            ) {
+              continue;
+            }
+
             const event: NormalizedDockerEvent = {
               type: raw.Type || "container",
-              action: raw.Action || raw.status || "update",
+              action: rawAction,
               id: raw.id || raw.Actor?.ID || "",
               name: raw.Actor?.Attributes?.name || raw.from || (raw.id ? raw.id.slice(0, 12) : ""),
               time: raw.time || Math.floor(Date.now() / 1000),
