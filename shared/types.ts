@@ -67,12 +67,51 @@ export interface ContainerBackupInfo {
   isDatabase: boolean;
   dbType: string | null;
   hasBackupConfigured: boolean;
+  isBackupRunner?: boolean;
   backupContainer?: {
     id: string;
     name: string;
     state: string;
     image: string;
   };
+}
+
+export interface ResticSnapshot {
+  id: string;
+  short_id: string;
+  time: string;
+  parent?: string | undefined;
+  tree?: string | undefined;
+  paths?: string[] | undefined;
+  hostname?: string | undefined;
+  username?: string | undefined;
+  tags?: string[] | undefined;
+}
+
+export interface ContainerBackupInspection {
+  repository: string;
+  dbType: string;
+  dbName: string;
+  dbHost: string;
+  dbPort: string;
+  totalSnapshots: number;
+  latestSnapshot: ResticSnapshot | null;
+  snapshots: ResticSnapshot[];
+  isInitialized: boolean;
+  error?: string | undefined;
+  backupContainerId: string;
+  backupContainerName: string;
+}
+
+export interface ContainerBackupRestoreRequest {
+  snapshotId?: string | undefined;
+  confirmText: string;
+}
+
+export interface ContainerBackupRestoreResult {
+  success: boolean;
+  log: string;
+  message: string;
 }
 
 export interface ImageSummary {

@@ -40,6 +40,7 @@ interface StackBinderViewProps {
   onStackAction: (containerIds: string[], action: ContainerAction) => void;
   onRemoveContainer?: (id: string) => void;
   onRecreateContainer?: (id: string) => void;
+  onRestoreBackup?: (c: ContainerSummary) => void;
   isViewer: boolean;
   isActionPending: boolean;
   pendingAction?: { id: string; action: ContainerAction } | null;
@@ -58,6 +59,7 @@ export function StackBinderView({
   onStackAction,
   onRemoveContainer,
   onRecreateContainer,
+  onRestoreBackup,
   isViewer,
   isActionPending,
   pendingAction,
@@ -335,6 +337,7 @@ export function StackBinderView({
                             onAction={onAction}
                             onRecreateContainer={onRecreateContainer}
                             onRemoveContainer={onRemoveContainer}
+                            onRestoreBackup={onRestoreBackup}
                             variant="mobile"
                           />
                         </div>
@@ -423,6 +426,7 @@ export function StackBinderView({
                                 onAction={onAction}
                                 onRecreateContainer={onRecreateContainer}
                                 onRemoveContainer={onRemoveContainer}
+                                onRestoreBackup={onRestoreBackup}
                                 variant="desktop"
                               />
                             </td>

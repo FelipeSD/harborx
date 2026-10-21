@@ -14,7 +14,10 @@ import { getRegistryAuthForImage } from "../services/registries.js";
 import {
   detectDatabaseType,
   executePreRemoveBackup,
+  executeResticRestore,
   findAssociatedBackupContainer,
+  inspectBackupSnapshots,
+  isBackupToolkitContainer,
 } from "../services/container-backup.js";
 
 function checkHarborXSelfProtection(
@@ -595,8 +598,19 @@ export const containerRoutes: FastifyPluginAsync = async (fastify) => {
         const image = inspect.Config?.Image || "";
         const env = inspect.Config?.Env || [];
 
+        const isDirectToolkit = isBackupToolkitContainer(image, env);
         const dbDetection = detectDatabaseType(image, cleanName, env);
         const backupResult = await findAssociatedBackupContainer(id);
+
+        const hasBackupConfigured = isDirectToolkit || backupResult.hasBackup;
+        const backupContainer = isDirectToolkit
+          ? {
+              id,
+              name: cleanName,
+              state: inspect.State?.Status || (inspect.State?.Running ? "running" : "exited"),
+              image,
+            }
+          : backupResult.backupContainer;
 
         return {
           id,
@@ -604,12 +618,72 @@ export const containerRoutes: FastifyPluginAsync = async (fastify) => {
           image,
           isDatabase: dbDetection.isDatabase,
           dbType: dbDetection.dbType,
-          hasBackupConfigured: backupResult.hasBackup,
-          backupContainer: backupResult.backupContainer,
+          hasBackupConfigured,
+          isBackupRunner: isDirectToolkit,
+          backupContainer,
         };
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         return reply.status(404).send({ error: `Container não encontrado: ${msg}` });
+      }
+    },
+  );
+
+  // GET /api/containers/:id/backup/snapshots
+  // Inspeciona o repositório R2/S3 e lista os snapshots disponíveis antes da restauração
+  fastify.get<{ Params: { id: string } }>(
+    "/:id/backup/snapshots",
+    { preHandler: [requireRole("viewer", "operator", "admin")] },
+    async (request, reply) => {
+      const { id } = request.params;
+      try {
+        const inspection = await inspectBackupSnapshots(id);
+        return inspection;
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return reply.status(400).send({ error: msg });
+      }
+    },
+  );
+
+  // POST /api/containers/:id/backup/restore
+  // Aplica o backup armazenado no R2/S3 com validação de confirmação digitada
+  fastify.post<{
+    Params: { id: string };
+    Body: { snapshotId?: string; confirmText?: string };
+  }>(
+    "/:id/backup/restore",
+    { preHandler: [requireRole("operator", "admin")] },
+    async (request, reply) => {
+      const { id } = request.params;
+      const body = request.body || {};
+
+      const confirmText = body.confirmText?.trim() || "";
+      if (!confirmText) {
+        return reply.status(400).send({
+          error:
+            "A confirmação por escrito é obrigatória para executar a restauração de backup.",
+        });
+      }
+
+      try {
+        const result = await executeResticRestore(id, body.snapshotId || "latest", confirmText);
+
+        logAudit({
+          action: "container.restore_backup",
+          userId: request.user?.id,
+          target: id,
+          details: {
+            snapshotId: body.snapshotId || "latest",
+            resultMessage: result.message,
+          },
+          ip: request.ip,
+        });
+
+        return result;
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return reply.status(500).send({ error: msg });
       }
     },
   );

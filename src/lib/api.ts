@@ -3,6 +3,9 @@ import type {
   BatchContainerActionRequest,
   ContainerAction,
   ContainerBackupInfo,
+  ContainerBackupInspection,
+  ContainerBackupRestoreRequest,
+  ContainerBackupRestoreResult,
   ContainerStatsSummary,
   ContainerSummary,
   CreateContainerRequest,
@@ -206,6 +209,13 @@ export const api = {
       }),
     getBackupInfo: (id: string) =>
       fetchApi<ContainerBackupInfo>(`/api/containers/${id}/backup-info`),
+    getBackupSnapshots: (id: string) =>
+      fetchApi<ContainerBackupInspection>(`/api/containers/${id}/backup/snapshots`),
+    restoreBackup: (id: string, data: ContainerBackupRestoreRequest) =>
+      fetchApi<ContainerBackupRestoreResult>(`/api/containers/${id}/backup/restore`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
     remove: (
       id: string,
       options?:

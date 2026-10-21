@@ -29,6 +29,7 @@ import {
   Database,
   Loader2,
   Table as TableIcon,
+  ArchiveRestore,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -37,6 +38,7 @@ import { useDockerEvents } from "@/hooks/use-docker-events";
 import type { ContainerAction, ContainerSummary } from "../../shared/types";
 import { StackBinderView, type StackGroup } from "@/components/containers/StackBinderView";
 import { ContainerRowActions } from "@/components/containers/ContainerRowActions";
+import { BackupRestoreDialog } from "@/components/containers/BackupRestoreDialog";
 import { PageHeader, Panel, StatusPill } from "@/components/app/ui-bits";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -135,6 +137,7 @@ function ContainersPage() {
   const [recreatePullLatest, setRecreatePullLatest] = useState(true);
   const [removeVolumes, setRemoveVolumes] = useState(false);
   const [isCopiedJson, setIsCopiedJson] = useState(false);
+  const [restoreBackupContainer, setRestoreBackupContainer] = useState<ContainerSummary | null>(null);
 
   // Invalidação imediata baseada em eventos do Docker (/ws/events)
   useDockerEvents();
@@ -691,6 +694,7 @@ function ContainersPage() {
             onAction={(id, action) => actionMutation.mutate({ id, action })}
             onStackAction={handleStackAction}
             onRemoveContainer={(id) => setConfirmRemoveId(id)}
+            onRestoreBackup={(c) => setRestoreBackupContainer(c)}
             onRecreateContainer={(id) => {
               setRecreatePullLatest(true);
               setConfirmRecreateId(id);
@@ -886,6 +890,7 @@ function ContainersPage() {
                             setConfirmRecreateId(id);
                           }}
                           onRemoveContainer={(id) => setConfirmRemoveId(id)}
+                          onRestoreBackup={(c) => setRestoreBackupContainer(c)}
                           onPauseToggle={() =>
                             actionMutation.mutate({
                               id: c.id,
@@ -1071,6 +1076,15 @@ function ContainersPage() {
                             <RotateCw className="size-3.5 mr-1" />
                           )}
                           {recreateMutation.isPending ? "Recriando..." : "Recriar"}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setRestoreBackupContainer(selectedContainer)}
+                          className="border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+                        >
+                          <ArchiveRestore className="size-3.5 mr-1 text-amber-500" />
+                          Restaurar Backup R2/S3
                         </Button>
                         <Button
                           variant="destructive"
@@ -1668,6 +1682,13 @@ function ContainersPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Modal de Restauração de Backup R2 / S3 */}
+      <BackupRestoreDialog
+        container={restoreBackupContainer}
+        open={Boolean(restoreBackupContainer)}
+        onOpenChange={(open) => !open && setRestoreBackupContainer(null)}
+      />
     </>
   );
 }

@@ -1,4 +1,9 @@
 import { PassThrough } from "node:stream";
+import type {
+  ContainerBackupInspection,
+  ContainerBackupRestoreResult,
+  ResticSnapshot,
+} from "../../shared/types.js";
 import { docker } from "../docker.js";
 
 export interface DatabaseDetectionResult {
@@ -20,7 +25,22 @@ export interface ContainerBackupInfo {
   isDatabase: boolean;
   dbType: string | null;
   hasBackupConfigured: boolean;
+  isBackupRunner?: boolean;
   backupContainer?: BackupContainerSummary;
+}
+
+/**
+ * Detects whether an image/container is a backup-toolkit container.
+ */
+export function isBackupToolkitContainer(image = "", envList: string[] = []): boolean {
+  const img = image.toLowerCase();
+  if (img.includes("backup-toolkit")) return true;
+  const envKeys = envList.map((e) => (e.split("=")[0] || "").toUpperCase());
+  return (
+    envKeys.includes("RESTIC_PASSWORD") &&
+    (envKeys.includes("R2_BUCKET") || envKeys.includes("RESTIC_REPOSITORY")) &&
+    envKeys.includes("DB_TYPE")
+  );
 }
 
 /**
@@ -288,4 +308,375 @@ echo "HARBORX_BACKUP_SUCCESS"
   }
 
   return { success: true, log: logOutput };
+}
+
+/**
+ * Resolves the backup container instance for a given target container ID.
+ * Returns information about the backup runner whether the target itself is the backup container
+ * or whether it has an associated backup companion container.
+ */
+export async function resolveBackupContainer(containerId: string): Promise<{
+  isBackupRunner: boolean;
+  backupContainerId: string;
+  backupContainerName: string;
+  targetContainerName: string;
+  image: string;
+  env: Record<string, string>;
+  isDirectToolkit: boolean;
+} | null> {
+  try {
+    const container = docker.getContainer(containerId);
+    const inspect = await container.inspect().catch(() => null);
+    if (!inspect) return null;
+
+    const rawName = (inspect.Name || "").replace(/^\//, "");
+    const image = inspect.Config?.Image || "";
+    const envList = inspect.Config?.Env || [];
+
+    const envMap: Record<string, string> = {};
+    for (const item of envList) {
+      const idx = item.indexOf("=");
+      if (idx !== -1) {
+        envMap[item.slice(0, idx)] = item.slice(idx + 1);
+      }
+    }
+
+    // 1. Is this container itself a backup-toolkit container?
+    if (isBackupToolkitContainer(image, envList)) {
+      return {
+        isBackupRunner: true,
+        backupContainerId: containerId,
+        backupContainerName: rawName,
+        targetContainerName: rawName,
+        image,
+        env: envMap,
+        isDirectToolkit: true,
+      };
+    }
+
+    // 2. Is there an associated backup container?
+    const associated = await findAssociatedBackupContainer(containerId);
+    if (associated.hasBackup && associated.backupContainer) {
+      const bContainer = docker.getContainer(associated.backupContainer.id);
+      const bInspect = await bContainer.inspect().catch(() => null);
+      if (!bInspect) return null;
+
+      const bEnvMap: Record<string, string> = {};
+      for (const item of bInspect.Config?.Env || []) {
+        const idx = item.indexOf("=");
+        if (idx !== -1) {
+          bEnvMap[item.slice(0, idx)] = item.slice(idx + 1);
+        }
+      }
+
+      return {
+        isBackupRunner: true,
+        backupContainerId: associated.backupContainer.id,
+        backupContainerName: associated.backupContainer.name,
+        targetContainerName: rawName,
+        image: bInspect.Config?.Image || associated.backupContainer.image,
+        env: bEnvMap,
+        isDirectToolkit: false,
+      };
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Inspects the Cloudflare R2 / S3 repository and lists existing snapshots for the target container.
+ */
+export async function inspectBackupSnapshots(
+  containerId: string,
+): Promise<ContainerBackupInspection> {
+  const resolved = await resolveBackupContainer(containerId);
+  if (!resolved) {
+    throw new Error(
+      "Nenhum container de backup configurado ou associado a este container. Certifique-se de que o container utilize a imagem felipesdam496/backup-toolkit.",
+    );
+  }
+
+  const { backupContainerId, env } = resolved;
+  const backupContainer = docker.getContainer(backupContainerId);
+  const inspect = await backupContainer.inspect();
+
+  if (!inspect.State.Running) {
+    await backupContainer.start();
+    await new Promise((r) => setTimeout(r, 4000));
+  }
+
+  const defaultPort = (type: string) => {
+    switch (type.toLowerCase()) {
+      case "postgres":
+      case "postgresql":
+        return "5432";
+      case "mysql":
+      case "mariadb":
+        return "3306";
+      case "mongodb":
+      case "mongo":
+        return "27017";
+      default:
+        return "";
+    }
+  };
+
+  const dbType = env["DB_TYPE"] || "desconhecido";
+  const dbHost = env["DB_HOST"] || "localhost";
+  const dbPort = env["DB_PORT"] || defaultPort(dbType);
+  const dbName = env["DB_NAME"] || "";
+  const r2Bucket = env["R2_BUCKET"] || "";
+  const r2Endpoint = env["R2_ENDPOINT"] || "";
+  const repository =
+    env["RESTIC_REPOSITORY"] ||
+    (r2Endpoint && r2Bucket
+      ? `s3:${r2Endpoint.replace(/\/+$/, "")}/${r2Bucket}`
+      : "Configurado no container");
+
+  const exec = await backupContainer.exec({
+    AttachStdout: true,
+    AttachStderr: true,
+    Tty: false,
+    Cmd: [
+      "bash",
+      "-c",
+      `
+set -Eeuo pipefail
+export RESTIC_REPOSITORY="\${RESTIC_REPOSITORY:-s3:\${R2_ENDPOINT%/}/\${R2_BUCKET}}"
+export AWS_DEFAULT_REGION="\${AWS_DEFAULT_REGION:-auto}"
+restic snapshots --json
+      `,
+    ],
+  });
+
+  const stream = await exec.start({ hijack: true, stdin: false });
+  const stdoutStream = new PassThrough();
+  const stderrStream = new PassThrough();
+  let stdout = "";
+  let stderr = "";
+
+  stdoutStream.on("data", (chunk: Buffer) => {
+    stdout += chunk.toString("utf8");
+  });
+  stderrStream.on("data", (chunk: Buffer) => {
+    stderr += chunk.toString("utf8");
+  });
+
+  docker.modem.demuxStream(stream, stdoutStream, stderrStream);
+
+  await new Promise<void>((resolve, reject) => {
+    stream.on("end", resolve);
+    stream.on("error", reject);
+    setTimeout(() => resolve(), 35000);
+  });
+
+  let snapshots: ResticSnapshot[] = [];
+  let isInitialized = false;
+  let inspectionError: string | undefined = undefined;
+
+  const trimmedOut = stdout.trim();
+  if (trimmedOut.startsWith("[") && trimmedOut.endsWith("]")) {
+    try {
+      const parsed = JSON.parse(trimmedOut) as ResticSnapshot[];
+      if (Array.isArray(parsed)) {
+        snapshots = parsed.sort(
+          (a, b) => new Date(b.time).getTime() - new Date(a.time).getTime(),
+        );
+        isInitialized = true;
+      }
+    } catch (err) {
+      inspectionError = `Falha ao interpretar lista de snapshots: ${
+        err instanceof Error ? err.message : String(err)
+      }`;
+    }
+  } else {
+    const combinedLog = (stderr + "\n" + stdout).trim();
+    if (
+      combinedLog.includes("Is there a repository at the following location?") ||
+      combinedLog.includes("unable to open config file") ||
+      combinedLog.includes("no such file or directory") ||
+      combinedLog.includes("repository does not exist")
+    ) {
+      isInitialized = false;
+      inspectionError =
+        "Repositório R2/S3 ainda não foi inicializado ou nenhum snapshot foi criado ainda.";
+    } else if (combinedLog.length > 0) {
+      inspectionError = combinedLog;
+    }
+  }
+
+  return {
+    repository,
+    dbType,
+    dbName,
+    dbHost,
+    dbPort,
+    totalSnapshots: snapshots.length,
+    latestSnapshot: snapshots[0] || null,
+    snapshots,
+    isInitialized,
+    error: inspectionError,
+    backupContainerId: resolved.backupContainerId,
+    backupContainerName: resolved.backupContainerName,
+  };
+}
+
+/**
+ * Executes a safety restore of a specific or latest snapshot from Cloudflare R2 / S3.
+ * Requires typed confirmation to prevent accidental data loss.
+ */
+export async function executeResticRestore(
+  containerId: string,
+  snapshotId: string = "latest",
+  confirmText: string,
+): Promise<ContainerBackupRestoreResult> {
+  const resolved = await resolveBackupContainer(containerId);
+  if (!resolved) {
+    throw new Error(
+      "Container de backup não encontrado ou não configurado para este serviço. Certifique-se de que o container utilize a imagem felipesdam496/backup-toolkit.",
+    );
+  }
+
+  const normalizedConfirm = confirmText.trim().toLowerCase();
+  const validTarget = resolved.targetContainerName.toLowerCase();
+  const validBackup = resolved.backupContainerName.toLowerCase();
+
+  const isConfirmed =
+    normalizedConfirm === "restaurar" ||
+    normalizedConfirm === validTarget ||
+    normalizedConfirm === validBackup;
+
+  if (!isConfirmed) {
+    throw new Error(
+      `Confirmação inválida. É obrigatório digitar 'RESTAURAR' ou o nome do container ('${resolved.targetContainerName}') para autorizar esta operação crítica de restauração.`,
+    );
+  }
+
+  const backupContainer = docker.getContainer(resolved.backupContainerId);
+  const inspect = await backupContainer.inspect();
+  if (!inspect.State.Running) {
+    await backupContainer.start();
+    await new Promise((r) => setTimeout(r, 4000));
+  }
+
+  const safeSnapshotId = (snapshotId || "latest")
+    .trim()
+    .replace(/[^a-zA-Z0-9_\-.:]/g, "");
+
+  const exec = await backupContainer.exec({
+    AttachStdout: true,
+    AttachStderr: true,
+    Tty: false,
+    Cmd: [
+      "bash",
+      "-c",
+      `
+set -Eeuo pipefail
+export RESTIC_REPOSITORY="\${RESTIC_REPOSITORY:-s3:\${R2_ENDPOINT%/}/\${R2_BUCKET}}"
+export AWS_DEFAULT_REGION="\${AWS_DEFAULT_REGION:-auto}"
+export DB_PORT="\${DB_PORT:-$(case "\${DB_TYPE:-}" in mysql|mariadb) echo 3306;; postgres|postgresql) echo 5432;; mongodb|mongo) echo 27017;; esac)}"
+
+echo "=========================================================="
+echo " [HARBORX] RESTAURAÇÃO CRÍTICA DE BANCO DE DADOS"
+echo "=========================================================="
+echo "Timestamp: $(date -Is)"
+echo "Alvo: \${DB_TYPE} em \${DB_HOST}:\${DB_PORT} (Banco: \${DB_NAME})"
+echo "Repositório: \${RESTIC_REPOSITORY}"
+echo "Snapshot Solicitado: ${safeSnapshotId}"
+echo "=========================================================="
+echo ""
+
+restore_dir="$(mktemp -d)"
+trap 'rm -rf "$restore_dir"' EXIT
+
+echo "▶ [1/3] Conectando ao R2/S3 e descarregando snapshot '${safeSnapshotId}'..."
+restic restore "${safeSnapshotId}" --target "$restore_dir"
+echo "✓ Snapshot descarregado com sucesso."
+echo ""
+
+echo "▶ [2/3] Localizando arquivo de dump no snapshot extraído..."
+case "\${DB_TYPE}" in
+  postgres|postgresql)
+    target_file=$(find "$restore_dir" -type f \\( -name "postgres.dump" -o -name "*.dump" -o -name "*.sql" \\) | head -n 1)
+    if [ -z "$target_file" ]; then
+      echo "ERRO: Arquivo de dump PostgreSQL (.dump ou .sql) não encontrado no snapshot." >&2
+      exit 1
+    fi
+    echo "✓ Arquivo localizado: $(basename "$target_file") ($(du -h "$target_file" | cut -f1))"
+    echo ""
+    echo "▶ [3/3] Aplicando restauração no PostgreSQL (\${DB_NAME})..."
+    /usr/local/bin/restore-postgres.sh "$target_file" || ( [ $? -eq 1 ] && echo "Avisos de esquema tolerados pelo pg_restore." )
+    ;;
+  mysql|mariadb)
+    target_file=$(find "$restore_dir" -type f \\( -name "mysql.sql.gz" -o -name "*.sql.gz" -o -name "*.sql" \\) | head -n 1)
+    if [ -z "$target_file" ]; then
+      echo "ERRO: Arquivo de dump MySQL (.sql.gz ou .sql) não encontrado no snapshot." >&2
+      exit 1
+    fi
+    echo "✓ Arquivo localizado: $(basename "$target_file") ($(du -h "$target_file" | cut -f1))"
+    echo ""
+    echo "▶ [3/3] Aplicando restauração no MySQL (\${DB_NAME})..."
+    /usr/local/bin/restore-mysql.sh "$target_file"
+    ;;
+  mongodb|mongo)
+    target_file=$(find "$restore_dir" -type f \\( -name "mongodb.archive.gz" -o -name "*.archive.gz" -o -name "*.archive" \\) | head -n 1)
+    if [ -z "$target_file" ]; then
+      echo "ERRO: Arquivo de dump MongoDB (.archive.gz ou .archive) não encontrado no snapshot." >&2
+      exit 1
+    fi
+    echo "✓ Arquivo localizado: $(basename "$target_file") ($(du -h "$target_file" | cut -f1))"
+    echo ""
+    echo "▶ [3/3] Aplicando restauração no MongoDB (\${DB_NAME})..."
+    /usr/local/bin/restore-mongodb.sh "$target_file"
+    ;;
+  *)
+    echo "ERRO: Tipo de banco '\${DB_TYPE}' não reconhecido para restauração automática." >&2
+    exit 1
+    ;;
+esac
+
+echo ""
+echo "HARBORX_RESTORE_SUCCESS"
+echo "=========================================================="
+echo " [HARBORX] RESTAURAÇÃO CONCLUÍDA COM SUCESSO!"
+echo "=========================================================="
+      `,
+    ],
+  });
+
+  const stream = await exec.start({ hijack: true, stdin: false });
+  let logOutput = "";
+  const outStream = new PassThrough();
+  outStream.on("data", (chunk: Buffer) => {
+    logOutput += chunk.toString("utf8");
+  });
+  docker.modem.demuxStream(stream, outStream, outStream);
+
+  await new Promise<void>((resolve, reject) => {
+    stream.on("end", resolve);
+    stream.on("error", reject);
+    setTimeout(() => resolve(), 300000); // 5 minutes timeout
+  });
+
+  const execInspect = await exec.inspect();
+  const isSuccess =
+    execInspect.ExitCode === 0 || logOutput.includes("HARBORX_RESTORE_SUCCESS");
+
+  if (!isSuccess) {
+    throw new Error(
+      `Falha na execução da restauração (ExitCode ${execInspect.ExitCode}): ${
+        logOutput.slice(-500).trim() ||
+        "Erro desconhecido durante execução do script de restauração"
+      }`,
+    );
+  }
+
+  return {
+    success: true,
+    log: logOutput,
+    message: `Backup restaurado com sucesso a partir do snapshot '${safeSnapshotId}'.`,
+  };
 }

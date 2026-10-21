@@ -12,6 +12,7 @@ import {
   ExternalLink,
   Pause,
   Loader2,
+  ArchiveRestore,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,6 +42,7 @@ export interface ContainerRowActionsProps {
   onAction: (id: string, action: ContainerAction) => void;
   onRecreateContainer?: ((id: string) => void) | undefined;
   onRemoveContainer?: ((id: string) => void) | undefined;
+  onRestoreBackup?: ((c: ContainerSummary) => void) | undefined;
   onPauseToggle?: (() => void) | undefined;
   variant?: "desktop" | "mobile" | undefined;
 }
@@ -59,6 +61,7 @@ export function ContainerRowActions({
   onAction,
   onRecreateContainer,
   onRemoveContainer,
+  onRestoreBackup,
   onPauseToggle,
   variant = "desktop",
 }: ContainerRowActionsProps) {
@@ -213,6 +216,17 @@ export function ContainerRowActions({
                 >
                   <Pause className="mr-2 size-3.5 text-muted-foreground" />
                   <span>{isPaused ? "Retomar execução" : "Pausar processos"}</span>
+                </DropdownMenuItem>
+              )}
+
+              {onRestoreBackup && (
+                <DropdownMenuItem
+                  onClick={() => onRestoreBackup(container)}
+                  disabled={isRowDisabled}
+                  className="cursor-pointer py-1.5 text-amber-600 dark:text-amber-400 focus:text-amber-600 dark:focus:text-amber-400 focus:bg-amber-500/10"
+                >
+                  <ArchiveRestore className="mr-2 size-3.5 text-amber-500" />
+                  <span>Restaurar Backup (R2/S3)</span>
                 </DropdownMenuItem>
               )}
 
