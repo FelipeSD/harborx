@@ -27,6 +27,7 @@ import {
   Play,
   CheckCircle2,
   HelpCircle,
+  MoreHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -46,6 +47,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -1316,18 +1319,70 @@ function StacksPage() {
                   </div>
 
                   {isOperator && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      onClick={() => {
-                        setDeleteTarget(s);
-                        setDeleteConfirmName("");
-                        setRemoveVolumes(false);
-                      }}
-                    >
-                      <Trash2 className="size-3.5" />
-                    </Button>
+                    <DropdownMenu modal={false}>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="size-8 text-muted-foreground hover:text-foreground shrink-0"
+                          title="Mais opções da stack"
+                          aria-label={`Mais opções para stack ${s.name}`}
+                        >
+                          <MoreHorizontal className="size-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="end"
+                        className="w-56 font-sans text-xs shadow-lg border border-border/80"
+                      >
+                        <DropdownMenuLabel className="text-[11px] font-mono text-muted-foreground font-normal truncate">
+                          Stack • {s.name}
+                        </DropdownMenuLabel>
+
+                        {s.recentDeployment && (
+                          <DropdownMenuItem
+                            onClick={() => setLogStack(s)}
+                            className="cursor-pointer py-1.5"
+                          >
+                            <Terminal className="mr-2 size-3.5 text-primary" />
+                            <span>Logs do Último Deploy</span>
+                          </DropdownMenuItem>
+                        )}
+
+                        <DropdownMenuItem
+                          onClick={() => {
+                            const url = `${window.location.origin}/api/public/hooks/${s.webhookToken}`;
+                            copyToClipboard(url, "URL do Webhook");
+                          }}
+                          className="cursor-pointer py-1.5"
+                        >
+                          <Copy className="mr-2 size-3.5 text-muted-foreground" />
+                          <span>Copiar URL do Webhook</span>
+                        </DropdownMenuItem>
+
+                        <DropdownMenuItem
+                          onClick={() => setWebhookGuideStack(s)}
+                          className="cursor-pointer py-1.5"
+                        >
+                          <ExternalLink className="mr-2 size-3.5 text-muted-foreground" />
+                          <span>Guia CI/CD (GitHub Actions)</span>
+                        </DropdownMenuItem>
+
+                        <DropdownMenuSeparator />
+
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setDeleteTarget(s);
+                            setDeleteConfirmName("");
+                            setRemoveVolumes(false);
+                          }}
+                          className="cursor-pointer py-1.5 text-destructive focus:bg-destructive/10 focus:text-destructive"
+                        >
+                          <Trash2 className="mr-2 size-3.5 text-destructive" />
+                          <span>Remover Stack</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   )}
                 </div>
               </Panel>

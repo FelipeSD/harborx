@@ -36,6 +36,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useDockerEvents } from "@/hooks/use-docker-events";
 import type { ContainerAction, ContainerSummary } from "../../shared/types";
 import { StackBinderView, type StackGroup } from "@/components/containers/StackBinderView";
+import { ContainerRowActions } from "@/components/containers/ContainerRowActions";
 import { PageHeader, Panel, StatusPill } from "@/components/app/ui-bits";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -857,180 +858,31 @@ function ContainersPage() {
                         {formatDate(c.created)}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          {!isViewer ? (
-                            <>
-                              {isRunning ? (
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="size-8 text-amber-500 hover:text-amber-400 hover:bg-amber-500/10"
-                                  title="Parar"
-                                  aria-label={`Parar container ${c.name}`}
-                                  onClick={() =>
-                                    actionMutation.mutate({ id: c.id, action: "stop" })
-                                  }
-                                  disabled={isRowDisabled}
-                                >
-                                  {isThisAction && actionMutation.variables?.action === "stop" ? (
-                                    <Loader2 className="size-3.5 animate-spin" />
-                                  ) : (
-                                    <Square className="size-3.5" />
-                                  )}
-                                </Button>
-                              ) : (
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="size-8 text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10"
-                                  title="Iniciar"
-                                  aria-label={`Iniciar container ${c.name}`}
-                                  onClick={() =>
-                                    actionMutation.mutate({ id: c.id, action: "start" })
-                                  }
-                                  disabled={isRowDisabled}
-                                >
-                                  {isThisAction && actionMutation.variables?.action === "start" ? (
-                                    <Loader2 className="size-3.5 animate-spin" />
-                                  ) : (
-                                    <Play className="size-3.5" />
-                                  )}
-                                </Button>
-                              )}
-
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="size-8 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
-                                title="Reiniciar"
-                                aria-label={`Reiniciar container ${c.name}`}
-                                onClick={() =>
-                                  actionMutation.mutate({ id: c.id, action: "restart" })
-                                }
-                                disabled={isRowDisabled}
-                              >
-                                {isThisAction && actionMutation.variables?.action === "restart" ? (
-                                  <Loader2 className="size-3.5 animate-spin" />
-                                ) : (
-                                  <RotateCw className="size-3.5" />
-                                )}
-                              </Button>
-
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="size-8 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
-                                title="Recriar container (com opção de repull)"
-                                aria-label={`Recriar container ${c.name}`}
-                                onClick={() => {
-                                  setRecreatePullLatest(true);
-                                  setConfirmRecreateId(c.id);
-                                }}
-                                disabled={isRowDisabled || recreateMutation.isPending}
-                              >
-                                {recreateMutation.isPending &&
-                                recreateMutation.variables?.id === c.id ? (
-                                  <Loader2 className="size-3.5 animate-spin" />
-                                ) : (
-                                  <RefreshCw className="size-3.5" />
-                                )}
-                              </Button>
-
-                              {isRunning && (
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="size-8 text-muted-foreground hover:text-foreground"
-                                  title={isPaused ? "Retomar (unpause)" : "Pausar"}
-                                  aria-label={isPaused ? `Retomar container ${c.name}` : `Pausar container ${c.name}`}
-                                  onClick={() =>
-                                    actionMutation.mutate({
-                                      id: c.id,
-                                      action: isPaused ? "unpause" : "pause",
-                                    })
-                                  }
-                                  disabled={isRowDisabled}
-                                >
-                                  {isThisAction &&
-                                  (actionMutation.variables?.action === "pause" ||
-                                    actionMutation.variables?.action === "unpause") ? (
-                                    <Loader2 className="size-3.5 animate-spin" />
-                                  ) : (
-                                    <Pause className="size-3.5" />
-                                  )}
-                                </Button>
-                              )}
-
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="size-8 text-destructive hover:text-destructive/80 hover:bg-destructive/10"
-                                title="Remover"
-                                aria-label={`Remover container ${c.name}`}
-                                onClick={() => setConfirmRemoveId(c.id)}
-                                disabled={isRowDisabled}
-                              >
-                                {isThisRemoving ? (
-                                  <Loader2 className="size-3.5 animate-spin" />
-                                ) : (
-                                  <Trash2 className="size-3.5" />
-                                )}
-                              </Button>
-                            </>
-                          ) : (
-                            <Badge variant="outline" className="text-[10px] text-muted-foreground">
-                              Leitura
-                            </Badge>
-                          )}
-
-                          {/* Ações de Acesso Rápido a Abas */}
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="size-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                            title="Ver logs em tempo real"
-                            aria-label={`Ver logs do container ${c.name}`}
-                            onClick={() => handleSelectContainer(c, "logs")}
-                          >
-                            <FileText className="size-3.5" />
-                          </Button>
-
-                          {isRunning && (
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="size-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                              title="Abrir terminal interativo (exec)"
-                              aria-label={`Abrir terminal do container ${c.name}`}
-                              onClick={() => handleSelectContainer(c, "console")}
-                            >
-                              <Terminal className="size-3.5" />
-                            </Button>
-                          )}
-
-                          {isRunning && (
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="size-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                              title="Estatísticas ao vivo"
-                              aria-label={`Estatísticas do container ${c.name}`}
-                              onClick={() => handleSelectContainer(c, "stats")}
-                            >
-                              <Activity className="size-3.5" />
-                            </Button>
-                          )}
-
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            aria-label={`Ver detalhes do container ${c.name}`}
-                            onClick={() => handleSelectContainer(c, "overview")}
-                            disabled={isThisRemoving}
-                          >
-                            Detalhes
-                          </Button>
-                        </div>
+                        <ContainerRowActions
+                          container={c}
+                          isRunning={isRunning}
+                          isPaused={isPaused}
+                          isViewer={isViewer}
+                          isRowDisabled={isRowDisabled}
+                          isThisAction={Boolean(isThisAction)}
+                          pendingActionType={actionMutation.variables?.id === c.id ? actionMutation.variables.action : null}
+                          isThisRemoving={Boolean(isThisRemoving)}
+                          isRecreating={recreateMutation.isPending && recreateMutation.variables?.id === c.id}
+                          onSelectContainer={handleSelectContainer}
+                          onAction={(id, action) => actionMutation.mutate({ id, action })}
+                          onRecreateContainer={(id) => {
+                            setRecreatePullLatest(true);
+                            setConfirmRecreateId(id);
+                          }}
+                          onRemoveContainer={(id) => setConfirmRemoveId(id)}
+                          onPauseToggle={() =>
+                            actionMutation.mutate({
+                              id: c.id,
+                              action: isPaused ? "unpause" : "pause",
+                            })
+                          }
+                          variant="desktop"
+                        />
                       </td>
                     </tr>
                   );

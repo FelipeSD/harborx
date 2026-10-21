@@ -5,23 +5,19 @@ import {
   Play,
   Square,
   RotateCw,
-  Terminal,
-  FileText,
-  Activity,
-  Trash2,
   ChevronDown,
   ChevronRight,
   CheckSquare,
   Square as SquareOutline,
   ExternalLink,
   Loader2,
-  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { StatusPill } from "@/components/app/ui-bits";
 import { cn } from "@/lib/utils";
+import { ContainerRowActions } from "./ContainerRowActions";
 import type { ContainerAction, ContainerSummary } from "../../../shared/types";
 
 export interface StackGroup {
@@ -390,129 +386,22 @@ export function StackBinderView({
                           )}
                         </div>
 
-                        {/* Ações Mobile com toque confortável */}
-                        <div className="flex flex-wrap items-center justify-between pt-2 border-t border-border/40 gap-1.5">
-                          <div className="flex items-center gap-1">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-8 px-2 text-xs"
-                              aria-label={`Ver logs do container ${c.name}`}
-                              onClick={() => onSelectContainer(c, "logs")}
-                            >
-                              <FileText className="size-3.5 mr-1" />
-                              Logs
-                            </Button>
-                            {isRunning && (
-                              <>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-8 px-2 text-xs"
-                                  aria-label={`Abrir terminal do container ${c.name}`}
-                                  onClick={() => onSelectContainer(c, "console")}
-                                >
-                                  <Terminal className="size-3.5 mr-1" />
-                                  Exec
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-8 px-2 text-xs"
-                                  aria-label={`Ver métricas do container ${c.name}`}
-                                  onClick={() => onSelectContainer(c, "stats")}
-                                >
-                                  <Activity className="size-3.5 mr-1" />
-                                  Métricas
-                                </Button>
-                              </>
-                            )}
-                          </div>
-
-                          {!isViewer && (
-                            <div className="flex items-center gap-1">
-                              {isRunning ? (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-8 px-2 text-xs text-amber-500 hover:text-amber-400"
-                                  aria-label={`Parar container ${c.name}`}
-                                  onClick={() => onAction(c.id, "stop")}
-                                  disabled={isRowDisabled}
-                                >
-                                  {isThisAction && pendingAction?.action === "stop" ? (
-                                    <Loader2 className="size-3 mr-1 animate-spin" />
-                                  ) : (
-                                    <Square className="size-3 mr-1" />
-                                  )}
-                                  {isThisAction && pendingAction?.action === "stop"
-                                    ? "Parando..."
-                                    : "Parar"}
-                                </Button>
-                              ) : (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-8 px-2 text-xs text-emerald-500 hover:text-emerald-400"
-                                  aria-label={`Iniciar container ${c.name}`}
-                                  onClick={() => onAction(c.id, "start")}
-                                  disabled={isRowDisabled}
-                                >
-                                  {isThisAction && pendingAction?.action === "start" ? (
-                                    <Loader2 className="size-3 mr-1 animate-spin" />
-                                  ) : (
-                                    <Play className="size-3 mr-1" />
-                                  )}
-                                  {isThisAction && pendingAction?.action === "start"
-                                    ? "Iniciando..."
-                                    : "Iniciar"}
-                                </Button>
-                              )}
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="size-8 text-blue-400 hover:text-blue-300"
-                                onClick={() => onAction(c.id, "restart")}
-                                disabled={isRowDisabled}
-                                title="Reiniciar"
-                                aria-label={`Reiniciar container ${c.name}`}
-                              >
-                                {isThisAction && pendingAction?.action === "restart" ? (
-                                  <Loader2 className="size-3.5 animate-spin" />
-                                ) : (
-                                  <RotateCw className="size-3.5" />
-                                )}
-                              </Button>
-                              {onRecreateContainer && (
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="size-8 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
-                                  onClick={() => onRecreateContainer(c.id)}
-                                  disabled={isRowDisabled}
-                                  title="Recriar container (Repull)"
-                                >
-                                  <RefreshCw className="size-3.5" />
-                                </Button>
-                              )}
-                              {onRemoveContainer && (
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="size-8 text-destructive hover:text-destructive/80 hover:bg-destructive/10"
-                                  onClick={() => onRemoveContainer(c.id)}
-                                  disabled={isRowDisabled}
-                                  title="Remover container"
-                                >
-                                  {isThisRemoving ? (
-                                    <Loader2 className="size-3.5 animate-spin" />
-                                  ) : (
-                                    <Trash2 className="size-3.5" />
-                                  )}
-                                </Button>
-                              )}
-                            </div>
-                          )}
+                        {/* Ações Mobile Consolidadas */}
+                        <div className="pt-2 border-t border-border/40">
+                          <ContainerRowActions
+                            container={c}
+                            isRunning={isRunning}
+                            isViewer={isViewer}
+                            isRowDisabled={isRowDisabled}
+                            isThisAction={isThisAction}
+                            pendingActionType={pendingAction?.id === c.id ? pendingAction.action : null}
+                            isThisRemoving={isThisRemoving}
+                            onSelectContainer={onSelectContainer}
+                            onAction={onAction}
+                            onRecreateContainer={onRecreateContainer}
+                            onRemoveContainer={onRemoveContainer}
+                            variant="mobile"
+                          />
                         </div>
                       </div>
                     );
@@ -587,133 +476,20 @@ export function StackBinderView({
                               {formatDate(c.created)}
                             </td>
                             <td className="px-4 py-3 text-right">
-                              <div className="flex items-center justify-end gap-1.5">
-                                {/* Botão de Logs */}
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="size-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                                  title="Ver logs em tempo real"
-                                  aria-label={`Ver logs do container ${c.name}`}
-                                  onClick={() => onSelectContainer(c, "logs")}
-                                >
-                                  <FileText className="size-3.5" />
-                                </Button>
-
-                                {/* Botão de Terminal */}
-                                {isRunning && (
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="size-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                                    title="Abrir terminal interativo (exec)"
-                                    aria-label={`Abrir terminal do container ${c.name}`}
-                                    onClick={() => onSelectContainer(c, "console")}
-                                  >
-                                    <Terminal className="size-3.5" />
-                                  </Button>
-                                )}
-
-                                {/* Botão de Métricas */}
-                                {isRunning && (
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="size-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                                    title="Estatísticas ao vivo"
-                                    aria-label={`Estatísticas do container ${c.name}`}
-                                    onClick={() => onSelectContainer(c, "stats")}
-                                  >
-                                    <Activity className="size-3.5" />
-                                  </Button>
-                                )}
-
-                                {!isViewer && (
-                                  <>
-                                    {isRunning ? (
-                                      <Button
-                                        size="icon"
-                                        variant="ghost"
-                                        className="size-8 text-amber-500 hover:text-amber-400 hover:bg-amber-500/10"
-                                        title="Parar container"
-                                        aria-label={`Parar container ${c.name}`}
-                                        onClick={() => onAction(c.id, "stop")}
-                                        disabled={isRowDisabled}
-                                      >
-                                        {isThisAction && pendingAction?.action === "stop" ? (
-                                          <Loader2 className="size-3.5 animate-spin" />
-                                        ) : (
-                                          <Square className="size-3.5" />
-                                        )}
-                                      </Button>
-                                    ) : (
-                                      <Button
-                                        size="icon"
-                                        variant="ghost"
-                                        className="size-8 text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10"
-                                        title="Iniciar container"
-                                        aria-label={`Iniciar container ${c.name}`}
-                                        onClick={() => onAction(c.id, "start")}
-                                        disabled={isRowDisabled}
-                                      >
-                                        {isThisAction && pendingAction?.action === "start" ? (
-                                          <Loader2 className="size-3.5 animate-spin" />
-                                        ) : (
-                                          <Play className="size-3.5" />
-                                        )}
-                                      </Button>
-                                    )}
-
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      className="size-8 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
-                                      title="Reiniciar container"
-                                      aria-label={`Reiniciar container ${c.name}`}
-                                      onClick={() => onAction(c.id, "restart")}
-                                      disabled={isRowDisabled}
-                                    >
-                                      {isThisAction && pendingAction?.action === "restart" ? (
-                                        <Loader2 className="size-3.5 animate-spin" />
-                                      ) : (
-                                        <RotateCw className="size-3.5" />
-                                      )}
-                                    </Button>
-
-                                    {onRecreateContainer && (
-                                      <Button
-                                        size="icon"
-                                        variant="ghost"
-                                        className="size-8 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
-                                        title="Recriar container (com opção de repull)"
-                                        aria-label={`Recriar container ${c.name}`}
-                                        onClick={() => onRecreateContainer(c.id)}
-                                        disabled={isRowDisabled}
-                                      >
-                                        <RefreshCw className="size-3.5" />
-                                      </Button>
-                                    )}
-
-                                    {onRemoveContainer && (
-                                      <Button
-                                        size="icon"
-                                        variant="ghost"
-                                        className="size-8 text-destructive hover:text-destructive/80 hover:bg-destructive/10"
-                                        title="Remover container"
-                                        aria-label={`Remover container ${c.name}`}
-                                        onClick={() => onRemoveContainer(c.id)}
-                                        disabled={isRowDisabled}
-                                      >
-                                        {isThisRemoving ? (
-                                          <Loader2 className="size-3.5 animate-spin" />
-                                        ) : (
-                                          <Trash2 className="size-3.5" />
-                                        )}
-                                      </Button>
-                                    )}
-                                  </>
-                                )}
-                              </div>
+                              <ContainerRowActions
+                                container={c}
+                                isRunning={isRunning}
+                                isViewer={isViewer}
+                                isRowDisabled={isRowDisabled}
+                                isThisAction={isThisAction}
+                                pendingActionType={pendingAction?.id === c.id ? pendingAction.action : null}
+                                isThisRemoving={isThisRemoving}
+                                onSelectContainer={onSelectContainer}
+                                onAction={onAction}
+                                onRecreateContainer={onRecreateContainer}
+                                onRemoveContainer={onRemoveContainer}
+                                variant="desktop"
+                              />
                             </td>
                           </tr>
                         );
