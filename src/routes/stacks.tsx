@@ -413,6 +413,7 @@ function EnvEditor({
                 size="icon"
                 variant="ghost"
                 className="size-8 shrink-0"
+                aria-label={show[i] || !e.secret ? "Ocultar valor" : "Exibir valor"}
                 onClick={() => setShow((s) => ({ ...s, [i]: !s[i] }))}
               >
                 {show[i] || !e.secret ? (
@@ -426,6 +427,7 @@ function EnvEditor({
                 size="icon"
                 variant="ghost"
                 className="size-8 shrink-0 text-destructive"
+                aria-label={`Remover variável ${e.key || i + 1}`}
                 onClick={() => {
                   const next = env.filter((_, j) => j !== i);
                   onChange(next);
@@ -1071,6 +1073,7 @@ function StacksPage() {
                         size="sm"
                         variant="outline"
                         className="h-7 text-xs border-rose-500/40 text-rose-500 hover:bg-rose-500/15 shrink-0 gap-1 bg-background"
+                        aria-label={`Ver erro de deploy da stack ${s.name}`}
                         onClick={() => setLogStack(s)}
                       >
                         <Terminal className="size-3" /> Ver erro
@@ -1091,6 +1094,7 @@ function StacksPage() {
                         <button
                           type="button"
                           className="text-[11px] hover:underline flex items-center gap-1 font-sans text-primary shrink-0"
+                          aria-label={`Ver logs de deploy da stack ${s.name}`}
                           onClick={() => setLogStack(s)}
                         >
                           <Terminal className="size-3" />
@@ -1179,6 +1183,7 @@ function StacksPage() {
                         variant="outline"
                         size="sm"
                         className="h-6 px-2 text-[10px] gap-1"
+                        aria-label={`Copiar URL do webhook da stack ${s.name}`}
                         onClick={() => {
                           const url = `${window.location.origin}/api/public/hooks/${s.webhookToken}`;
                           copyToClipboard(url, "URL do Webhook");
@@ -1193,6 +1198,7 @@ function StacksPage() {
                           size="sm"
                           className="h-6 px-2 text-[10px] gap-1"
                           disabled={isTestingHook === s.id}
+                          aria-label={`Disparar teste de webhook para stack ${s.name}`}
                           onClick={() => void handleTestWebhook(s)}
                         >
                           {isTestingHook === s.id ? (
@@ -1208,6 +1214,7 @@ function StacksPage() {
                         variant="ghost"
                         size="sm"
                         className="h-6 px-2 text-[10px] text-primary gap-1"
+                        aria-label={`Ver guia de CI/CD para stack ${s.name}`}
                         onClick={() => setWebhookGuideStack(s)}
                       >
                         <ExternalLink className="size-2.5" /> CI/CD
@@ -1226,6 +1233,7 @@ function StacksPage() {
                           disabled={isDeploying}
                           onClick={() => deployMutation.mutate({ id: s.id, pull: false })}
                           title="Redeploy simples usando as imagens já existentes"
+                          aria-label={`Redeploy simples da stack ${s.name}`}
                         >
                           {isDeploying ? (
                             <Loader2 className="size-3.5 animate-spin mr-1" />
@@ -1241,6 +1249,7 @@ function StacksPage() {
                               className="rounded-l-none px-1.5"
                               disabled={isDeploying}
                               title="Opções de deploy"
+                              aria-label={`Opções de deploy da stack ${s.name}`}
                             >
                               <ChevronDown className="size-3.5" />
                             </Button>
@@ -1279,7 +1288,7 @@ function StacksPage() {
                       </div>
                     )}
                     {isOperator && (
-                      <Button size="sm" variant="outline" onClick={() => handleOpenEdit(s)}>
+                      <Button size="sm" variant="outline" aria-label={`Editar stack ${s.name}`} onClick={() => handleOpenEdit(s)}>
                         <Code2 className="size-3.5" /> Editar Stack
                       </Button>
                     )}
@@ -1287,6 +1296,7 @@ function StacksPage() {
                       <Button
                         size="sm"
                         variant="ghost"
+                        aria-label={`Parar stack ${s.name}`}
                         onClick={() => stopMutation.mutate(s.id)}
                         disabled={stopMutation.isPending}
                       >
@@ -1296,6 +1306,7 @@ function StacksPage() {
                       <Button
                         size="sm"
                         variant="ghost"
+                        aria-label={`Iniciar stack ${s.name}`}
                         onClick={() => startMutation.mutate(s.id)}
                         disabled={startMutation.isPending}
                       >

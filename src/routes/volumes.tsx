@@ -237,6 +237,7 @@ function VolumesPage() {
                   size="sm"
                   onClick={() => setIsPruneOpen(true)}
                   disabled={pruneMutation.isPending}
+                  aria-label="Podar volumes órfãos"
                 >
                   {pruneMutation.isPending ? (
                     <Loader2 className="size-4 animate-spin text-destructive" />
@@ -260,6 +261,8 @@ function VolumesPage() {
           <button
             type="button"
             onClick={() => setFilterUsage("all")}
+            aria-pressed={filterUsage === "all"}
+            aria-label="Filtrar todos os volumes"
             className={cn(
               "flex items-center gap-1.5 sm:gap-2 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-medium transition-all",
               filterUsage === "all"
@@ -284,6 +287,8 @@ function VolumesPage() {
           <button
             type="button"
             onClick={() => setFilterUsage("in_use")}
+            aria-pressed={filterUsage === "in_use"}
+            aria-label="Filtrar volumes em uso"
             className={cn(
               "flex items-center gap-1.5 sm:gap-2 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-medium transition-all",
               filterUsage === "in_use"
@@ -311,6 +316,8 @@ function VolumesPage() {
           <button
             type="button"
             onClick={() => setFilterUsage("unused")}
+            aria-pressed={filterUsage === "unused"}
+            aria-label="Filtrar volumes órfãos"
             className={cn(
               "flex items-center gap-1.5 sm:gap-2 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-medium transition-all",
               filterUsage === "unused"
@@ -471,6 +478,7 @@ function VolumesPage() {
                       variant="outline"
                       size="sm"
                       className="h-8 text-xs flex-1"
+                      aria-label={`Inspecionar volume ${v.name}`}
                       onClick={() => handleOpenInspect(v)}
                     >
                       <Eye className="size-3.5 mr-1" /> Inspecionar
@@ -481,6 +489,7 @@ function VolumesPage() {
                         size="sm"
                         className="h-8 px-2 text-destructive hover:bg-destructive/10"
                         title="Remover volume"
+                        aria-label={`Remover volume ${v.name}`}
                         disabled={
                           deleteMutation.isPending && deleteMutation.variables?.name === v.name
                         }
@@ -611,6 +620,7 @@ function VolumesPage() {
                             size="icon"
                             className="size-8"
                             title="Inspecionar"
+                            aria-label={`Inspecionar volume ${v.name}`}
                             onClick={() => handleOpenInspect(v)}
                           >
                             <Eye className="size-3.5" />
@@ -621,6 +631,7 @@ function VolumesPage() {
                               size="icon"
                               className="size-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
                               title="Remover volume"
+                              aria-label={`Remover volume ${v.name}`}
                               disabled={
                                 deleteMutation.isPending &&
                                 deleteMutation.variables?.name === v.name

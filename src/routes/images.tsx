@@ -388,6 +388,8 @@ function ImagesPage() {
           <button
             type="button"
             onClick={() => setFilterUsage("all")}
+            aria-pressed={filterUsage === "all"}
+            aria-label="Filtrar todas as imagens"
             className={cn(
               "flex items-center gap-1.5 sm:gap-2 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-medium transition-all",
               filterUsage === "all"
@@ -412,6 +414,8 @@ function ImagesPage() {
           <button
             type="button"
             onClick={() => setFilterUsage("in_use")}
+            aria-pressed={filterUsage === "in_use"}
+            aria-label="Filtrar imagens em uso"
             className={cn(
               "flex items-center gap-1.5 sm:gap-2 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-medium transition-all",
               filterUsage === "in_use"
@@ -439,6 +443,8 @@ function ImagesPage() {
           <button
             type="button"
             onClick={() => setFilterUsage("unused")}
+            aria-pressed={filterUsage === "unused"}
+            aria-label="Filtrar imagens órfãs"
             className={cn(
               "flex items-center gap-1.5 sm:gap-2 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-medium transition-all",
               filterUsage === "unused"
@@ -552,7 +558,7 @@ function ImagesPage() {
             return (
               <Panel
                 key={i.id}
-                className="p-4 sm:p-5 flex flex-col justify-between hover:border-foreground/20 transition-colors overflow-hidden"
+                className="p-4 sm:p-5 flex flex-col justify-between hover:border-primary/40 transition-all duration-200 overflow-hidden"
               >
                 <div>
                   <div className="flex items-start justify-between gap-2">
@@ -565,6 +571,8 @@ function ImagesPage() {
                         variant="ghost"
                         size="icon"
                         className="size-6 text-muted-foreground"
+                        aria-label={`Copiar ID da imagem ${shortId}`}
+                        title={`Copiar ID da imagem ${shortId}`}
                         onClick={() => {
                           void navigator.clipboard.writeText(i.id);
                           toast.success("ID copiado");
@@ -657,6 +665,7 @@ function ImagesPage() {
                       variant="outline"
                       size="sm"
                       className="h-8 text-xs"
+                      aria-label={`Inspecionar imagem ${primaryTag}`}
                       onClick={() => handleOpenInspect(i)}
                     >
                       <Eye className="size-3.5" /> Inspecionar
@@ -666,6 +675,7 @@ function ImagesPage() {
                         variant="ghost"
                         size="sm"
                         className="h-8 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        aria-label={`Remover imagem ${primaryTag}`}
                         disabled={deleteMutation.isPending && deleteMutation.variables?.id === i.id}
                         onClick={() => {
                           setDeleteTarget(i);

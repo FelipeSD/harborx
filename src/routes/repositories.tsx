@@ -371,6 +371,8 @@ function RegistriesPage() {
             variant="ghost"
             size="sm"
             className="h-8 gap-1 text-xs shrink-0 self-start sm:self-auto"
+            aria-expanded={isGuideOpen}
+            aria-label={isGuideOpen ? "Ocultar guia de integração com Stacks" : "Ver guia de integração com Stacks"}
             onClick={() => setIsGuideOpen(!isGuideOpen)}
           >
             {isGuideOpen ? (

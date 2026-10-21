@@ -290,6 +290,8 @@ function NetworksPage() {
           <button
             type="button"
             onClick={() => setFilterUsage("all")}
+            aria-pressed={filterUsage === "all"}
+            aria-label="Filtrar todas as redes"
             className={cn(
               "flex items-center gap-1.5 sm:gap-2 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-medium transition-all",
               filterUsage === "all"
@@ -314,6 +316,8 @@ function NetworksPage() {
           <button
             type="button"
             onClick={() => setFilterUsage("in_use")}
+            aria-pressed={filterUsage === "in_use"}
+            aria-label="Filtrar redes em uso"
             className={cn(
               "flex items-center gap-1.5 sm:gap-2 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-medium transition-all",
               filterUsage === "in_use"
@@ -341,6 +345,8 @@ function NetworksPage() {
           <button
             type="button"
             onClick={() => setFilterUsage("unused")}
+            aria-pressed={filterUsage === "unused"}
+            aria-label="Filtrar redes livres"
             className={cn(
               "flex items-center gap-1.5 sm:gap-2 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-medium transition-all",
               filterUsage === "unused"
@@ -528,6 +534,7 @@ function NetworksPage() {
                       variant="outline"
                       size="sm"
                       className="h-8 text-xs flex-1"
+                      aria-label={`Inspecionar rede ${n.name}`}
                       onClick={() => handleOpenInspect(n)}
                     >
                       <Eye className="size-3.5 mr-1" /> Inspecionar
@@ -537,6 +544,7 @@ function NetworksPage() {
                         variant="outline"
                         size="sm"
                         className="h-8 text-xs flex-1"
+                        aria-label={`Conectar container à rede ${n.name}`}
                         onClick={() => {
                           setConnectNetwork(n);
                           setSelectedContainerId("");
@@ -552,6 +560,7 @@ function NetworksPage() {
                         size="sm"
                         disabled={isBuiltin}
                         className="h-8 px-2 text-destructive hover:bg-destructive/10 disabled:opacity-30"
+                        aria-label={`Remover rede ${n.name}`}
                         onClick={() => setDeleteTarget(n)}
                         title={isBuiltin ? "Rede padrão" : "Remover rede"}
                       >
@@ -736,6 +745,7 @@ function NetworksPage() {
                             size="icon"
                             className="size-8"
                             title="Inspecionar"
+                            aria-label={`Inspecionar rede ${n.name}`}
                             onClick={() => handleOpenInspect(n)}
                           >
                             <Eye className="size-3.5" />

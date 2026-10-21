@@ -212,8 +212,8 @@ jobs:
                   className={cn(
                     "p-4 sm:p-5 cursor-pointer transition-all overflow-hidden",
                     isSelected
-                      ? "border-primary ring-1 ring-primary/30"
-                      : "hover:border-foreground/20",
+                      ? "border-primary ring-1 ring-primary/40 glow-primary"
+                      : "hover:border-primary/30 transition-all",
                   )}
                   onClick={() => setSelectedId(w.id)}
                 >
@@ -280,6 +280,7 @@ jobs:
                         size="sm"
                         variant="outline"
                         className="h-7 text-xs"
+                        aria-label={`Copiar URL do webhook da stack ${w.stackName}`}
                         onClick={(e) => {
                           e.stopPropagation();
                           copy(w.webhookUrl);
@@ -292,6 +293,7 @@ jobs:
                         variant="default"
                         className="h-7 text-xs"
                         disabled={testingId !== null}
+                        aria-label={`Disparar webhook da stack ${w.stackName}`}
                         onClick={(e) => {
                           e.stopPropagation();
                           void testWebhook(w);
@@ -328,6 +330,7 @@ jobs:
                     variant="ghost"
                     size="sm"
                     className="h-7 text-xs shrink-0"
+                    aria-label="Copiar exemplo de workflow GitHub Actions"
                     onClick={() => copy(githubSnippet)}
                   >
                     <Copy className="size-3" /> Copiar YAML

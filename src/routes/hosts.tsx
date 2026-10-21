@@ -490,6 +490,7 @@ function HostsPage() {
                                   variant="ghost"
                                   size="sm"
                                   className="h-7 px-2 text-xs"
+                                  aria-label={u.disabled ? `Ativar usuário ${u.username}` : `Desativar usuário ${u.username}`}
                                   onClick={() =>
                                     updateUserMutation.mutate({
                                       id: u.id,
@@ -508,6 +509,7 @@ function HostsPage() {
                                   variant="ghost"
                                   size="icon"
                                   className="size-7 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                  aria-label={`Remover usuário ${u.username}`}
                                   onClick={() => setDeleteUserTarget(u)}
                                 >
                                   <Trash2 className="size-3.5" />
@@ -785,6 +787,7 @@ function HostsPage() {
                   className="text-destructive hover:bg-destructive/10 hover:text-destructive text-xs"
                   onClick={() => setIsPruneOpen(true)}
                   disabled={pruneSystemMutation.isPending}
+                  aria-label="Executar limpeza do sistema Docker"
                 >
                   {pruneSystemMutation.isPending ? (
                     <Loader2 className="size-3.5 animate-spin" />

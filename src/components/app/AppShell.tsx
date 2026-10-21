@@ -148,6 +148,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     void handleLogout();
                   }}
                   title="Sair"
+                  aria-label="Sair da conta"
                 >
                   <LogOut className="size-3.5" />
                 </Button>

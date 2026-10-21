@@ -137,6 +137,7 @@ function Overview() {
             size="sm"
             onClick={() => void refetchSystem()}
             disabled={isFetching}
+            aria-label="Atualizar dados de visão geral"
           >
             <RefreshCw className={cn("size-4 mr-1.5", isFetching && "animate-spin")} />
             Atualizar dados
@@ -237,10 +238,11 @@ function Overview() {
                   />
                   <Tooltip
                     contentStyle={{
-                      background: "#18181b",
-                      border: "1px solid #27272a",
+                      background: "var(--card)",
+                      border: "1px solid var(--border)",
                       borderRadius: 8,
                       fontSize: 11,
+                      boxShadow: "0 8px 32px rgba(0, 0, 0, 0.4)",
                     }}
                     formatter={(val: unknown, name: unknown) => [
                       `${String(val)}%`,
@@ -344,12 +346,14 @@ function Overview() {
           </div>
           <div className="space-y-3">
             {containers.slice(0, 5).map((c) => (
-              <div
+              <Link
+                to="/containers"
                 key={c.id}
-                className="flex items-center justify-between gap-3 rounded-lg border bg-surface px-3 py-2 text-sm"
+                className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-surface/60 px-3 py-2 text-sm hover:border-primary/40 hover:bg-surface transition-all group"
+                aria-label={`Ver container ${c.name}`}
               >
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium truncate">{c.name}</p>
+                  <p className="font-medium truncate group-hover:text-primary transition-colors">{c.name}</p>
                   <p className="font-mono text-xs text-muted-foreground truncate" title={c.image}>
                     {c.image}
                   </p>
@@ -358,12 +362,12 @@ function Overview() {
                   <span
                     className={cn(
                       "size-2 rounded-full",
-                      c.state === "running" ? "bg-emerald-500" : "bg-muted-foreground",
+                      c.state === "running" ? "bg-emerald-500 pulse-dot" : "bg-muted-foreground",
                     )}
                   />
                   <span className="text-xs font-mono capitalize">{c.state}</span>
                 </div>
-              </div>
+              </Link>
             ))}
             {containers.length === 0 && (
               <p className="text-sm text-muted-foreground py-4 text-center">
@@ -384,25 +388,25 @@ function Overview() {
             <div className="rounded-lg border bg-surface p-3">
               <dt className="text-muted-foreground">Nome do Host</dt>
               <dd className="mt-1 font-mono font-medium truncate">
-                {system?.name || "Docker Host"}
+                {isSystemLoading ? <Skeleton className="h-4 w-28" /> : (system?.name || "Docker Host")}
               </dd>
             </div>
             <div className="rounded-lg border bg-surface p-3">
               <dt className="text-muted-foreground">Versão do Docker</dt>
               <dd className="mt-1 font-mono font-medium truncate">
-                {system?.serverVersion || "—"}
+                {isSystemLoading ? <Skeleton className="h-4 w-20" /> : (system?.serverVersion || "—")}
               </dd>
             </div>
             <div className="rounded-lg border bg-surface p-3">
               <dt className="text-muted-foreground">Sistema Operacional</dt>
               <dd className="mt-1 font-mono font-medium truncate">
-                {system?.operatingSystem || "Linux"}
+                {isSystemLoading ? <Skeleton className="h-4 w-24" /> : (system?.operatingSystem || "Linux")}
               </dd>
             </div>
             <div className="rounded-lg border bg-surface p-3">
               <dt className="text-muted-foreground">Diretório Raiz</dt>
               <dd className="mt-1 font-mono font-medium truncate" title={system?.dockerRootDir}>
-                {system?.dockerRootDir || "/var/lib/docker"}
+                {isSystemLoading ? <Skeleton className="h-4 w-32" /> : (system?.dockerRootDir || "/var/lib/docker")}
               </dd>
             </div>
           </dl>
