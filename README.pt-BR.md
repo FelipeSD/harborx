@@ -107,3 +107,26 @@ Acesse: `http://<ip-da-vm>:8080` e crie a conta de administrador inicial.
 - O socket `/var/run/docker.sock` confere controle do Docker Engine local. Mantenha o servidor protegido.
 - Ao utilizar SSL/TLS através de proxy reverso (Nginx, Traefik, Caddy), configure `COOKIE_SECURE=true` no `.env`.
 - Credenciais de registros privados são criptografadas em repouso no SQLite com cifra AES-256-GCM.
+
+# Comandos Impeccable para UX/UI
+
+| Comando / Intenção | O que o Gemini faz | Exemplo de Prompt |
+| :--- | :--- | :--- |
+| **`audit`** | Auditoria técnica de UX, acessibilidade (a11y), contraste e responsividade. | *"Impeccable: faça um audit na tela de Containers e no Fichário de Stacks."* |
+| **`critique`** | Avaliação heurística de usabilidade, hierarquia visual e fricção da interface. | *"Impeccable: faça um critique do modal de criação de container."* |
+| **`polish`** | Acabamento fino de espaçamento, tipografia, microalinhamentos e bordas. | *"Impeccable: faça um polish na página de Webhooks GitOps."* |
+| **`harden`** | Prepara a interface para estados de erro, carregamento lento, textos longos e estados vazios (*empty states*). | *"Impeccable: aplique harden na listagem de volumes e redes."* |
+| **`bolder` / `quieter`** | Aumenta a presença visual e o contraste (*bolder*) ou suaviza os ruídos visuais (*quieter*). | *"Impeccable: deixe o Dashboard (visão geral) mais bold e contrastante."* |
+| **`animate`** | Adiciona microinterações, transições de estado e feedback visual com propósito. | *"Impeccable: adicione microinterações nas mudanças de status dos containers."* |
+| **`adapt`** | Adapta layouts complexos para telas pequenas sem comprometer a experiência no desktop. | *"Impeccable: faça o adapt das tabelas de métricas para smartphones."* |
+
+## Como utilizar
+
+1. Identifique a tela ou o componente que deseja melhorar.
+2. Escolha o comando mais adequado ao objetivo.
+3. Descreva o contexto e o resultado esperado no prompt.
+4. Execute a análise ou as alterações e valide o resultado em diferentes tamanhos de tela.
+
+### Exemplo de uso
+
+> Impeccable: faça um audit na tela de Containers, identificando problemas de acessibilidade, contraste, responsividade e hierarquia visual. Apresente os problemas encontrados e as melhorias recomendadas antes de modificar o código.

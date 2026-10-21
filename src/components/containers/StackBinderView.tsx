@@ -181,6 +181,12 @@ export function StackBinderView({
                   onClick={() => toggleCollapse(groupKey)}
                   className="flex items-start sm:items-center gap-2 text-left focus:outline-none min-w-0 flex-1"
                   title={isCollapsed ? "Expandir pasta da stack" : "Recolher pasta da stack"}
+                  aria-label={
+                    isCollapsed
+                      ? `Expandir pasta ${group.stackName}`
+                      : `Recolher pasta ${group.stackName}`
+                  }
+                  aria-expanded={!isCollapsed}
                 >
                   <div className="grid size-7 shrink-0 place-items-center rounded-lg bg-surface border border-border/80 text-primary transition-transform duration-200 group-hover:scale-105 mt-0.5 sm:mt-0">
                     {isCollapsed ? (
@@ -251,6 +257,7 @@ export function StackBinderView({
                       variant="ghost"
                       className="h-7 px-2 text-xs text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-400"
                       title={`Iniciar todos os containers de ${group.stackName}`}
+                      aria-label={`Iniciar todos os containers de ${group.stackName}`}
                       onClick={() => onStackAction(groupIds, "start")}
                       disabled={isActionPending || group.runningCount === group.containers.length}
                     >
@@ -268,6 +275,7 @@ export function StackBinderView({
                       variant="ghost"
                       className="h-7 px-2 text-xs text-amber-500 hover:bg-amber-500/10 hover:text-amber-400"
                       title={`Parar todos os containers de ${group.stackName}`}
+                      aria-label={`Parar todos os containers de ${group.stackName}`}
                       onClick={() => onStackAction(groupIds, "stop")}
                       disabled={isActionPending || group.runningCount === 0}
                     >
@@ -283,6 +291,7 @@ export function StackBinderView({
                       variant="ghost"
                       className="h-7 px-2 text-xs text-blue-400 hover:bg-blue-500/10 hover:text-blue-300"
                       title={`Reiniciar todos os containers de ${group.stackName}`}
+                      aria-label={`Reiniciar todos os containers de ${group.stackName}`}
                       onClick={() => onStackAction(groupIds, "restart")}
                       disabled={isActionPending}
                     >
@@ -305,6 +314,11 @@ export function StackBinderView({
                     className="flex items-center gap-1.5 rounded-lg border border-border/60 bg-background/50 px-2.5 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground shrink-0"
                     title={
                       allSelected ? "Desmarcar todos desta pasta" : "Selecionar todos desta pasta"
+                    }
+                    aria-label={
+                      allSelected
+                        ? `Desmarcar todos os containers de ${group.stackName}`
+                        : `Selecionar todos os containers de ${group.stackName}`
                     }
                   >
                     {allSelected ? (
@@ -383,6 +397,7 @@ export function StackBinderView({
                               size="sm"
                               variant="outline"
                               className="h-8 px-2 text-xs"
+                              aria-label={`Ver logs do container ${c.name}`}
                               onClick={() => onSelectContainer(c, "logs")}
                             >
                               <FileText className="size-3.5 mr-1" />
@@ -394,6 +409,7 @@ export function StackBinderView({
                                   size="sm"
                                   variant="outline"
                                   className="h-8 px-2 text-xs"
+                                  aria-label={`Abrir terminal do container ${c.name}`}
                                   onClick={() => onSelectContainer(c, "console")}
                                 >
                                   <Terminal className="size-3.5 mr-1" />
@@ -403,6 +419,7 @@ export function StackBinderView({
                                   size="sm"
                                   variant="outline"
                                   className="h-8 px-2 text-xs"
+                                  aria-label={`Ver métricas do container ${c.name}`}
                                   onClick={() => onSelectContainer(c, "stats")}
                                 >
                                   <Activity className="size-3.5 mr-1" />
@@ -419,6 +436,7 @@ export function StackBinderView({
                                   size="sm"
                                   variant="outline"
                                   className="h-8 px-2 text-xs text-amber-500 hover:text-amber-400"
+                                  aria-label={`Parar container ${c.name}`}
                                   onClick={() => onAction(c.id, "stop")}
                                   disabled={isRowDisabled}
                                 >
@@ -436,6 +454,7 @@ export function StackBinderView({
                                   size="sm"
                                   variant="outline"
                                   className="h-8 px-2 text-xs text-emerald-500 hover:text-emerald-400"
+                                  aria-label={`Iniciar container ${c.name}`}
                                   onClick={() => onAction(c.id, "start")}
                                   disabled={isRowDisabled}
                                 >
@@ -456,6 +475,7 @@ export function StackBinderView({
                                 onClick={() => onAction(c.id, "restart")}
                                 disabled={isRowDisabled}
                                 title="Reiniciar"
+                                aria-label={`Reiniciar container ${c.name}`}
                               >
                                 {isThisAction && pendingAction?.action === "restart" ? (
                                   <Loader2 className="size-3.5 animate-spin" />
@@ -567,13 +587,14 @@ export function StackBinderView({
                               {formatDate(c.created)}
                             </td>
                             <td className="px-4 py-3 text-right">
-                              <div className="flex items-center justify-end gap-1">
+                              <div className="flex items-center justify-end gap-1.5">
                                 {/* Botão de Logs */}
                                 <Button
                                   size="icon"
                                   variant="ghost"
-                                  className="size-7 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                                  className="size-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
                                   title="Ver logs em tempo real"
+                                  aria-label={`Ver logs do container ${c.name}`}
                                   onClick={() => onSelectContainer(c, "logs")}
                                 >
                                   <FileText className="size-3.5" />
@@ -584,8 +605,9 @@ export function StackBinderView({
                                   <Button
                                     size="icon"
                                     variant="ghost"
-                                    className="size-7 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                                    className="size-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
                                     title="Abrir terminal interativo (exec)"
+                                    aria-label={`Abrir terminal do container ${c.name}`}
                                     onClick={() => onSelectContainer(c, "console")}
                                   >
                                     <Terminal className="size-3.5" />
@@ -597,8 +619,9 @@ export function StackBinderView({
                                   <Button
                                     size="icon"
                                     variant="ghost"
-                                    className="size-7 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                                    className="size-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
                                     title="Estatísticas ao vivo"
+                                    aria-label={`Estatísticas do container ${c.name}`}
                                     onClick={() => onSelectContainer(c, "stats")}
                                   >
                                     <Activity className="size-3.5" />
@@ -611,8 +634,9 @@ export function StackBinderView({
                                       <Button
                                         size="icon"
                                         variant="ghost"
-                                        className="size-7 text-amber-500 hover:text-amber-400 hover:bg-amber-500/10"
+                                        className="size-8 text-amber-500 hover:text-amber-400 hover:bg-amber-500/10"
                                         title="Parar container"
+                                        aria-label={`Parar container ${c.name}`}
                                         onClick={() => onAction(c.id, "stop")}
                                         disabled={isRowDisabled}
                                       >
@@ -626,8 +650,9 @@ export function StackBinderView({
                                       <Button
                                         size="icon"
                                         variant="ghost"
-                                        className="size-7 text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10"
+                                        className="size-8 text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10"
                                         title="Iniciar container"
+                                        aria-label={`Iniciar container ${c.name}`}
                                         onClick={() => onAction(c.id, "start")}
                                         disabled={isRowDisabled}
                                       >
@@ -642,8 +667,9 @@ export function StackBinderView({
                                     <Button
                                       size="icon"
                                       variant="ghost"
-                                      className="size-7 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
+                                      className="size-8 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
                                       title="Reiniciar container"
+                                      aria-label={`Reiniciar container ${c.name}`}
                                       onClick={() => onAction(c.id, "restart")}
                                       disabled={isRowDisabled}
                                     >
@@ -658,8 +684,9 @@ export function StackBinderView({
                                       <Button
                                         size="icon"
                                         variant="ghost"
-                                        className="size-7 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+                                        className="size-8 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
                                         title="Recriar container (com opção de repull)"
+                                        aria-label={`Recriar container ${c.name}`}
                                         onClick={() => onRecreateContainer(c.id)}
                                         disabled={isRowDisabled}
                                       >
@@ -671,8 +698,9 @@ export function StackBinderView({
                                       <Button
                                         size="icon"
                                         variant="ghost"
-                                        className="size-7 text-destructive hover:text-destructive/80 hover:bg-destructive/10"
+                                        className="size-8 text-destructive hover:text-destructive/80 hover:bg-destructive/10"
                                         title="Remover container"
+                                        aria-label={`Remover container ${c.name}`}
                                         onClick={() => onRemoveContainer(c.id)}
                                         disabled={isRowDisabled}
                                       >

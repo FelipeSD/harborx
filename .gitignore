@@ -37,3 +37,11 @@ dist-ssr
 *.sw?
 
 .env
+# AI Agent skill copies
+.claude/
+.codex/
+.cursor/
+.gemini/
+.github/agents/
+.github/hooks/
+.github/skills/

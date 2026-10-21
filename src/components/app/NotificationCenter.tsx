@@ -183,7 +183,7 @@ export function NotificationCenter() {
         >
           <Bell className="size-4" />
           {unreadCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full bg-primary font-mono text-[9px] font-bold text-primary-foreground shadow-sm animate-pulse">
+            <span className="absolute -top-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full bg-primary font-mono text-[10px] font-bold text-primary-foreground shadow-sm animate-pulse">
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )}
@@ -213,6 +213,7 @@ export function NotificationCenter() {
                 className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
                 onClick={markAllAsRead}
                 title="Marcar todas como lidas"
+                aria-label="Marcar todas as notificações como lidas"
               >
                 <Check className="size-3.5 mr-1" />
                 Lidas
@@ -225,6 +226,7 @@ export function NotificationCenter() {
                 className="size-7 text-muted-foreground hover:text-destructive"
                 onClick={clearAll}
                 title="Limpar todas as notificações"
+                aria-label="Limpar todas as notificações"
               >
                 <Trash2 className="size-3.5" />
               </Button>

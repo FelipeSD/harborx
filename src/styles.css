@@ -96,16 +96,21 @@
     margin-left: 0 !important;
     padding-right: 0 !important;
   }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
 
 @utility glow-primary {
   box-shadow: var(--glow-primary);
-}
-@utility grid-bg {
-  background-image:
-    linear-gradient(var(--border) 1px, transparent 1px),
-    linear-gradient(90deg, var(--border) 1px, transparent 1px);
-  background-size: 32px 32px;
 }
 @utility pulse-dot {
   animation: pulse-dot 2s ease-in-out infinite;

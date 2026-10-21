@@ -59,3 +59,4 @@ Painel de controle em produção e homelabs acessado via navegador web (desktop 
 - Contraste semântico em dark mode para estados operacionais (verde esmeralda, âmbar alerta, vermelho destrutivo, azul ciano informativo).
 - Ações críticas e destrutivas exigem confirmação explícita com proteção contra digitação incorreta.
 - Navegação fluida por teclado e compatibilidade com leitores de tela em tabelas e modais.
+

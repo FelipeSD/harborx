@@ -479,6 +479,8 @@ function ContainersPage() {
             <button
               type="button"
               onClick={() => setViewMode("binder")}
+              aria-label="Alternar para visualização em fichário de stacks"
+              aria-pressed={viewMode === "binder"}
               className={cn(
                 "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
                 viewMode === "binder"
@@ -492,6 +494,8 @@ function ContainersPage() {
             <button
               type="button"
               onClick={() => setViewMode("table")}
+              aria-label="Alternar para visualização em tabela plana"
+              aria-pressed={viewMode === "table"}
               className={cn(
                 "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
                 viewMode === "table"
@@ -717,6 +721,7 @@ function ContainersPage() {
                       onClick={toggleSelectAll}
                       className="grid size-4 place-items-center text-muted-foreground hover:text-foreground"
                       title={allFilteredSelected ? "Desmarcar todos" : "Selecionar todos"}
+                      aria-label={allFilteredSelected ? "Desmarcar todos os containers" : "Selecionar todos os containers"}
                     >
                       {allFilteredSelected ? (
                         <CheckSquare className="size-4 text-primary" />
@@ -861,6 +866,7 @@ function ContainersPage() {
                                   variant="ghost"
                                   className="size-8 text-amber-500 hover:text-amber-400 hover:bg-amber-500/10"
                                   title="Parar"
+                                  aria-label={`Parar container ${c.name}`}
                                   onClick={() =>
                                     actionMutation.mutate({ id: c.id, action: "stop" })
                                   }
@@ -878,6 +884,7 @@ function ContainersPage() {
                                   variant="ghost"
                                   className="size-8 text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10"
                                   title="Iniciar"
+                                  aria-label={`Iniciar container ${c.name}`}
                                   onClick={() =>
                                     actionMutation.mutate({ id: c.id, action: "start" })
                                   }
@@ -896,6 +903,7 @@ function ContainersPage() {
                                 variant="ghost"
                                 className="size-8 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
                                 title="Reiniciar"
+                                aria-label={`Reiniciar container ${c.name}`}
                                 onClick={() =>
                                   actionMutation.mutate({ id: c.id, action: "restart" })
                                 }
@@ -913,6 +921,7 @@ function ContainersPage() {
                                 variant="ghost"
                                 className="size-8 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
                                 title="Recriar container (com opção de repull)"
+                                aria-label={`Recriar container ${c.name}`}
                                 onClick={() => {
                                   setRecreatePullLatest(true);
                                   setConfirmRecreateId(c.id);
@@ -933,6 +942,7 @@ function ContainersPage() {
                                   variant="ghost"
                                   className="size-8 text-muted-foreground hover:text-foreground"
                                   title={isPaused ? "Retomar (unpause)" : "Pausar"}
+                                  aria-label={isPaused ? `Retomar container ${c.name}` : `Pausar container ${c.name}`}
                                   onClick={() =>
                                     actionMutation.mutate({
                                       id: c.id,
@@ -956,6 +966,7 @@ function ContainersPage() {
                                 variant="ghost"
                                 className="size-8 text-destructive hover:text-destructive/80 hover:bg-destructive/10"
                                 title="Remover"
+                                aria-label={`Remover container ${c.name}`}
                                 onClick={() => setConfirmRemoveId(c.id)}
                                 disabled={isRowDisabled}
                               >
@@ -978,6 +989,7 @@ function ContainersPage() {
                             variant="ghost"
                             className="size-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
                             title="Ver logs em tempo real"
+                            aria-label={`Ver logs do container ${c.name}`}
                             onClick={() => handleSelectContainer(c, "logs")}
                           >
                             <FileText className="size-3.5" />
@@ -989,6 +1001,7 @@ function ContainersPage() {
                               variant="ghost"
                               className="size-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
                               title="Abrir terminal interativo (exec)"
+                              aria-label={`Abrir terminal do container ${c.name}`}
                               onClick={() => handleSelectContainer(c, "console")}
                             >
                               <Terminal className="size-3.5" />
@@ -1001,6 +1014,7 @@ function ContainersPage() {
                               variant="ghost"
                               className="size-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
                               title="Estatísticas ao vivo"
+                              aria-label={`Estatísticas do container ${c.name}`}
                               onClick={() => handleSelectContainer(c, "stats")}
                             >
                               <Activity className="size-3.5" />
@@ -1010,6 +1024,7 @@ function ContainersPage() {
                           <Button
                             size="sm"
                             variant="ghost"
+                            aria-label={`Ver detalhes do container ${c.name}`}
                             onClick={() => handleSelectContainer(c, "overview")}
                             disabled={isThisRemoving}
                           >
