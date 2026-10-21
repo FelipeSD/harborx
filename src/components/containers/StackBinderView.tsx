@@ -99,83 +99,18 @@ export function StackBinderView({
           (c) => c.state === "dead" || c.status?.toLowerCase().includes("unhealthy"),
         );
 
-        let binderBorder = "border-border/80 bg-card/60 hover:border-primary/40";
-        let binderHeaderBg = "from-surface/90 via-surface/70 to-surface/90";
-        let healthBadge = null;
-
-        if (hasFailed) {
-          binderBorder =
-            "border-rose-500/40 bg-rose-500/[0.02] shadow-sm shadow-rose-500/5 hover:border-rose-500/60";
-          binderHeaderBg = "from-rose-500/10 via-surface/80 to-surface/90";
-          healthBadge = (
-            <Badge
-              variant="outline"
-              className="border-rose-500/40 text-rose-500 bg-rose-500/10 text-[10px] flex items-center gap-1 font-mono"
-            >
-              <span className="size-1.5 rounded-full bg-rose-500 animate-pulse" />
-              Falha Crítica
-            </Badge>
-          );
-        } else if (total > 0 && running === total) {
-          binderBorder =
-            "border-emerald-500/40 bg-emerald-500/[0.02] shadow-sm shadow-emerald-500/5 hover:border-emerald-500/60";
-          binderHeaderBg = "from-emerald-500/10 via-surface/80 to-surface/90";
-          healthBadge = (
-            <Badge
-              variant="outline"
-              className="border-emerald-500/40 text-emerald-500 bg-emerald-500/10 text-[10px] flex items-center gap-1 font-mono"
-            >
-              <span className="size-1.5 rounded-full bg-emerald-500" />
-              100% Operacional
-            </Badge>
-          );
-        } else if (running > 0 && running < total) {
-          binderBorder =
-            "border-amber-500/40 bg-amber-500/[0.02] shadow-sm shadow-amber-500/5 hover:border-amber-500/60";
-          binderHeaderBg = "from-amber-500/10 via-surface/80 to-surface/90";
-          healthBadge = (
-            <Badge
-              variant="outline"
-              className="border-amber-500/40 text-amber-500 bg-amber-500/10 text-[10px] flex items-center gap-1 font-mono"
-            >
-              <span className="size-1.5 rounded-full bg-amber-500" />
-              {running}/{total} Ativos
-            </Badge>
-          );
-        } else {
-          binderBorder = "border-border/80 bg-card/60 hover:border-foreground/30";
-          binderHeaderBg = "from-surface/90 via-surface/70 to-surface/90";
-          healthBadge = (
-            <Badge
-              variant="outline"
-              className="border-muted-foreground/30 text-muted-foreground bg-muted/20 text-[10px] flex items-center gap-1 font-mono"
-            >
-              <span className="size-1.5 rounded-full bg-muted-foreground/40" />
-              Parado
-            </Badge>
-          );
-        }
-
         return (
           <div
             key={groupKey}
-            className={cn(
-              "group relative rounded-xl border shadow-md backdrop-blur transition-all duration-200 min-w-0 max-w-full overflow-hidden",
-              binderBorder,
-            )}
+            className="group relative rounded-xl border border-border/70 bg-card/60 transition-all duration-200 min-w-0 max-w-full overflow-hidden"
           >
             {/* Divisória de Fichário (Pasta Tab) */}
-            <div
-              className={cn(
-                "flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-3 border-b border-border/60 bg-gradient-to-r px-3.5 py-3 sm:px-5 sm:py-3.5 transition-colors min-w-0",
-                binderHeaderBg,
-              )}
-            >
-              <div className="flex items-start sm:items-center gap-2.5 min-w-0 flex-1">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-2.5 border-b border-border/60 bg-surface/40 px-3.5 py-2.5 sm:px-4 sm:py-3 transition-colors min-w-0">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
                 <button
                   type="button"
                   onClick={() => toggleCollapse(groupKey)}
-                  className="flex items-start sm:items-center gap-2 text-left focus:outline-none min-w-0 flex-1"
+                  className="flex items-center gap-2 text-left focus:outline-none min-w-0 flex-1 group/btn"
                   title={isCollapsed ? "Expandir pasta da stack" : "Recolher pasta da stack"}
                   aria-label={
                     isCollapsed
@@ -184,7 +119,7 @@ export function StackBinderView({
                   }
                   aria-expanded={!isCollapsed}
                 >
-                  <div className="grid size-7 shrink-0 place-items-center rounded-lg bg-surface border border-border/80 text-primary transition-transform duration-200 group-hover:scale-105 mt-0.5 sm:mt-0">
+                  <div className="text-muted-foreground group-hover/btn:text-foreground transition-transform shrink-0">
                     {isCollapsed ? (
                       <ChevronRight className="size-4" />
                     ) : (
@@ -192,62 +127,62 @@ export function StackBinderView({
                     )}
                   </div>
 
-                  <div className="flex items-start sm:items-center gap-2 min-w-0 flex-1">
+                  <div className="flex items-center gap-2 min-w-0 flex-wrap">
                     <div
                       className={cn(
-                        "grid size-8 shrink-0 place-items-center rounded-lg border mt-0.5 sm:mt-0",
+                        "grid size-6 shrink-0 place-items-center rounded border",
                         group.isStandalone
-                          ? "bg-slate-500/10 border-slate-500/20 text-slate-400"
-                          : "bg-primary/10 border-primary/30 text-primary",
+                          ? "bg-muted/40 border-border text-muted-foreground"
+                          : "bg-primary/10 border-primary/20 text-primary",
                       )}
                     >
                       {group.isStandalone ? (
-                        <Boxes className="size-4" />
+                        <Boxes className="size-3" />
                       ) : (
-                        <Layers className="size-4" />
+                        <Layers className="size-3" />
                       )}
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 min-w-0">
-                        <span className="font-semibold tracking-tight text-foreground text-sm sm:text-base truncate max-w-full">
-                          {group.stackName}
-                        </span>
-                        <Badge
-                          variant={group.isStandalone ? "secondary" : "default"}
-                          className={cn(
-                            "text-[10px] uppercase tracking-wider font-mono px-1.5 py-0.5 shrink-0",
-                            !group.isStandalone &&
-                              "bg-primary/15 text-primary border-primary/30 hover:bg-primary/20",
-                          )}
-                        >
-                          {group.isStandalone ? "Avulso" : "Compose"}
-                        </Badge>
-                        {healthBadge}
-                      </div>
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground mt-0.5">
-                        <span>{group.containers.length} container(s)</span>
-                        <span>•</span>
-                        <span className="text-emerald-500 font-medium">
-                          {group.runningCount} rodando
-                        </span>
-                        {group.stoppedCount > 0 && (
-                          <>
-                            <span>•</span>
-                            <span className="text-amber-500 font-medium">
-                              {group.stoppedCount} parado(s)
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    </div>
+
+                    <span className="font-semibold text-sm text-foreground truncate">
+                      {group.stackName}
+                    </span>
+
+                    {group.isStandalone && (
+                      <span className="text-[10px] font-mono text-muted-foreground bg-muted/40 border border-border/60 rounded px-1.5 py-0.2 shrink-0">
+                        avulso
+                      </span>
+                    )}
+
+                    {/* Status Único e Preciso */}
+                    {hasFailed ? (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-mono text-rose-500 font-medium">
+                        <span className="size-1.5 rounded-full bg-rose-500 animate-pulse" />
+                        falha crítica
+                      </span>
+                    ) : total > 0 && running === total ? (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-mono text-emerald-500 font-medium">
+                        <span className="size-1.5 rounded-full bg-emerald-500" />
+                        {running}/{total} rodando
+                      </span>
+                    ) : running > 0 ? (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-mono text-amber-500 font-medium">
+                        <span className="size-1.5 rounded-full bg-amber-500" />
+                        {running}/{total} rodando
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-mono text-muted-foreground">
+                        <span className="size-1.5 rounded-full bg-muted-foreground/40" />
+                        {total} parado{total > 1 ? "s" : ""}
+                      </span>
+                    )}
                   </div>
                 </button>
               </div>
 
               {/* Controles da Divisória da Stack */}
-              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+              <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto justify-between sm:justify-end">
                 {!isViewer && !group.isStandalone && (
-                  <div className="flex flex-wrap items-center gap-1 rounded-lg border border-border/60 bg-background/50 p-1">
+                  <div className="flex items-center gap-1 rounded-md border border-border/60 bg-background/50 p-0.5">
                     <Button
                       size="sm"
                       variant="ghost"
@@ -333,8 +268,8 @@ export function StackBinderView({
             {/* Conteúdo da Pasta (Containers do Fichário) */}
             {!isCollapsed && (
               <>
-                {/* Visualização em Cartões para Mobile */}
-                <div className="block md:hidden p-3 space-y-2.5">
+                {/* Visualização para Mobile (sem caixas aninhadas) */}
+                <div className="block md:hidden divide-y divide-border/40">
                   {group.containers.map((c) => {
                     const isSelected = selectedIds.includes(c.id);
                     const isRunning = c.state === "running";
@@ -346,8 +281,8 @@ export function StackBinderView({
                       <div
                         key={`mobile-${c.id}`}
                         className={cn(
-                          "rounded-lg border border-border/50 bg-surface/50 p-3 space-y-2 transition-colors",
-                          isSelected && "bg-primary/5 border-primary/40",
+                          "p-3 space-y-2 transition-colors",
+                          isSelected && "bg-primary/5",
                         )}
                       >
                         <div className="flex items-start justify-between gap-2">

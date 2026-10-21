@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   FileStack,
@@ -28,6 +28,7 @@ import {
   CheckCircle2,
   HelpCircle,
   MoreHorizontal,
+  Search,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -648,6 +649,54 @@ function StacksPage() {
       query.state.data?.some((s) => s.status === "deploying") ? 2000 : false,
   });
 
+  const [stackFilterState, setStackFilterState] = useState<"all" | "running" | "stopped" | "failed">("all");
+  const [stackSearch, setStackSearch] = useState("");
+
+  const filteredStacks = useMemo(() => {
+    return stacks.filter((s) => {
+      const isRunning = s.status === "deployed" || s.runningContainersCount > 0;
+      const hasFailed =
+        s.status === "failed" ||
+        s.containers.some(
+          (c) => c.state === "dead" || c.status?.toLowerCase().includes("unhealthy"),
+        );
+
+      if (stackFilterState === "running" && (!isRunning || hasFailed)) return false;
+      if (stackFilterState === "stopped" && isRunning) return false;
+      if (stackFilterState === "failed" && !hasFailed) return false;
+
+      if (!stackSearch.trim()) return true;
+      const term = stackSearch.toLowerCase().trim();
+      return (
+        s.name.toLowerCase().includes(term) ||
+        Boolean(s.gitRepo && s.gitRepo.toLowerCase().includes(term)) ||
+        s.containers.some(
+          (c) => c.name.toLowerCase().includes(term) || c.image.toLowerCase().includes(term),
+        )
+      );
+    });
+  }, [stacks, stackFilterState, stackSearch]);
+
+  const runningStacksCount = useMemo(
+    () => stacks.filter((s) => s.status === "deployed" || s.runningContainersCount > 0).length,
+    [stacks],
+  );
+  const stoppedStacksCount = useMemo(
+    () => stacks.filter((s) => s.status !== "deployed" && s.runningContainersCount === 0).length,
+    [stacks],
+  );
+  const failedStacksCount = useMemo(
+    () =>
+      stacks.filter(
+        (s) =>
+          s.status === "failed" ||
+          s.containers.some(
+            (c) => c.state === "dead" || c.status?.toLowerCase().includes("unhealthy"),
+          ),
+      ).length,
+    [stacks],
+  );
+
   const handleOpenEdit = (s: StackSummary) => {
     setEditStack(s);
     setEditName(s.name);
@@ -882,6 +931,76 @@ function StacksPage() {
         </Alert>
       )}
 
+      {stacks.length > 0 && !isLoading && (
+        <div className="mb-4 flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between min-w-0">
+          <div className="flex items-center rounded-lg border border-border/80 bg-surface/60 p-0.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => setStackFilterState("all")}
+              className={cn(
+                "rounded-md px-2.5 py-1 text-xs font-mono transition-colors",
+                stackFilterState === "all"
+                  ? "bg-background text-foreground shadow-xs font-medium"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              todas ({stacks.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStackFilterState("running")}
+              className={cn(
+                "flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-mono transition-colors",
+                stackFilterState === "running"
+                  ? "bg-background text-emerald-500 shadow-xs font-medium"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <span className="size-1.5 rounded-full bg-emerald-500" />
+              rodando ({runningStacksCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStackFilterState("stopped")}
+              className={cn(
+                "flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-mono transition-colors",
+                stackFilterState === "stopped"
+                  ? "bg-background text-muted-foreground shadow-xs font-medium"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <span className="size-1.5 rounded-full bg-muted-foreground/40" />
+              paradas ({stoppedStacksCount})
+            </button>
+            {failedStacksCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setStackFilterState("failed")}
+                className={cn(
+                  "flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-mono transition-colors",
+                  stackFilterState === "failed"
+                    ? "bg-background text-rose-500 shadow-xs font-medium"
+                    : "text-rose-500/70 hover:text-rose-500",
+                )}
+              >
+                <span className="size-1.5 rounded-full bg-rose-500 animate-pulse" />
+                falhas ({failedStacksCount})
+              </button>
+            )}
+          </div>
+
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-2.5 top-2 size-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Filtrar stack, repo ou serviço…"
+              value={stackSearch}
+              onChange={(e) => setStackSearch(e.target.value)}
+              className="pl-8 text-xs h-7"
+            />
+          </div>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {Array.from({ length: 2 }).map((_, i) => (
@@ -906,9 +1025,17 @@ function StacksPage() {
             </Button>
           )}
         </Panel>
+      ) : filteredStacks.length === 0 ? (
+        <Panel className="p-8 sm:p-12 text-center text-muted-foreground">
+          <FileStack className="mx-auto size-8 mb-2 opacity-40" />
+          <p className="text-sm font-medium">Nenhuma stack encontrada</p>
+          <p className="text-xs mt-1">
+            Tente ajustar os termos de busca ou o filtro de status selecionado.
+          </p>
+        </Panel>
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {stacks.map((s) => {
+          {filteredStacks.map((s) => {
             const total = s.containersCount;
             const running = s.runningContainersCount;
             const isRunning = s.status === "deployed" || running > 0;
@@ -1084,11 +1211,11 @@ function StacksPage() {
                     </div>
                   )}
 
-                  {/* Containers list in stack */}
-                  <div className="mt-4 rounded-lg border bg-surface p-2.5 sm:p-3 text-xs font-mono min-w-0">
-                    <div className="flex flex-wrap items-center justify-between gap-1 text-muted-foreground mb-2">
-                      <span className="flex items-center gap-1.5 font-sans font-medium text-foreground">
-                        <Boxes className="size-3.5 shrink-0" />
+                  {/* Containers list in stack (ritmo visual limpo, sem card aninhado) */}
+                  <div className="mt-3.5 pt-3 border-t border-border/40 text-xs font-mono min-w-0">
+                    <div className="flex items-center justify-between gap-1 text-muted-foreground mb-2">
+                      <span className="flex items-center gap-1.5 font-sans font-medium text-foreground text-xs">
+                        <Boxes className="size-3.5 shrink-0 text-muted-foreground" />
                         <span>
                           Containers ({s.runningContainersCount}/{s.containersCount} rodando)
                         </span>
@@ -1115,7 +1242,7 @@ function StacksPage() {
                         {s.containers.map((c) => (
                           <div
                             key={c.id}
-                            className="flex items-center justify-between gap-2 border-b pb-1 last:border-0 last:pb-0 min-w-0"
+                            className="flex items-center justify-between gap-2 py-0.5 min-w-0"
                           >
                             <div className="flex items-center gap-1.5 min-w-0 flex-1">
                               <span
@@ -1123,17 +1250,17 @@ function StacksPage() {
                                   "size-1.5 shrink-0 rounded-full",
                                   c.state === "running"
                                     ? "bg-emerald-500"
-                                    : "bg-muted-foreground/50",
+                                    : "bg-muted-foreground/40",
                                 )}
                               />
-                              <span className="text-foreground font-semibold truncate">
+                              <span className="text-foreground font-medium truncate">
                                 {c.name}
                               </span>
                               <span className="text-muted-foreground text-[10px] truncate hidden sm:inline">
                                 ({c.image})
                               </span>
                             </div>
-                            <div className="text-[10px] text-muted-foreground shrink-0 truncate max-w-[110px] sm:max-w-none">
+                            <div className="text-[10px] text-muted-foreground shrink-0 truncate max-w-[120px] sm:max-w-none">
                               {c.ports.length > 0
                                 ? c.ports
                                     .map(
@@ -1149,43 +1276,29 @@ function StacksPage() {
                     )}
                   </div>
 
-                  {/* Webhook GitOps Bar */}
-                  <div className="mt-3 rounded-lg border bg-surface/80 p-2.5 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 min-w-0">
-                    <div className="flex items-center gap-2 min-w-0 w-full sm:flex-1">
-                      <div className="grid size-6 place-items-center rounded bg-primary/10 text-primary shrink-0">
-                        <Zap className="size-3.5" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="font-semibold text-foreground text-[11px]">
-                            Webhook GitOps
-                          </span>
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              "text-[9px] py-0 px-1.5 font-medium shrink-0",
-                              s.autoDeploy
-                                ? "border-emerald-500/30 text-emerald-500 bg-emerald-500/5"
-                                : "text-muted-foreground",
-                            )}
-                          >
-                            {s.autoDeploy ? "Auto-deploy Ativo" : "Disponível"}
-                          </Badge>
-                        </div>
-                        <p className="font-mono text-[10px] text-muted-foreground truncate max-w-full">
-                          {typeof window !== "undefined"
-                            ? `${window.location.origin}/api/public/hooks/${s.webhookToken}`
-                            : `/api/public/hooks/${s.webhookToken}`}
-                        </p>
-                      </div>
+                  {/* Faixa Webhook GitOps Integrada */}
+                  <div className="mt-2.5 pt-2 border-t border-border/30 text-xs flex flex-wrap items-center justify-between gap-1.5 min-w-0">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <Zap className="size-3 text-primary shrink-0" />
+                      <span className="font-medium text-[11px] text-foreground">Webhook GitOps</span>
+                      <span
+                        className={cn(
+                          "text-[9px] font-mono px-1 py-0.2 rounded shrink-0",
+                          s.autoDeploy
+                            ? "bg-emerald-500/10 text-emerald-500"
+                            : "bg-muted/40 text-muted-foreground",
+                        )}
+                      >
+                        {s.autoDeploy ? "auto" : "manual"}
+                      </span>
                     </div>
 
-                    <div className="flex items-center gap-1 shrink-0 self-start sm:self-auto flex-wrap">
+                    <div className="flex items-center gap-1 shrink-0">
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        className="h-6 px-2 text-[10px] gap-1"
+                        className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-foreground gap-1"
                         aria-label={`Copiar URL do webhook da stack ${s.name}`}
                         onClick={() => {
                           const url = `${window.location.origin}/api/public/hooks/${s.webhookToken}`;
@@ -1197,9 +1310,9 @@ function StacksPage() {
                       {isOperator && (
                         <Button
                           type="button"
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
-                          className="h-6 px-2 text-[10px] gap-1"
+                          className="h-6 px-2 text-[10px] text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10 gap-1"
                           disabled={isTestingHook === s.id}
                           aria-label={`Disparar teste de webhook para stack ${s.name}`}
                           onClick={() => void handleTestWebhook(s)}
@@ -1216,7 +1329,7 @@ function StacksPage() {
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="h-6 px-2 text-[10px] text-primary gap-1"
+                        className="h-6 px-1.5 text-[10px] text-primary hover:text-primary/80 gap-1"
                         aria-label={`Ver guia de CI/CD para stack ${s.name}`}
                         onClick={() => setWebhookGuideStack(s)}
                       >

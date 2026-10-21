@@ -56,6 +56,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { CreateContainerDialog } from "@/components/containers/CreateContainerDialog";
 import { LogViewer } from "@/components/containers/LogViewer";
 import { TerminalViewer } from "@/components/containers/TerminalViewer";
@@ -473,7 +480,7 @@ function ContainersPage() {
       )}
 
       {/* Barra de Filtros e Busca */}
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between min-w-0">
+      <div className="mb-4 flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between min-w-0">
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 min-w-0">
           {/* Alternador de Modo de Visualização */}
           <div className="flex items-center rounded-lg border border-border/80 bg-surface/60 p-0.5 shrink-0">
@@ -485,7 +492,7 @@ function ContainersPage() {
               className={cn(
                 "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
                 viewMode === "binder"
-                  ? "bg-primary text-primary-foreground shadow-sm"
+                  ? "bg-primary text-primary-foreground shadow-xs"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
@@ -500,7 +507,7 @@ function ContainersPage() {
               className={cn(
                 "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
                 viewMode === "table"
-                  ? "bg-primary text-primary-foreground shadow-sm"
+                  ? "bg-primary text-primary-foreground shadow-xs"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
@@ -511,69 +518,73 @@ function ContainersPage() {
 
           <div className="h-4 w-px bg-border/60 mx-1 hidden sm:block" />
 
-          <button
-            type="button"
-            onClick={() => {
-              setFilterStack("all");
-              setFilterState("all");
-            }}
-            className={cn(
-              "rounded-full border px-2.5 sm:px-3 py-1 text-xs font-mono transition-colors shrink-0",
-              filterStack === "all" && filterState === "all"
-                ? "border-primary bg-primary/10 text-primary"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            todos ({containers.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterState(filterState === "running" ? "all" : "running")}
-            className={cn(
-              "rounded-full border px-2.5 sm:px-3 py-1 text-xs font-mono transition-colors shrink-0",
-              filterState === "running"
-                ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            rodando ({containers.filter((c) => c.state === "running").length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterState(filterState === "stopped" ? "all" : "stopped")}
-            className={cn(
-              "rounded-full border px-2.5 sm:px-3 py-1 text-xs font-mono transition-colors shrink-0",
-              filterState === "stopped"
-                ? "border-amber-500 bg-amber-500/10 text-amber-400"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            parados ({containers.filter((c) => c.state !== "running").length})
-          </button>
-          {stacks.map((stk) => (
+          {/* Segmented Status Filter */}
+          <div className="flex items-center rounded-lg border border-border/80 bg-surface/60 p-0.5 shrink-0">
             <button
               type="button"
-              key={stk}
-              onClick={() => setFilterStack(filterStack === stk ? "all" : stk)}
+              onClick={() => setFilterState("all")}
               className={cn(
-                "rounded-full border px-2.5 sm:px-3 py-1 text-xs font-mono transition-colors truncate max-w-[180px]",
-                filterStack === stk
-                  ? "border-primary bg-primary/10 text-primary"
+                "rounded-md px-2.5 py-1 text-xs font-mono transition-colors",
+                filterState === "all"
+                  ? "bg-background text-foreground shadow-xs font-medium"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
-              stack: {stk}
+              todos ({containers.length})
             </button>
-          ))}
+            <button
+              type="button"
+              onClick={() => setFilterState("running")}
+              className={cn(
+                "flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-mono transition-colors",
+                filterState === "running"
+                  ? "bg-background text-emerald-500 shadow-xs font-medium"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <span className="size-1.5 rounded-full bg-emerald-500" />
+              rodando ({containers.filter((c) => c.state === "running").length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterState("stopped")}
+              className={cn(
+                "flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-mono transition-colors",
+                filterState === "stopped"
+                  ? "bg-background text-amber-500 shadow-xs font-medium"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <span className="size-1.5 rounded-full bg-amber-500" />
+              parados ({containers.filter((c) => c.state !== "running").length})
+            </button>
+          </div>
+
+          {/* Seletor Compacto de Stack (substitui dezenas de botões dispersos) */}
+          {stacks.length > 0 && (
+            <Select value={filterStack} onValueChange={setFilterStack}>
+              <SelectTrigger className="h-7 w-36 sm:w-44 text-xs font-mono bg-surface/60 border-border/80">
+                <SelectValue placeholder="Todas as stacks" />
+              </SelectTrigger>
+              <SelectContent align="start">
+                <SelectItem value="all">Todas as stacks ({containers.length})</SelectItem>
+                {stacks.map((stk) => (
+                  <SelectItem key={stk} value={stk}>
+                    {stk}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         <div className="relative w-full sm:w-64">
-          <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
+          <Search className="absolute left-2.5 top-2 size-3.5 text-muted-foreground" />
           <Input
             placeholder="Filtrar por nome ou imagem…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-8 text-xs"
+            className="pl-8 text-xs h-7"
           />
         </div>
       </div>
