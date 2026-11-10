@@ -1,10 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
   Boxes,
   Layers,
   FileStack,
+  Folder,
   HardDrive,
   LayoutDashboard,
   Network,
@@ -22,6 +23,7 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
+import { buildFolderMap, getFolderFullPath } from "@/components/stacks/folder-utils";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -75,6 +77,15 @@ export function GlobalSearchCommand({ open, onOpenChange }: GlobalSearchCommandP
     enabled: open,
     staleTime: 15_000,
   });
+
+  const { data: folders = [] } = useQuery({
+    queryKey: ["stack-folders"],
+    queryFn: () => api.stackFolders.list(),
+    enabled: open,
+    staleTime: 15_000,
+  });
+
+  const folderMap = useMemo(() => buildFolderMap(folders), [folders]);
 
   const { data: volumes = [] } = useQuery({
     queryKey: ["volumes"],
@@ -178,39 +189,48 @@ export function GlobalSearchCommand({ open, onOpenChange }: GlobalSearchCommandP
         {/* Stacks */}
         {stacks.length > 0 && (
           <CommandGroup heading={`Stacks Compose (${stacks.length})`}>
-            {stacks.map((s) => (
-              <CommandItem
-                key={s.id}
-                value={`stack ${s.name} ${s.type} ${s.status}`}
-                onSelect={() =>
-                  handleSelect(() => {
-                    void navigate({ to: "/stacks" });
-                  })
-                }
-                className="flex items-center justify-between py-2 cursor-pointer"
-              >
-                <div className="flex items-center gap-2.5 truncate">
-                  <FileStack className="size-4 shrink-0 text-muted-foreground" />
-                  <span className="font-semibold text-xs text-foreground truncate">{s.name}</span>
-                  <span className="rounded border px-1.5 py-0.2 text-[10px] uppercase font-mono text-muted-foreground">
-                    {s.type}
-                  </span>
-                  <span
-                    className={cn(
-                      "text-[10px] capitalize font-medium",
-                      s.status === "deployed"
-                        ? "text-emerald-400"
-                        : s.status === "failed"
-                          ? "text-rose-400"
-                          : "text-amber-400",
+            {stacks.map((s) => {
+              const folderPath = s.folderId ? getFolderFullPath(s.folderId, folderMap) : "";
+              return (
+                <CommandItem
+                  key={s.id}
+                  value={`stack ${s.name} ${s.type} ${s.status} ${folderPath}`}
+                  onSelect={() =>
+                    handleSelect(() => {
+                      void navigate({ to: "/stacks" });
+                    })
+                  }
+                  className="flex items-center justify-between py-2 cursor-pointer"
+                >
+                  <div className="flex items-center gap-2.5 truncate">
+                    <FileStack className="size-4 shrink-0 text-muted-foreground" />
+                    <span className="font-semibold text-xs text-foreground truncate">{s.name}</span>
+                    {folderPath && (
+                      <span className="inline-flex items-center gap-1 rounded bg-surface px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground border border-border/60 shrink-0 max-w-[160px] truncate">
+                        <Folder className="size-2.5 shrink-0" />
+                        <span className="truncate">{folderPath}</span>
+                      </span>
                     )}
-                  >
-                    {s.status}
-                  </span>
-                </div>
-                <ArrowRight className="size-3 text-muted-foreground opacity-50 shrink-0 ml-2" />
-              </CommandItem>
-            ))}
+                    <span className="rounded border px-1.5 py-0.2 text-[10px] uppercase font-mono text-muted-foreground">
+                      {s.type}
+                    </span>
+                    <span
+                      className={cn(
+                        "text-[10px] capitalize font-medium",
+                        s.status === "deployed"
+                          ? "text-emerald-400"
+                          : s.status === "failed"
+                            ? "text-rose-400"
+                            : "text-amber-400",
+                      )}
+                    >
+                      {s.status}
+                    </span>
+                  </div>
+                  <ArrowRight className="size-3 text-muted-foreground opacity-50 shrink-0 ml-2" />
+                </CommandItem>
+              );
+            })}
           </CommandGroup>
         )}
 

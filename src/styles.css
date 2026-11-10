@@ -42,6 +42,7 @@
 }
 
 :root {
+  interpolate-size: allow-keywords;
   --radius: 0.5rem;
   --background: oklch(0.17 0.004 285);
   --surface: oklch(0.205 0.005 285);
@@ -106,6 +107,24 @@
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
     }
+    .folder-expand-inner {
+      transition: none !important;
+    }
+  }
+}
+
+.folder-expand-inner {
+  block-size: auto;
+  overflow: clip;
+  transition:
+    block-size 220ms ease-out,
+    opacity 180ms ease-out;
+}
+
+@starting-style {
+  .folder-expand-inner {
+    block-size: 0;
+    opacity: 0;
   }
 }
 

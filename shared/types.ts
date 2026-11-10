@@ -376,6 +376,51 @@ export interface DockerEventItem {
   attributes: Record<string, string>;
 }
 
+export type StackFolderColor =
+  | "default"
+  | "amber"
+  | "emerald"
+  | "sky"
+  | "violet"
+  | "rose"
+  | "orange";
+
+export interface StackFolder {
+  id: string;
+  name: string;
+  parentId: string | null;
+  color: StackFolderColor;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateStackFolderRequest {
+  name: string;
+  parentId?: string | null | undefined;
+  color?: StackFolderColor | undefined;
+  sortOrder?: number | undefined;
+}
+
+export interface UpdateStackFolderRequest {
+  name?: string | undefined;
+  parentId?: string | null | undefined;
+  color?: StackFolderColor | undefined;
+  sortOrder?: number | undefined;
+}
+
+export interface BatchStackFolderActionResult {
+  folderId: string;
+  action: "start" | "stop";
+  totalTargeted: number;
+  results: Array<{
+    stackId: string;
+    stackName: string;
+    success: boolean;
+    error?: string | undefined;
+  }>;
+}
+
 export interface StackEnvVar {
   key: string;
   value: string;
@@ -387,6 +432,7 @@ export interface StackSummary {
   name: string;
   type: "compose" | "git";
   status: "deployed" | "stopped" | "failed" | "deploying";
+  folderId: string | null;
   composeYaml: string;
   env: StackEnvVar[];
   gitRepo?: string | undefined;
@@ -421,6 +467,7 @@ export interface StackSummary {
 export interface CreateStackRequest {
   name: string;
   type?: "compose" | "git" | undefined;
+  folderId?: string | null | undefined;
   composeYaml?: string | undefined;
   env?: StackEnvVar[] | undefined;
   gitRepo?: string | undefined;
@@ -434,6 +481,7 @@ export interface CreateStackRequest {
 export interface UpdateStackRequest {
   name?: string | undefined;
   type?: "compose" | "git" | undefined;
+  folderId?: string | null | undefined;
   composeYaml?: string | undefined;
   env?: StackEnvVar[] | undefined;
   gitRepo?: string | undefined;
@@ -449,6 +497,7 @@ export interface WebhookItem {
   id: string;
   stackName: string;
   stackType: "compose" | "git";
+  folderId?: string | null | undefined;
   status: string;
   autoDeploy: boolean;
   webhookToken: string;

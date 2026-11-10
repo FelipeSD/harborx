@@ -135,6 +135,33 @@ const migrations: Migration[] = [
       }
     },
   },
+  {
+    name: "007_stack_folders",
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS stack_folders (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          parent_id TEXT REFERENCES stack_folders(id) ON DELETE SET NULL,
+          color TEXT,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_stack_folders_parent_id ON stack_folders(parent_id);
+      `);
+
+      try {
+        db.exec(
+          "ALTER TABLE stacks ADD COLUMN folder_id TEXT REFERENCES stack_folders(id) ON DELETE SET NULL;",
+        );
+      } catch {
+        // column may already exist
+      }
+
+      db.exec("CREATE INDEX IF NOT EXISTS idx_stacks_folder_id ON stacks(folder_id);");
+    },
+  },
 ];
 
 export function runMigrations(db: Database.Database): void {

@@ -1,6 +1,7 @@
 import type {
   BatchActionResult,
   BatchContainerActionRequest,
+  BatchStackFolderActionResult,
   ContainerAction,
   ContainerBackupInfo,
   ContainerBackupInspection,
@@ -11,6 +12,7 @@ import type {
   CreateContainerRequest,
   CreateNetworkRequest,
   CreateRegistryRequest,
+  CreateStackFolderRequest,
   CreateStackRequest,
   CreateVolumeRequest,
   HostMetricPoint,
@@ -22,6 +24,7 @@ import type {
   RegistrySummary,
   RenameContainerRequest,
   SetupStatusResponse,
+  StackFolder,
   StackSummary,
   SystemDfResponse,
   SystemInfo,
@@ -30,6 +33,7 @@ import type {
   TestRegistryRequest,
   TestRegistryResponse,
   UpdateRegistryRequest,
+  UpdateStackFolderRequest,
   UpdateStackRequest,
   User,
   VolumeSummary,
@@ -453,6 +457,39 @@ export const api = {
     reset: (id: string) =>
       fetchApi<{ success: true }>(`/api/stacks/${id}/reset`, {
         method: "POST",
+      }),
+    moveFolder: (id: string, folderId: string | null) =>
+      fetchApi<StackSummary>(`/api/stacks/${id}/folder`, {
+        method: "PATCH",
+        body: JSON.stringify({ folderId }),
+      }),
+  },
+
+  stackFolders: {
+    list: () => fetchApi<StackFolder[]>("/api/stack-folders"),
+    create: (data: CreateStackFolderRequest) =>
+      fetchApi<StackFolder>("/api/stack-folders", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    update: (id: string, data: UpdateStackFolderRequest) =>
+      fetchApi<StackFolder>(`/api/stack-folders/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    remove: (id: string) =>
+      fetchApi<{
+        success: true;
+        movedStacksCount: number;
+        movedFoldersCount: number;
+        promotedToParentId: string | null;
+      }>(`/api/stack-folders/${id}`, {
+        method: "DELETE",
+      }),
+    action: (id: string, action: "start" | "stop", includeSubfolders = true) =>
+      fetchApi<BatchStackFolderActionResult>(`/api/stack-folders/${id}/action`, {
+        method: "POST",
+        body: JSON.stringify({ action, includeSubfolders }),
       }),
   },
 

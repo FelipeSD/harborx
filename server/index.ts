@@ -17,6 +17,7 @@ import { imageRoutes } from "./routes/images";
 import { networkRoutes } from "./routes/networks";
 import { registryRoutes } from "./routes/registries";
 import { settingsRoutes } from "./routes/settings";
+import { stackFolderRoutes } from "./routes/stack-folders";
 import { stackRoutes } from "./routes/stacks";
 import { userRoutes } from "./routes/users";
 import { volumeRoutes } from "./routes/volumes";
@@ -79,6 +80,7 @@ export async function buildApp(opts?: { logger?: boolean }) {
   await app.register(volumeRoutes, { prefix: "/api" });
   await app.register(registryRoutes, { prefix: "/api" });
   await app.register(settingsRoutes, { prefix: "/api" });
+  await app.register(stackFolderRoutes, { prefix: "/api" });
   await app.register(stackRoutes, { prefix: "/api" });
   await app.register(webhookRoutes, { prefix: "/api" });
   await app.register(userRoutes, { prefix: "/api" });

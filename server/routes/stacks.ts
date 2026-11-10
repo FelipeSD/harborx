@@ -6,11 +6,13 @@ import { requireRole } from "../auth/middleware.js";
 import { db } from "../db/index.js";
 import { logAudit } from "../services/audit.js";
 import { findGitAuthForRepo } from "../services/registries.js";
+import { getStackFolder } from "../services/stack-folders.js";
 import {
   createStackRecord,
   deployStack,
   getStack,
   listStacks,
+  moveStackToFolder,
   removeStack,
   startStack,
   stopStack,
@@ -23,6 +25,7 @@ const execFileAsync = promisify(execFile);
 const createStackSchema = z.object({
   name: z.string().min(2, "Nome da stack deve ter no mínimo 2 caracteres"),
   type: z.enum(["compose", "git"]).default("compose"),
+  folderId: z.string().nullable().optional(),
   composeYaml: z.string().optional(),
   env: z
     .array(
@@ -44,6 +47,7 @@ const createStackSchema = z.object({
 const updateStackSchema = z.object({
   name: z.string().min(2, "Nome da stack deve ter no mínimo 2 caracteres").optional(),
   type: z.enum(["compose", "git"]).optional(),
+  folderId: z.string().nullable().optional(),
   composeYaml: z.string().optional(),
   env: z
     .array(
@@ -94,6 +98,7 @@ export const stackRoutes: FastifyPluginAsync = async (fastify) => {
       const {
         name,
         type,
+        folderId,
         composeYaml,
         env,
         gitRepo,
@@ -103,6 +108,10 @@ export const stackRoutes: FastifyPluginAsync = async (fastify) => {
         autoDeploy,
         deployNow,
       } = parsed.data;
+
+      if (folderId && !getStackFolder(folderId)) {
+        return reply.status(400).send({ error: "Pasta selecionada não encontrada" });
+      }
 
       // Ensure composeYaml or gitRepo is provided
       if (type === "compose" && (!composeYaml || composeYaml.trim().length === 0)) {
@@ -116,6 +125,7 @@ export const stackRoutes: FastifyPluginAsync = async (fastify) => {
         const stack = createStackRecord({
           name,
           type,
+          folderId,
           composeYaml,
           env,
           gitRepo,
@@ -129,7 +139,7 @@ export const stackRoutes: FastifyPluginAsync = async (fastify) => {
           userId: request.user?.id,
           action: "stack.create",
           target: stack.name,
-          details: { id: stack.id, type },
+          details: { id: stack.id, type, folderId: folderId || null },
           ip: request.ip,
         });
 
@@ -176,6 +186,7 @@ export const stackRoutes: FastifyPluginAsync = async (fastify) => {
       const {
         name,
         type,
+        folderId,
         composeYaml,
         env,
         gitRepo,
@@ -187,10 +198,15 @@ export const stackRoutes: FastifyPluginAsync = async (fastify) => {
         pull,
       } = parsed.data;
 
+      if (folderId && !getStackFolder(folderId)) {
+        return reply.status(400).send({ error: "Pasta selecionada não encontrada" });
+      }
+
       try {
         await updateStackRecord(request.params.id, {
           name,
           type,
+          folderId,
           composeYaml,
           env,
           gitRepo,
@@ -230,6 +246,40 @@ export const stackRoutes: FastifyPluginAsync = async (fastify) => {
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         return reply.status(400).send({ error: `Falha ao atualizar stack: ${msg}` });
+      }
+    },
+  );
+
+  // PATCH /api/stacks/:id/folder - Move stack to folder without redeploy
+  fastify.patch<{ Params: { id: string } }>(
+    "/stacks/:id/folder",
+    { preHandler: [requireRole("operator", "admin")] },
+    async (request, reply) => {
+      const moveSchema = z.object({
+        folderId: z.string().nullable(),
+      });
+      const parsed = moveSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({ error: "Dados inválidos para mover stack" });
+      }
+
+      try {
+        moveStackToFolder(request.params.id, parsed.data.folderId);
+        const updated = await getStack(request.params.id);
+
+        logAudit({
+          userId: request.user?.id,
+          action: "stack.move_folder",
+          target: updated?.name || request.params.id,
+          details: { folderId: parsed.data.folderId },
+          ip: request.ip,
+        });
+
+        return updated;
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        const status = msg.includes("Stack não encontrada") ? 404 : 400;
+        return reply.status(status).send({ error: msg });
       }
     },
   );

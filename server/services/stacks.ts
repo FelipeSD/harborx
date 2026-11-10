@@ -21,6 +21,7 @@ export interface StackRecord {
   name: string;
   type: "compose" | "git";
   status: "deployed" | "stopped" | "failed" | "deploying";
+  folderId: string | null;
   composeYaml: string;
   env: StackEnvVar[];
   gitRepo?: string | undefined;
@@ -151,6 +152,7 @@ export async function listStacks(): Promise<StackWithContainers[]> {
     name: string;
     type: "compose" | "git";
     status: "deployed" | "stopped" | "failed" | "deploying";
+    folder_id: string | null;
     compose_yaml: string;
     env_json: string;
     git_repo: string | null;
@@ -262,6 +264,7 @@ export async function listStacks(): Promise<StackWithContainers[]> {
       name: r.name,
       type: r.type,
       status: r.status,
+      folderId: r.folder_id || null,
       composeYaml: r.compose_yaml,
       env,
       gitRepo: r.git_repo || undefined,
@@ -287,6 +290,7 @@ export async function getStack(id: string): Promise<StackWithContainers | null> 
         name: string;
         type: "compose" | "git";
         status: "deployed" | "stopped" | "failed" | "deploying";
+        folder_id: string | null;
         compose_yaml: string;
         env_json: string;
         git_repo: string | null;
@@ -363,6 +367,7 @@ export async function getStack(id: string): Promise<StackWithContainers | null> 
     name: row.name,
     type: row.type,
     status: row.status,
+    folderId: row.folder_id || null,
     composeYaml: row.compose_yaml,
     env,
     gitRepo: row.git_repo || undefined,
@@ -391,6 +396,7 @@ export async function getStack(id: string): Promise<StackWithContainers | null> 
 export function createStackRecord(data: {
   name: string;
   type: "compose" | "git";
+  folderId?: string | null | undefined;
   composeYaml?: string | undefined;
   env?: StackEnvVar[] | undefined;
   gitRepo?: string | undefined;
@@ -404,14 +410,16 @@ export function createStackRecord(data: {
   const now = new Date().toISOString();
   const envJson = JSON.stringify(data.env || []);
   const yaml = data.composeYaml || "";
+  const folderId = data.folderId || null;
 
   db.prepare(
-    `INSERT INTO stacks (id, name, type, status, compose_yaml, env_json, git_repo, git_branch, git_path, git_registry_id, webhook_token, auto_deploy, created_at, updated_at)
-     VALUES (?, ?, ?, 'stopped', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO stacks (id, name, type, status, folder_id, compose_yaml, env_json, git_repo, git_branch, git_path, git_registry_id, webhook_token, auto_deploy, created_at, updated_at)
+     VALUES (?, ?, ?, 'stopped', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     data.name.trim().toLowerCase(),
     data.type,
+    folderId,
     yaml,
     envJson,
     data.gitRepo || null,
@@ -429,6 +437,7 @@ export function createStackRecord(data: {
     name: data.name.trim().toLowerCase(),
     type: data.type,
     status: "stopped",
+    folderId,
     composeYaml: yaml,
     env: data.env || [],
     gitRepo: data.gitRepo,
@@ -744,6 +753,19 @@ export async function startStack(stackId: string): Promise<void> {
   );
 }
 
+export function isHarborXSelfStack(
+  containers: Array<{ id: string; name: string; image: string }>,
+): boolean {
+  const currentContainerId = process.env["HOSTNAME"]?.trim() || "";
+  return containers.some(
+    (c) =>
+      (currentContainerId && c.id.startsWith(currentContainerId)) ||
+      c.name.toLowerCase() === "harborx" ||
+      c.name.toLowerCase() === "docker-harmony-hub" ||
+      /felipesdam496\/harborx|harborx/i.test(c.image),
+  );
+}
+
 export async function removeStack(stackId: string, removeVolumes = false): Promise<void> {
   const stack = await getStack(stackId);
   if (!stack) throw new Error("Stack não encontrada");
@@ -755,14 +777,7 @@ export async function removeStack(stackId: string, removeVolumes = false): Promi
   // Executa 'docker compose down' apenas se a stack possuir containers e o compose existir
   if (stack.containersCount > 0 && fs.existsSync(composePath)) {
     // Protege contra auto-exclusão do container do HarborX
-    const currentContainerId = process.env.HOSTNAME?.trim() || "";
-    const isSelfContainer = stack.containers.some(
-      (c) =>
-        (currentContainerId && c.id.startsWith(currentContainerId)) ||
-        c.name.toLowerCase() === "harborx" ||
-        c.name.toLowerCase() === "docker-harmony-hub" ||
-        /felipesdam496\/harborx|harborx/i.test(c.image),
-    );
+    const isSelfContainer = isHarborXSelfStack(stack.containers);
 
     if (!isSelfContainer) {
       const downArgs = ["compose", "-p", stack.name, "-f", composeFile, "down"];
@@ -795,6 +810,7 @@ export async function updateStackRecord(
   data: {
     name?: string | undefined;
     type?: "compose" | "git" | undefined;
+    folderId?: string | null | undefined;
     composeYaml?: string | undefined;
     env?: StackEnvVar[] | undefined;
     gitRepo?: string | undefined;
@@ -809,6 +825,7 @@ export async function updateStackRecord(
 
   const newName = data.name ? data.name.trim().toLowerCase() : stack.name;
   const newType = data.type ?? stack.type;
+  const newFolderId = data.folderId !== undefined ? data.folderId || null : stack.folderId;
   const newYaml = data.composeYaml !== undefined ? data.composeYaml : stack.composeYaml;
   const newEnvJson = data.env !== undefined ? JSON.stringify(data.env) : JSON.stringify(stack.env);
   const newGitRepo = data.gitRepo !== undefined ? data.gitRepo || null : stack.gitRepo || null;
@@ -838,12 +855,13 @@ export async function updateStackRecord(
   db.prepare(
     `
     UPDATE stacks
-    SET name = ?, type = ?, compose_yaml = ?, env_json = ?, git_repo = ?, git_branch = ?, git_path = ?, git_registry_id = ?, auto_deploy = ?, updated_at = ?
+    SET name = ?, type = ?, folder_id = ?, compose_yaml = ?, env_json = ?, git_repo = ?, git_branch = ?, git_path = ?, git_registry_id = ?, auto_deploy = ?, updated_at = ?
     WHERE id = ?
   `,
   ).run(
     newName,
     newType,
+    newFolderId,
     newYaml,
     newEnvJson,
     newGitRepo,
@@ -853,6 +871,26 @@ export async function updateStackRecord(
     newAutoDeploy,
     now,
     stack.id,
+  );
+}
+
+export function moveStackToFolder(stackId: string, folderId: string | null): void {
+  const row = db.prepare("SELECT id FROM stacks WHERE id = ? OR name = ?").get(stackId, stackId) as
+    | { id: string }
+    | undefined;
+  if (!row) throw new Error("Stack não encontrada");
+
+  if (folderId) {
+    const folder = db.prepare("SELECT id FROM stack_folders WHERE id = ?").get(folderId) as
+      | { id: string }
+      | undefined;
+    if (!folder) throw new Error("Pasta de destino não encontrada");
+  }
+
+  db.prepare("UPDATE stacks SET folder_id = ?, updated_at = ? WHERE id = ?").run(
+    folderId || null,
+    new Date().toISOString(),
+    row.id,
   );
 }
 
@@ -871,6 +909,7 @@ export function getStackByWebhookToken(token: string): StackRecord | null {
         name: string;
         type: "compose" | "git";
         status: "deployed" | "stopped" | "failed" | "deploying";
+        folder_id: string | null;
         compose_yaml: string;
         env_json: string;
         git_repo: string | null;
@@ -897,6 +936,7 @@ export function getStackByWebhookToken(token: string): StackRecord | null {
     name: row.name,
     type: row.type,
     status: row.status,
+    folderId: row.folder_id || null,
     composeYaml: row.compose_yaml,
     env,
     gitRepo: row.git_repo || undefined,

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Copy,
@@ -9,6 +9,7 @@ import {
   RefreshCw,
   AlertCircle,
   FileStack,
+  Folder,
   Terminal,
   ExternalLink,
   Play,
@@ -17,6 +18,7 @@ import {
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { PageHeader, Panel } from "@/components/app/ui-bits";
+import { buildFolderMap, getFolderFullPath } from "@/components/stacks/folder-utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -64,6 +66,13 @@ function WebhooksPage() {
     queryKey: ["webhooks"],
     queryFn: api.webhooks.list,
   });
+
+  const { data: folders = [] } = useQuery({
+    queryKey: ["stack-folders"],
+    queryFn: api.stackFolders.list,
+  });
+
+  const folderMap = useMemo(() => buildFolderMap(folders), [folders]);
 
   const activeWebhook = webhooks.find((w) => w.id === selectedId) || webhooks[0];
 
@@ -205,6 +214,7 @@ jobs:
             {webhooks.map((w) => {
               const isSelected = activeWebhook?.id === w.id;
               const isSuccess = w.recentDeployment?.status === "success";
+              const folderPath = w.folderId ? getFolderFullPath(w.folderId, folderMap) : "";
 
               return (
                 <Panel
@@ -233,6 +243,12 @@ jobs:
                           >
                             {w.stackType}
                           </Badge>
+                          {folderPath && (
+                            <span className="inline-flex items-center gap-1 rounded border border-border/60 bg-surface px-1.5 py-0.2 text-[10px] font-mono text-muted-foreground max-w-[180px] truncate">
+                              <Folder className="size-2.5 shrink-0" />
+                              <span className="truncate">{folderPath}</span>
+                            </span>
+                          )}
                         </div>
                         <p
                           className="font-mono text-xs text-muted-foreground mt-0.5 truncate max-w-full"

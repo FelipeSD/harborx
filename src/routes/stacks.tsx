@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   FileStack,
@@ -23,12 +23,18 @@ import {
   Loader2,
   ShieldCheck,
   ChevronDown,
+  ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  Folder,
+  FolderInput,
+  FolderPlus,
   Zap,
   Play,
   CheckCircle2,
-  HelpCircle,
   MoreHorizontal,
   Search,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -79,9 +85,30 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { BackupToolkitInjectorDialog } from "@/components/stacks/BackupToolkitInjectorDialog";
+import {
+  DeleteFolderAlertDialog,
+  FolderFormDialog,
+  MoveStackFolderDialog,
+  StopFolderStacksDialog,
+} from "@/components/stacks/StackFolderDialogs";
+import {
+  StackFolderSection,
+  UnassignedStacksSection,
+} from "@/components/stacks/StackFolderSection";
+import {
+  FOLDER_COLOR_STYLES,
+  buildFolderMap,
+  buildStackFolderTree,
+  flattenFolderTree,
+  getDescendantFolderIds,
+  getFolderPathItems,
+  isStackRunning,
+  type FolderTreeNode,
+} from "@/components/stacks/folder-utils";
 import type {
   CreateStackRequest,
   StackEnvVar,
+  StackFolder,
   StackSummary,
   TestGitRepoRequest,
   UpdateStackRequest,
@@ -482,6 +509,34 @@ function EnvEditor({
   );
 }
 
+const COLLAPSED_FOLDERS_KEY = "harborx:stack-folders:collapsed";
+
+function loadCollapsedFolders(): Record<string, boolean> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(COLLAPSED_FOLDERS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    const safe: Record<string, boolean> = {};
+    for (const [k, v] of Object.entries(parsed)) {
+      if (v === true) safe[k] = true;
+    }
+    return safe;
+  } catch {
+    return {};
+  }
+}
+
+function saveCollapsedFolders(state: Record<string, boolean>): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(COLLAPSED_FOLDERS_KEY, JSON.stringify(state));
+  } catch {
+    // Ignorar indisponibilidade de storage
+  }
+}
+
 function StacksPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -491,6 +546,7 @@ function StacksPage() {
   const [createMode, setCreateMode] = useState<"compose" | "git">("compose");
 
   const [name, setName] = useState("");
+  const [createFolderId, setCreateFolderId] = useState<string>("none");
   const [composeYaml, setComposeYaml] = useState(TEMPLATES["custom"]!.yaml);
   const [envVars, setEnvVars] = useState<StackEnvVar[]>([]);
   const [gitRepo, setGitRepo] = useState("");
@@ -502,6 +558,7 @@ function StacksPage() {
 
   const [editStack, setEditStack] = useState<StackSummary | null>(null);
   const [editName, setEditName] = useState("");
+  const [editFolderId, setEditFolderId] = useState<string>("none");
   const [editMode, setEditMode] = useState<"compose" | "git">("compose");
   const [editYaml, setEditYaml] = useState("");
   const [editEnv, setEditEnv] = useState<StackEnvVar[]>([]);
@@ -512,6 +569,24 @@ function StacksPage() {
   const [editAutoDeploy, setEditAutoDeploy] = useState(false);
   const [editRedeploy, setEditRedeploy] = useState(true);
   const [editPull, setEditPull] = useState(false);
+
+  const [folderFilter, setFolderFilter] = useState<"all" | "unassigned" | string>("all");
+  const [collapsedFolders, setCollapsedFolders] = useState<Record<string, boolean>>(
+    loadCollapsedFolders,
+  );
+  const [folderModal, setFolderModal] = useState<{
+    open: boolean;
+    editing: StackFolder | null;
+    defaultParentId?: string | null | undefined;
+    onSaved?: ((folder: StackFolder) => void) | undefined;
+  }>({ open: false, editing: null });
+  const [deleteFolderTarget, setDeleteFolderTarget] = useState<StackFolder | null>(null);
+  const [moveStackTarget, setMoveStackTarget] = useState<StackSummary | null>(null);
+  const [stopFolderTarget, setStopFolderTarget] = useState<FolderTreeNode | null>(null);
+  const [batchPending, setBatchPending] = useState<{
+    folderId: string;
+    action: "start" | "stop";
+  } | null>(null);
 
   const [logStack, setLogStack] = useState<StackSummary | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<StackSummary | null>(null);
@@ -601,6 +676,11 @@ function StacksPage() {
     queryFn: api.registries.list,
   });
 
+  const { data: folders = [] } = useQuery({
+    queryKey: ["stack-folders"],
+    queryFn: api.stackFolders.list,
+  });
+
   const copyToClipboard = (text: string, label: string) => {
     void navigator.clipboard.writeText(text);
     toast.success(`${label} copiado!`);
@@ -652,6 +732,130 @@ function StacksPage() {
   const [stackFilterState, setStackFilterState] = useState<"all" | "running" | "stopped" | "failed">("all");
   const [stackSearch, setStackSearch] = useState("");
 
+  const folderMap = useMemo(() => buildFolderMap(folders), [folders]);
+  const flattenedFolders = useMemo(() => flattenFolderTree(folders), [folders]);
+  const rootFolderOptions = useMemo(
+    () => flattenedFolders.filter((o) => o.depth === 0),
+    [flattenedFolders],
+  );
+
+  const effectiveFolderFilter =
+    folderFilter === "all" || folderFilter === "unassigned" || folderMap.has(folderFilter)
+      ? folderFilter
+      : "all";
+
+  const hasActiveSearchOrStatus = stackFilterState !== "all" || stackSearch.trim().length > 0;
+
+  const treeData = useMemo(
+    () =>
+      buildStackFolderTree({
+        folders,
+        stacks,
+        statusFilter: stackFilterState,
+        search: stackSearch,
+      }),
+    [folders, stacks, stackFilterState, stackSearch],
+  );
+
+  const selectedFilterFolder =
+    effectiveFolderFilter !== "all" && effectiveFolderFilter !== "unassigned"
+      ? (folderMap.get(effectiveFolderFilter) ?? null)
+      : null;
+
+  const selectedFilterBreadcrumbs = useMemo(
+    () => (selectedFilterFolder ? getFolderPathItems(selectedFilterFolder.id, folderMap) : []),
+    [selectedFilterFolder, folderMap],
+  );
+
+  const selectedFilterDirectChildren = useMemo(() => {
+    if (!selectedFilterFolder) return [];
+    return flattenedFolders.filter((o) => o.folder.parentId === selectedFilterFolder.id);
+  }, [selectedFilterFolder, flattenedFolders]);
+
+  const isFolderExpanded = useCallback(
+    (id: string) => {
+      if (hasActiveSearchOrStatus) return true;
+      if (effectiveFolderFilter === id) return true;
+      return !collapsedFolders[id];
+    },
+    [hasActiveSearchOrStatus, effectiveFolderFilter, collapsedFolders],
+  );
+
+  const toggleFolderExpanded = useCallback((id: string) => {
+    setCollapsedFolders((prev) => {
+      const next = { ...prev };
+      if (next[id]) {
+        delete next[id];
+      } else {
+        next[id] = true;
+      }
+      saveCollapsedFolders(next);
+      return next;
+    });
+  }, []);
+
+  const ensureFolderExpanded = useCallback((id: string) => {
+    setCollapsedFolders((prev) => {
+      if (!prev[id]) return prev;
+      const next = { ...prev };
+      delete next[id];
+      saveCollapsedFolders(next);
+      return next;
+    });
+  }, []);
+
+  const allCollapsed = useMemo(() => {
+    if (folders.length === 0) return false;
+    return folders.every((f) => Boolean(collapsedFolders[f.id]));
+  }, [folders, collapsedFolders]);
+
+  const toggleCollapseAll = () => {
+    if (allCollapsed) {
+      setCollapsedFolders({});
+      saveCollapsedFolders({});
+    } else {
+      const next: Record<string, boolean> = { __unassigned__: true };
+      for (const f of folders) next[f.id] = true;
+      setCollapsedFolders(next);
+      saveCollapsedFolders(next);
+    }
+  };
+
+  const deleteFolderStats = useMemo(() => {
+    if (!deleteFolderTarget) {
+      return {
+        directStacksCount: 0,
+        directSubfoldersCount: 0,
+        parentFolderName: null as string | null,
+      };
+    }
+    const directStacksCount = stacks.filter((s) => s.folderId === deleteFolderTarget.id).length;
+    const directSubfoldersCount = folders.filter(
+      (f) => f.parentId === deleteFolderTarget.id,
+    ).length;
+    const parentFolderName = deleteFolderTarget.parentId
+      ? (folderMap.get(deleteFolderTarget.parentId)?.name ?? null)
+      : null;
+    return { directStacksCount, directSubfoldersCount, parentFolderName };
+  }, [deleteFolderTarget, stacks, folders, folderMap]);
+
+  const stopTargetRunningStacks = useMemo(() => {
+    if (!stopFolderTarget) return [];
+    const ids = getDescendantFolderIds(stopFolderTarget.folder.id, folders);
+    return stacks.filter((s) => s.folderId !== null && ids.has(s.folderId) && isStackRunning(s));
+  }, [stopFolderTarget, folders, stacks]);
+
+  const openCreateDialog = (targetFolderId?: string | null) => {
+    if (targetFolderId !== undefined) {
+      setCreateFolderId(targetFolderId || "none");
+    } else if (effectiveFolderFilter !== "all" && effectiveFolderFilter !== "unassigned") {
+      setCreateFolderId(effectiveFolderFilter);
+    } else {
+      setCreateFolderId("none");
+    }
+    setIsCreateOpen(true);
+  };
+
   const filteredStacks = useMemo(() => {
     return stacks.filter((s) => {
       const isRunning = s.status === "deployed" || s.runningContainersCount > 0;
@@ -700,6 +904,7 @@ function StacksPage() {
   const handleOpenEdit = (s: StackSummary) => {
     setEditStack(s);
     setEditName(s.name);
+    setEditFolderId(s.folderId || "none");
     setEditMode(s.type);
     setEditYaml(s.composeYaml || TEMPLATES["custom"]!.yaml);
     setEditEnv(s.env || []);
@@ -723,12 +928,14 @@ function StacksPage() {
       );
       setIsCreateOpen(false);
       setName("");
+      setCreateFolderId("none");
       setComposeYaml(TEMPLATES["custom"]!.yaml);
       setEnvVars([]);
       setGitRepo("");
       setGitRegistryId("auto");
       setGitTestResult(null);
       void queryClient.invalidateQueries({ queryKey: ["stacks"] });
+      void queryClient.invalidateQueries({ queryKey: ["webhooks"] });
       if (deployNow) {
         setLogStack(res);
       }
@@ -752,12 +959,61 @@ function StacksPage() {
       setEditStack(null);
       void queryClient.invalidateQueries({ queryKey: ["stacks"] });
       void queryClient.invalidateQueries({ queryKey: ["containers"] });
+      void queryClient.invalidateQueries({ queryKey: ["webhooks"] });
       if (editRedeploy) {
         setLogStack(res);
       }
     },
     onError: (err: Error) => {
       toast.error(`Falha ao atualizar stack: ${err.message}`);
+    },
+  });
+
+  const folderBatchMutation = useMutation({
+    mutationFn: async ({ folderId, action }: { folderId: string; action: "start" | "stop" }) => {
+      setBatchPending({ folderId, action });
+      return api.stackFolders.action(folderId, action, true);
+    },
+    onSuccess: (res) => {
+      setBatchPending(null);
+      setStopFolderTarget(null);
+      void queryClient.invalidateQueries({ queryKey: ["stacks"] });
+      void queryClient.invalidateQueries({ queryKey: ["containers"] });
+
+      if (res.totalTargeted === 0) {
+        toast.info(
+          res.action === "start"
+            ? "Todas as stacks desta pasta já estão rodando."
+            : "Nenhuma stack ativa encontrada nesta pasta.",
+        );
+        return;
+      }
+
+      const ok = res.results.filter((r) => r.success).length;
+      const fail = res.results.filter((r) => !r.success);
+      if (fail.length === 0) {
+        toast.success(
+          res.action === "start"
+            ? `${ok} stack(s) iniciada(s) na pasta!`
+            : `${ok} stack(s) parada(s) na pasta.`,
+        );
+      } else if (ok > 0) {
+        toast.warning(
+          `${ok} stack(s) concluída(s) e ${fail.length} falha(s): ${fail
+            .map((f) => `${f.stackName} (${f.error || "erro"})`)
+            .join("; ")}`,
+        );
+      } else {
+        toast.error(
+          `Falha ao ${res.action === "start" ? "iniciar" : "parar"} stacks: ${fail
+            .map((f) => `${f.stackName}: ${f.error || "erro"}`)
+            .join("; ")}`,
+        );
+      }
+    },
+    onError: (err: Error) => {
+      setBatchPending(null);
+      toast.error(`Erro na ação em lote da pasta: ${err.message}`);
     },
   });
 
@@ -782,6 +1038,7 @@ function StacksPage() {
       payload: {
         name: editName.trim().toLowerCase(),
         type: editMode,
+        folderId: editFolderId === "none" ? null : editFolderId,
         composeYaml: editMode === "compose" ? editYaml : editYaml || undefined,
         gitRepo: editMode === "git" ? editGitRepo.trim() : undefined,
         gitBranch: editMode === "git" ? editGitBranch.trim() : undefined,
@@ -854,6 +1111,7 @@ function StacksPage() {
       setDeleteTarget(null);
       setDeleteConfirmName("");
       void queryClient.invalidateQueries({ queryKey: ["stacks"] });
+      void queryClient.invalidateQueries({ queryKey: ["webhooks"] });
     },
     onError: (err: Error) => {
       toast.error(`Falha ao remover stack: ${err.message}`);
@@ -880,6 +1138,7 @@ function StacksPage() {
     createMutation.mutate({
       name: name.trim(),
       type: createMode,
+      folderId: createFolderId === "none" ? null : createFolderId,
       composeYaml: createMode === "compose" ? composeYaml : undefined,
       gitRepo: createMode === "git" ? gitRepo.trim() : undefined,
       gitBranch: createMode === "git" ? gitBranch.trim() : undefined,
@@ -896,13 +1155,37 @@ function StacksPage() {
     });
   };
 
+  const selectedNodeForFilter =
+    effectiveFolderFilter !== "all" && effectiveFolderFilter !== "unassigned"
+      ? treeData.nodeMap.get(effectiveFolderFilter)
+      : undefined;
+
+  const hasVisibleFolderContent =
+    folders.length > 0 &&
+    (effectiveFolderFilter === "all"
+      ? treeData.rootNodes.length > 0 || treeData.unassignedStacks.length > 0
+      : effectiveFolderFilter === "unassigned"
+        ? treeData.unassignedStacks.length > 0
+        : Boolean(selectedNodeForFilter));
+
+  const subtitleText =
+    folders.length > 0
+      ? `${stacks.length} stacks Docker Compose em ${folders.length} pasta${folders.length === 1 ? "" : "s"}`
+      : `${stacks.length} stacks Docker Compose orquestradas no host`;
+
+  const clearAllFilters = () => {
+    setStackFilterState("all");
+    setStackSearch("");
+    setFolderFilter("all");
+  };
+
   return (
     <>
       <PageHeader
         title="Stacks"
-        subtitle={`${stacks.length} stacks Docker Compose orquestradas no host`}
+        subtitle={subtitleText}
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -913,7 +1196,25 @@ function StacksPage() {
               Atualizar
             </Button>
             {isOperator && (
-              <Button size="sm" onClick={() => setIsCreateOpen(true)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setFolderModal({
+                    open: true,
+                    editing: null,
+                    defaultParentId:
+                      effectiveFolderFilter !== "all" && effectiveFolderFilter !== "unassigned"
+                        ? effectiveFolderFilter
+                        : null,
+                  })
+                }
+              >
+                <FolderPlus className="size-4" /> Nova pasta
+              </Button>
+            )}
+            {isOperator && (
+              <Button size="sm" onClick={() => openCreateDialog()}>
                 <Plus className="size-4" /> Nova stack
               </Button>
             )}
@@ -931,73 +1232,232 @@ function StacksPage() {
         </Alert>
       )}
 
-      {stacks.length > 0 && !isLoading && (
-        <div className="mb-4 flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between min-w-0">
-          <div className="flex items-center rounded-lg border border-border/80 bg-surface/60 p-0.5 shrink-0">
-            <button
-              type="button"
-              onClick={() => setStackFilterState("all")}
-              className={cn(
-                "rounded-md px-2.5 py-1 text-xs font-mono transition-colors",
-                stackFilterState === "all"
-                  ? "bg-background text-foreground shadow-xs font-medium"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              todas ({stacks.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setStackFilterState("running")}
-              className={cn(
-                "flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-mono transition-colors",
-                stackFilterState === "running"
-                  ? "bg-background text-emerald-500 shadow-xs font-medium"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <span className="size-1.5 rounded-full bg-emerald-500" />
-              rodando ({runningStacksCount})
-            </button>
-            <button
-              type="button"
-              onClick={() => setStackFilterState("stopped")}
-              className={cn(
-                "flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-mono transition-colors",
-                stackFilterState === "stopped"
-                  ? "bg-background text-muted-foreground shadow-xs font-medium"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <span className="size-1.5 rounded-full bg-muted-foreground/40" />
-              paradas ({stoppedStacksCount})
-            </button>
-            {failedStacksCount > 0 && (
+      {(stacks.length > 0 || folders.length > 0) && !isLoading && (
+        <div className="mb-4 space-y-2.5">
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between min-w-0">
+            <div className="flex flex-wrap items-center rounded-lg border border-border/80 bg-surface/60 p-0.5 shrink-0">
               <button
                 type="button"
-                onClick={() => setStackFilterState("failed")}
+                onClick={() => setStackFilterState("all")}
                 className={cn(
-                  "flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-mono transition-colors",
-                  stackFilterState === "failed"
-                    ? "bg-background text-rose-500 shadow-xs font-medium"
-                    : "text-rose-500/70 hover:text-rose-500",
+                  "rounded-md px-2.5 py-1 text-xs font-mono transition-colors cursor-pointer",
+                  stackFilterState === "all"
+                    ? "bg-background text-foreground shadow-xs font-medium"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                <span className="size-1.5 rounded-full bg-rose-500 animate-pulse" />
-                falhas ({failedStacksCount})
+                todas ({stacks.length})
               </button>
-            )}
+              <button
+                type="button"
+                onClick={() => setStackFilterState("running")}
+                className={cn(
+                  "flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-mono transition-colors cursor-pointer",
+                  stackFilterState === "running"
+                    ? "bg-background text-emerald-500 shadow-xs font-medium"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <span className="size-1.5 rounded-full bg-emerald-500" />
+                rodando ({runningStacksCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setStackFilterState("stopped")}
+                className={cn(
+                  "flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-mono transition-colors cursor-pointer",
+                  stackFilterState === "stopped"
+                    ? "bg-background text-muted-foreground shadow-xs font-medium"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <span className="size-1.5 rounded-full bg-muted-foreground/40" />
+                paradas ({stoppedStacksCount})
+              </button>
+              {failedStacksCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setStackFilterState("failed")}
+                  className={cn(
+                    "flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-mono transition-colors cursor-pointer",
+                    stackFilterState === "failed"
+                      ? "bg-background text-rose-500 shadow-xs font-medium"
+                      : "text-rose-500/70 hover:text-rose-500",
+                  )}
+                >
+                  <span className="size-1.5 rounded-full bg-rose-500 animate-pulse" />
+                  falhas ({failedStacksCount})
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto min-w-0">
+              <div className="relative flex-1 sm:w-64">
+                <Search className="absolute left-2.5 top-2 size-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Filtrar stack, pasta, repo ou serviço…"
+                  value={stackSearch}
+                  onChange={(e) => setStackSearch(e.target.value)}
+                  className="pl-8 pr-7 text-xs h-7"
+                />
+                {stackSearch && (
+                  <button
+                    type="button"
+                    aria-label="Limpar busca"
+                    onClick={() => setStackSearch("")}
+                    className="absolute right-2 top-1.5 text-muted-foreground hover:text-foreground cursor-pointer"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                )}
+              </div>
+              {folders.length > 0 && effectiveFolderFilter === "all" && !hasActiveSearchOrStatus && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2 text-xs font-mono shrink-0"
+                  onClick={toggleCollapseAll}
+                  title={allCollapsed ? "Expandir todas as pastas" : "Recolher todas as pastas"}
+                >
+                  {allCollapsed ? (
+                    <>
+                      <ChevronsUpDown className="size-3.5 sm:mr-1" />
+                      <span className="hidden sm:inline">Expandir</span>
+                    </>
+                  ) : (
+                    <>
+                      <ChevronsDownUp className="size-3.5 sm:mr-1" />
+                      <span className="hidden sm:inline">Recolher</span>
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
           </div>
 
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-2.5 top-2 size-3.5 text-muted-foreground" />
-            <Input
-              placeholder="Filtrar stack, repo ou serviço…"
-              value={stackSearch}
-              onChange={(e) => setStackSearch(e.target.value)}
-              className="pl-8 text-xs h-7"
-            />
-          </div>
+          {folders.length > 0 && (
+            <div className="space-y-1.5">
+              <div
+                className="flex flex-wrap items-center gap-1.5"
+                role="navigation"
+                aria-label="Filtro rápido por pasta"
+              >
+                <button
+                  type="button"
+                  onClick={() => setFolderFilter("all")}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-mono transition-colors cursor-pointer",
+                    effectiveFolderFilter === "all"
+                      ? "border-primary/40 bg-primary/15 text-primary font-medium"
+                      : "border-border/70 bg-surface/50 text-muted-foreground hover:text-foreground hover:border-border",
+                  )}
+                >
+                  <span>Todas</span>
+                  <span className="opacity-75">({stacks.length})</span>
+                </button>
+
+                {rootFolderOptions.map((opt) => {
+                  const style =
+                    FOLDER_COLOR_STYLES[opt.folder.color] ?? FOLDER_COLOR_STYLES.default;
+                  const count = treeData.allUnfilteredCounts.get(opt.folder.id) ?? 0;
+                  const isActiveBranch =
+                    effectiveFolderFilter === opt.folder.id ||
+                    selectedFilterBreadcrumbs[0]?.id === opt.folder.id;
+
+                  return (
+                    <button
+                      key={opt.folder.id}
+                      type="button"
+                      onClick={() =>
+                        setFolderFilter((cur) =>
+                          cur === opt.folder.id ? "all" : opt.folder.id,
+                        )
+                      }
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs transition-colors cursor-pointer max-w-[200px]",
+                        isActiveBranch
+                          ? style.pillActive + " font-medium"
+                          : "border-border/70 bg-surface/50 text-muted-foreground hover:text-foreground hover:border-border",
+                      )}
+                    >
+                      <span className={cn("size-1.5 rounded-full shrink-0", style.dot)} />
+                      <span className="truncate">{opt.folder.name}</span>
+                      <span className="font-mono text-[11px] opacity-75 shrink-0">({count})</span>
+                    </button>
+                  );
+                })}
+
+                {(treeData.unassignedTotalCount > 0 || effectiveFolderFilter === "unassigned") && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFolderFilter((cur) => (cur === "unassigned" ? "all" : "unassigned"))
+                    }
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs transition-colors cursor-pointer",
+                      effectiveFolderFilter === "unassigned"
+                        ? "border-foreground/30 bg-accent text-foreground font-medium"
+                        : "border-border/70 bg-surface/50 text-muted-foreground hover:text-foreground hover:border-border",
+                    )}
+                  >
+                    <Folder className="size-3 opacity-70" />
+                    <span>Sem pasta</span>
+                    <span className="font-mono text-[11px] opacity-75">
+                      ({treeData.unassignedTotalCount})
+                    </span>
+                  </button>
+                )}
+              </div>
+
+              {selectedFilterFolder &&
+                (selectedFilterBreadcrumbs.length > 1 ||
+                  selectedFilterDirectChildren.length > 0) && (
+                  <div className="flex flex-wrap items-center gap-1.5 pl-0.5 text-xs">
+                    {selectedFilterBreadcrumbs.length > 1 && (
+                      <div className="flex flex-wrap items-center gap-1 font-mono text-[11px] text-muted-foreground mr-1">
+                        {selectedFilterBreadcrumbs.map((crumb, idx) => {
+                          const isLast = idx === selectedFilterBreadcrumbs.length - 1;
+                          return (
+                            <span key={crumb.id} className="inline-flex items-center gap-1">
+                              {idx > 0 && <ChevronRight className="size-3 opacity-50" />}
+                              <button
+                                type="button"
+                                onClick={() => setFolderFilter(crumb.id)}
+                                className={cn(
+                                  "hover:text-foreground transition-colors cursor-pointer",
+                                  isLast ? "text-foreground font-medium" : "text-muted-foreground",
+                                )}
+                              >
+                                {crumb.name}
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {selectedFilterDirectChildren.map((child) => {
+                      const style =
+                        FOLDER_COLOR_STYLES[child.folder.color] ?? FOLDER_COLOR_STYLES.default;
+                      const count = treeData.allUnfilteredCounts.get(child.folder.id) ?? 0;
+                      return (
+                        <button
+                          key={child.folder.id}
+                          type="button"
+                          onClick={() => setFolderFilter(child.folder.id)}
+                          className="inline-flex items-center gap-1 rounded border border-border/60 bg-background/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground hover:border-border transition-colors cursor-pointer"
+                        >
+                          <span className={cn("size-1.5 rounded-full shrink-0", style.dot)} />
+                          <span>{child.folder.name}</span>
+                          <span className="font-mono opacity-70">({count})</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+            </div>
+          )}
         </div>
       )}
 
@@ -1011,7 +1471,7 @@ function StacksPage() {
             </Panel>
           ))}
         </div>
-      ) : stacks.length === 0 ? (
+      ) : stacks.length === 0 && folders.length === 0 ? (
         <Panel className="p-8 sm:p-12 text-center text-muted-foreground">
           <FileStack className="mx-auto size-10 mb-3 opacity-40" />
           <p className="text-base font-medium">Nenhuma stack Docker Compose configurada</p>
@@ -1020,22 +1480,31 @@ function StacksPage() {
             sincronizando repositórios Git.
           </p>
           {isOperator && (
-            <Button className="mt-4" size="sm" onClick={() => setIsCreateOpen(true)}>
-              <Plus className="size-4" /> Criar Primeira Stack
-            </Button>
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setFolderModal({ open: true, editing: null })}>
+                <FolderPlus className="size-4" /> Criar Pasta
+              </Button>
+              <Button size="sm" onClick={() => openCreateDialog()}>
+                <Plus className="size-4" /> Criar Primeira Stack
+              </Button>
+            </div>
           )}
         </Panel>
-      ) : filteredStacks.length === 0 ? (
+      ) : (folders.length === 0 ? filteredStacks.length === 0 : !hasVisibleFolderContent) ? (
         <Panel className="p-8 sm:p-12 text-center text-muted-foreground">
           <FileStack className="mx-auto size-8 mb-2 opacity-40" />
           <p className="text-sm font-medium">Nenhuma stack encontrada</p>
           <p className="text-xs mt-1">
-            Tente ajustar os termos de busca ou o filtro de status selecionado.
+            Tente ajustar os termos de busca, a pasta selecionada ou o filtro de status.
           </p>
+          {(hasActiveSearchOrStatus || effectiveFolderFilter !== "all") && (
+            <Button variant="outline" size="sm" className="mt-3 text-xs" onClick={clearAllFilters}>
+              Limpar filtros
+            </Button>
+          )}
         </Panel>
-      ) : (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {filteredStacks.map((s) => {
+      ) : (() => {
+        const renderStackCard = (s: StackSummary) => {
             const total = s.containersCount;
             const running = s.runningContainersCount;
             const isRunning = s.status === "deployed" || running > 0;
@@ -1452,6 +1921,14 @@ function StacksPage() {
                           Stack • {s.name}
                         </DropdownMenuLabel>
 
+                        <DropdownMenuItem
+                          onClick={() => setMoveStackTarget(s)}
+                          className="cursor-pointer py-1.5"
+                        >
+                          <FolderInput className="mr-2 size-3.5 text-primary" />
+                          <span>Mover para pasta…</span>
+                        </DropdownMenuItem>
+
                         {s.recentDeployment && (
                           <DropdownMenuItem
                             onClick={() => setLogStack(s)}
@@ -1500,9 +1977,93 @@ function StacksPage() {
                 </div>
               </Panel>
             );
-          })}
-        </div>
-      )}
+        };
+
+        if (folders.length === 0) {
+          return (
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              {filteredStacks.map((s) => renderStackCard(s))}
+            </div>
+          );
+        }
+
+        if (effectiveFolderFilter === "unassigned") {
+          return (
+            <div className="space-y-5">
+              <UnassignedStacksSection
+                stacks={treeData.unassignedStacks}
+                expanded={true}
+                onToggleExpand={() => toggleFolderExpanded("__unassigned__")}
+                onEnsureExpanded={() => ensureFolderExpanded("__unassigned__")}
+                renderStackCard={renderStackCard}
+              />
+            </div>
+          );
+        }
+
+        if (selectedNodeForFilter) {
+          return (
+            <div className="space-y-5">
+              <StackFolderSection
+                node={selectedNodeForFilter}
+                isExpanded={isFolderExpanded}
+                onToggleExpand={toggleFolderExpanded}
+                onEnsureExpanded={ensureFolderExpanded}
+                isOperator={isOperator}
+                batchPending={batchPending}
+                onBatchStart={(id) => folderBatchMutation.mutate({ folderId: id, action: "start" })}
+                onRequestBatchStop={(node) => setStopFolderTarget(node)}
+                onCreateStackInFolder={(id) => openCreateDialog(id)}
+                onCreateSubfolder={(parentId) =>
+                  setFolderModal({ open: true, editing: null, defaultParentId: parentId })
+                }
+                onEditFolder={(folder) =>
+                  setFolderModal({ open: true, editing: folder, defaultParentId: folder.parentId })
+                }
+                onDeleteFolder={(folder) => setDeleteFolderTarget(folder)}
+                renderStackCard={renderStackCard}
+              />
+            </div>
+          );
+        }
+
+        return (
+          <div className="space-y-5">
+            {treeData.rootNodes.map((rootNode) => (
+              <StackFolderSection
+                key={rootNode.folder.id}
+                node={rootNode}
+                isExpanded={isFolderExpanded}
+                onToggleExpand={toggleFolderExpanded}
+                onEnsureExpanded={ensureFolderExpanded}
+                isOperator={isOperator}
+                batchPending={batchPending}
+                onBatchStart={(id) => folderBatchMutation.mutate({ folderId: id, action: "start" })}
+                onRequestBatchStop={(node) => setStopFolderTarget(node)}
+                onCreateStackInFolder={(id) => openCreateDialog(id)}
+                onCreateSubfolder={(parentId) =>
+                  setFolderModal({ open: true, editing: null, defaultParentId: parentId })
+                }
+                onEditFolder={(folder) =>
+                  setFolderModal({ open: true, editing: folder, defaultParentId: folder.parentId })
+                }
+                onDeleteFolder={(folder) => setDeleteFolderTarget(folder)}
+                renderStackCard={renderStackCard}
+              />
+            ))}
+
+            {treeData.unassignedStacks.length > 0 && (
+              <UnassignedStacksSection
+                stacks={treeData.unassignedStacks}
+                expanded={isFolderExpanded("__unassigned__")}
+                onToggleExpand={() => toggleFolderExpanded("__unassigned__")}
+                onEnsureExpanded={() => ensureFolderExpanded("__unassigned__")}
+                renderStackCard={renderStackCard}
+              />
+            )}
+          </div>
+        );
+      })()}
 
       {/* Create Stack Wizard */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
@@ -1547,6 +2108,53 @@ function StacksPage() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-xs">Pasta organizacional (Opcional)</Label>
+                {isOperator && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFolderModal({
+                        open: true,
+                        editing: null,
+                        defaultParentId: null,
+                        onSaved: (f) => setCreateFolderId(f.id),
+                      })
+                    }
+                    className="text-[11px] font-medium text-primary hover:underline cursor-pointer"
+                  >
+                    + Nova pasta
+                  </button>
+                )}
+              </div>
+              <Select value={createFolderId} onValueChange={setCreateFolderId}>
+                <SelectTrigger className="mt-1 text-xs">
+                  <SelectValue placeholder="Sem pasta (Raiz)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none" className="text-xs">
+                    Sem pasta (Raiz)
+                  </SelectItem>
+                  {flattenedFolders.map((opt) => {
+                    const style =
+                      FOLDER_COLOR_STYLES[opt.folder.color] ?? FOLDER_COLOR_STYLES.default;
+                    return (
+                      <SelectItem key={opt.folder.id} value={opt.folder.id} className="text-xs">
+                        <span className="flex items-center gap-1.5">
+                          <span className={cn("size-2 rounded-full shrink-0", style.dot)} />
+                          <span className="font-mono text-muted-foreground">
+                            {opt.depth > 0 ? `${"— ".repeat(opt.depth)}` : ""}
+                          </span>
+                          <span>{opt.folder.name}</span>
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
             </div>
 
             {createMode === "compose" ? (
@@ -1825,6 +2433,53 @@ function StacksPage() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-xs">Pasta organizacional (Opcional)</Label>
+                {isOperator && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFolderModal({
+                        open: true,
+                        editing: null,
+                        defaultParentId: null,
+                        onSaved: (f) => setEditFolderId(f.id),
+                      })
+                    }
+                    className="text-[11px] font-medium text-primary hover:underline cursor-pointer"
+                  >
+                    + Nova pasta
+                  </button>
+                )}
+              </div>
+              <Select value={editFolderId} onValueChange={setEditFolderId}>
+                <SelectTrigger className="mt-1 text-xs">
+                  <SelectValue placeholder="Sem pasta (Raiz)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none" className="text-xs">
+                    Sem pasta (Raiz)
+                  </SelectItem>
+                  {flattenedFolders.map((opt) => {
+                    const style =
+                      FOLDER_COLOR_STYLES[opt.folder.color] ?? FOLDER_COLOR_STYLES.default;
+                    return (
+                      <SelectItem key={opt.folder.id} value={opt.folder.id} className="text-xs">
+                        <span className="flex items-center gap-1.5">
+                          <span className={cn("size-2 rounded-full shrink-0", style.dot)} />
+                          <span className="font-mono text-muted-foreground">
+                            {opt.depth > 0 ? `${"— ".repeat(opt.depth)}` : ""}
+                          </span>
+                          <span>{opt.folder.name}</span>
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
             </div>
 
             {editMode === "compose" ? (
@@ -2499,6 +3154,54 @@ jobs:
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <FolderFormDialog
+        open={folderModal.open}
+        onOpenChange={(open) => setFolderModal((prev) => ({ ...prev, open }))}
+        folders={folders}
+        editingFolder={folderModal.editing}
+        defaultParentId={folderModal.defaultParentId}
+        onSaved={folderModal.onSaved}
+      />
+
+      <DeleteFolderAlertDialog
+        folder={deleteFolderTarget}
+        directStacksCount={deleteFolderStats.directStacksCount}
+        directSubfoldersCount={deleteFolderStats.directSubfoldersCount}
+        parentFolderName={deleteFolderStats.parentFolderName}
+        onOpenChange={(open) => {
+          if (!open) setDeleteFolderTarget(null);
+        }}
+        onDeleted={(deletedId) => {
+          if (folderFilter === deletedId) setFolderFilter("all");
+        }}
+      />
+
+      <MoveStackFolderDialog
+        stack={moveStackTarget}
+        folders={folders}
+        onOpenChange={(open) => {
+          if (!open) setMoveStackTarget(null);
+        }}
+        onRequestNewFolder={(onCreated) =>
+          setFolderModal({
+            open: true,
+            editing: null,
+            defaultParentId: null,
+            onSaved: onCreated,
+          })
+        }
+      />
+
+      <StopFolderStacksDialog
+        node={stopFolderTarget}
+        runningStacks={stopTargetRunningStacks}
+        isPending={batchPending?.action === "stop" && folderBatchMutation.isPending}
+        onOpenChange={(open) => {
+          if (!open) setStopFolderTarget(null);
+        }}
+        onConfirmStop={(folderId) => folderBatchMutation.mutate({ folderId, action: "stop" })}
+      />
     </>
   );
 }

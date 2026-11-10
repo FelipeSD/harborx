@@ -16,6 +16,7 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
       id: s.id,
       stackName: s.name,
       stackType: s.type,
+      folderId: s.folderId,
       status: s.status,
       autoDeploy: s.autoDeploy,
       webhookToken: s.webhookToken,
